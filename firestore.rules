@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ── Helper Functions ──
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isRole(role) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    function isAdmin() {
+      return isRole('admin');
+    }
+    
+    function isFaculty() {
+      return isRole('faculty');
+    }
+    
+    function isStudent() {
+      return isRole('student');
+    }
+    
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    // ── Users Collection ──
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+      allow update: if isOwner(userId) && 
+                    request.resource.data.role == resource.data.role; // Can't change own role
+    }
+
+    // ── Curriculum Registry ──
+    match /curriculum_registry/{subjectCode} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Schedules ──
+    // Document IDs follow pattern: {dept}_{regulation}_{year}_{section}
+    // e.g., CSE-DS_R22_4_B
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Notifications ──
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && 
+                   resource.data.recipientUID == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                    resource.data.recipientUID == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      allow create: if isAdmin() || isFaculty();
+      allow delete: if false; // Notifications are never deleted
+    }
+
+    // ── Faculty Collection ──
+    match /faculty/{facultyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+      allow update: if isOwner(facultyId);
+    }
+
+    // ── Exam Schedules ──
+    match /exam_schedules/{examId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Training Overrides ──
+    match /training_overrides/{overrideId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Substitutions ──
+    match /substitutions/{subId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+    }
+
+    // ── Deny all unmatched paths ──
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
