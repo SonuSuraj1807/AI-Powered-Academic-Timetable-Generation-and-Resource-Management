@@ -24,6 +24,24 @@ const ExamSchedulerPage = lazy(() => import('./pages/admin/ExamSchedulerPage'));
 const FacultyDashboard = lazy(() => import('./pages/faculty/FacultyDashboard'));
 const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 
+// Real-time admin views
+const ViewSchedules = lazy(() => import('./pages/admin/ViewSchedules'));
+const FacultyManagement = lazy(() => import('./pages/admin/FacultyManagement'));
+const CurriculumRegistryPage = lazy(() => import('./pages/admin/CurriculumRegistryPage'));
+const TrainingOverridesPage = lazy(() => import('./pages/admin/TrainingOverridesPage'));
+const ReportsAnalytics = lazy(() => import('./pages/admin/ReportsAnalytics'));
+
+const SubstitutionEnginePage = lazy(() => import('./pages/admin/SubstitutionEnginePage'));
+const SubstitutionListPage = lazy(() => import('./pages/faculty/SubstitutionListPage'));
+
+// Examination Branch Seating Plan
+const ExamSeatingController = lazy(() => import('./pages/admin/ExamSeatingController'));
+const ExamRoomManagement = lazy(() => import('./pages/admin/ExamRoomManagement'));
+
+// Super Admin Console Pages (Hidden URL Access)
+const SuperAdminLogin = lazy(() => import('./pages/superadmin/SuperAdminLogin'));
+const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
+
 // Loading fallback
 function LoadingScreen() {
   return (
@@ -89,11 +107,14 @@ export default function App() {
                 <Route index element={<AdminDashboard />} />
                 <Route path="generate" element={<TimetableGenerator />} />
                 <Route path="exam-scheduler" element={<ExamSchedulerPage />} />
-                <Route path="schedules" element={<PlaceholderPage title="View Schedules" description="Browse and manage published timetables." />} />
-                <Route path="faculty" element={<PlaceholderPage title="Faculty Management" description="Add, edit, and manage faculty assignments." />} />
-                <Route path="curriculum" element={<PlaceholderPage title="Curriculum Registry" description="View R22 & R25 subject catalog. Pre-populated from curriculum seed data." />} />
-                <Route path="overrides" element={<PlaceholderPage title="Training Overrides" description="Configure training day overrides and view displaced class redistribution." />} />
-                <Route path="reports" element={<PlaceholderPage title="Reports & Analytics" description="Schedule utilization, faculty workload, and room occupancy reports." />} />
+                <Route path="schedules" element={<ViewSchedules />} />
+                <Route path="faculty" element={<FacultyManagement />} />
+                <Route path="curriculum" element={<CurriculumRegistryPage />} />
+                <Route path="overrides" element={<TrainingOverridesPage />} />
+                <Route path="substitutions" element={<SubstitutionEnginePage />} />
+                <Route path="reports" element={<ReportsAnalytics />} />
+                <Route path="exam-seating" element={<ExamSeatingController />} />
+                <Route path="exam-rooms" element={<ExamRoomManagement />} />
                 <Route path="settings" element={<PlaceholderPage title="Admin Settings" description="System configuration and user management." />} />
               </Route>
 
@@ -104,8 +125,8 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<FacultyDashboard />} />
+                <Route path="substitutions" element={<SubstitutionListPage />} />
                 <Route path="schedule" element={<PlaceholderPage title="My Schedule" description="Your full weekly timetable." />} />
-                <Route path="substitutions" element={<PlaceholderPage title="Substitutions" description="View and manage substitution assignments." />} />
                 <Route path="subjects" element={<PlaceholderPage title="My Subjects" description="Subjects assigned to you across all sections." />} />
                 <Route path="settings" element={<PlaceholderPage title="Faculty Settings" description="Update your profile and preferences." />} />
               </Route>
@@ -120,6 +141,16 @@ export default function App() {
                 <Route path="timetable" element={<PlaceholderPage title="Class Timetable" description="Your section's full timetable with export options." />} />
                 <Route path="exams" element={<PlaceholderPage title="Exam Schedule" description="Upcoming examination schedule with room assignments." />} />
                 <Route path="settings" element={<PlaceholderPage title="Student Settings" description="Update your profile." />} />
+              </Route>
+
+              {/* Hidden Super Admin Gateway */}
+              <Route path="/superadminconsole" element={<SuperAdminLogin />} />
+              <Route path="/superadmin" element={
+                <ProtectedRoute requiredRole="superadmin">
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<SuperAdminDashboard />} />
               </Route>
 
               {/* Catch all */}

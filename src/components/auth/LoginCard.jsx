@@ -10,12 +10,17 @@
 import { useState } from 'react';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../../lib/firebase';
 
 export default function LoginCard({ role, title }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSetupMode, setIsSetupMode] = useState(false);
   const { login, error, clearError } = useAuthStore();
   const [localError, setLocalError] = useState('');
 
@@ -30,6 +35,53 @@ export default function LoginCard({ role, title }) {
     setIsSubmitting(true);
     await login(email.trim(), password, role);
     setIsSubmitting(false);
+  };
+
+  const handleSetupPassword = async (e) => {
+    e.preventDefault();
+    clearError();
+    setLocalError('');
+
+    if (!email.trim()) { setLocalError('Email is required'); return; }
+    if (!password.trim()) { setLocalError('Password is required'); return; }
+    if (password !== confirmPassword) { setLocalError('Passwords do not match'); return; }
+    if (password.length < 6) { setLocalError('Password must be at least 6 characters'); return; }
+
+    setIsSubmitting(true);
+    try {
+      const q = query(collection(db, 'faculty'), where('email', '==', email.trim()));
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        setLocalError('This email is not registered as a faculty member. Please contact HOD/Admin.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const facultyDoc = querySnapshot.docs[0].data();
+
+      // Create Firebase Auth Account
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      
+      // Save profile to users collection
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        name: facultyDoc.name,
+        email: email.trim(),
+        role: 'faculty',
+        department: facultyDoc.department || '',
+        designation: facultyDoc.designation || '',
+      });
+
+      alert('Account activated successfully! You can now log in.');
+      setIsSetupMode(false);
+      setPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error(err);
+      setLocalError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const displayError = localError || error;
@@ -110,7 +162,7 @@ export default function LoginCard({ role, title }) {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <form onSubmit={isSetupMode ? handleSetupPassword : handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <input
           type="email"
           id={`${role}-email-input`}
@@ -137,7 +189,7 @@ export default function LoginCard({ role, title }) {
           <input
             type={showPassword ? 'text' : 'password'}
             id={`${role}-password-input`}
-            placeholder="Password"
+            placeholder={isSetupMode ? "Choose Password" : "Password"}
             value={password}
             onChange={(e) => { setPassword(e.target.value); setLocalError(''); clearError(); }}
             autoComplete="current-password"

@@ -9,7 +9,7 @@
  */
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { WEEKDAYS } from '../../data/curriculumSeed';
+import { WEEKDAYS, getShortName } from '../../data/curriculumSeed';
 
 /**
  * Export timetable schedule to PDF.
@@ -70,7 +70,7 @@ export function exportToPDF(schedule, timeConfig, filename = 'timetable') {
         continue;
       }
 
-      const label = slot.subjectCode || slot.subjectName || slot.label || '—';
+      const label = slot.label || (slot.subjectName ? getShortName(slot.subjectName) : '') || slot.subjectCode || '—';
       const content = slot.facultyName ? `${label}\n(${slot.facultyName})` : label;
 
       if (slot.span && slot.span > 1) {

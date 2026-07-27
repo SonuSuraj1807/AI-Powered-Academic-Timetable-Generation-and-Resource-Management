@@ -11,14 +11,16 @@
 // DEPARTMENT DEFINITIONS
 // ═══════════════════════════════════════════
 export const DEPARTMENTS = [
-  { id: 'CSE-DS', name: 'CSE - Data Science', code: 'DS' },
-  { id: 'CSE', name: 'Computer Science & Engineering', code: 'CS' },
-  { id: 'ECE', name: 'Electronics & Communication Engineering', code: 'EC' },
-  { id: 'EEE', name: 'Electrical & Electronics Engineering', code: 'EE' },
-  { id: 'MECH', name: 'Mechanical Engineering', code: 'ME' },
-  { id: 'CIVIL', name: 'Civil Engineering', code: 'CE' },
-  { id: 'IT', name: 'Information Technology', code: 'IT' },
-  { id: 'AI-ML', name: 'CSE - AI & Machine Learning', code: 'AM' },
+  { id: 'CSE', name: 'CSE', code: 'CS' },
+  { id: 'CSE-DS', name: 'CSE-DS', code: 'DS' },
+  { id: 'CSE-AIML', name: 'CSE-AIML', code: 'AM' },
+  { id: 'CSE-CS', name: 'CSE-CS', code: 'CC' },
+  { id: 'CSE-BS', name: 'CSE-BS', code: 'CB' },
+  { id: 'IT', name: 'IT', code: 'IT' },
+  { id: 'ECE', name: 'ECE', code: 'EC' },
+  { id: 'EEE', name: 'EEE', code: 'EE' },
+  { id: 'MECH', name: 'MECH', code: 'ME' },
+  { id: 'CIVIL', name: 'CIVIL', code: 'CE' }
 ];
 
 // ═══════════════════════════════════════════
@@ -29,35 +31,32 @@ export const REGULATIONS = [
   { id: 'R22', name: 'R22 Regulations', years: [3, 4], description: '3rd & 4th Year batches' },
 ];
 
-// ═══════════════════════════════════════════
-// TIME SLOT DEFINITIONS (Staggered Lunch)
-// ═══════════════════════════════════════════
 export const TIME_SLOTS = {
-  R25: {
-    label: 'R25 (Juniors)',
+  JUNIOR: {
+    label: 'Junior Matrix (1st Year)',
     periods: [
-      { id: 1, start: '09:00', end: '10:00', label: 'Period 1' },
-      { id: 2, start: '10:00', end: '11:00', label: 'Period 2' },
-      { id: 3, start: '11:00', end: '11:20', label: 'Break', isBreak: true },
-      { id: 4, start: '11:20', end: '12:20', label: 'Period 3' },
-      { id: 5, start: '12:20', end: '01:10', label: 'Lunch', isLunch: true },
-      { id: 6, start: '01:10', end: '02:10', label: 'Period 4' },
-      { id: 7, start: '02:10', end: '03:10', label: 'Period 5' },
-      { id: 8, start: '03:10', end: '04:10', label: 'Period 6' },
+      { id: 1, start: '09:50', end: '10:40', label: 'Period 1' },
+      { id: 2, start: '10:40', end: '11:30', label: 'Period 2' },
+      { id: 3, start: '11:30', end: '12:20', label: 'Period 3' },
+      { id: 4, start: '12:20', end: '01:10', label: 'Lunch', isLunch: true },
+      { id: 5, start: '01:10', end: '01:50', label: 'Period 4' },
+      { id: 6, start: '01:50', end: '02:40', label: 'Period 5' },
+      { id: 7, start: '02:40', end: '03:30', label: 'Period 6' },
+      { id: 8, start: '03:30', end: '04:20', label: 'Period 7' },
     ],
     lunchSlot: { start: '12:20', end: '01:10' },
   },
-  R22: {
-    label: 'R22 (Seniors)',
+  SENIOR: {
+    label: 'Senior Matrix (2nd, 3rd, 4th Year)',
     periods: [
-      { id: 1, start: '09:00', end: '10:00', label: 'Period 1' },
-      { id: 2, start: '10:00', end: '11:00', label: 'Period 2' },
-      { id: 3, start: '11:00', end: '11:20', label: 'Break', isBreak: true },
-      { id: 4, start: '11:20', end: '12:20', label: 'Period 3' },
-      { id: 5, start: '12:20', end: '01:10', label: 'Period 4' },
-      { id: 6, start: '01:10', end: '01:50', label: 'Lunch', isLunch: true },
-      { id: 7, start: '01:50', end: '02:50', label: 'Period 5' },
-      { id: 8, start: '02:50', end: '03:50', label: 'Period 6' },
+      { id: 1, start: '09:50', end: '10:40', label: 'Period 1' },
+      { id: 2, start: '10:40', end: '11:30', label: 'Period 2' },
+      { id: 3, start: '11:30', end: '12:20', label: 'Period 3' },
+      { id: 4, start: '12:20', end: '01:10', label: 'Period 4' },
+      { id: 5, start: '01:10', end: '01:50', label: 'Lunch', isLunch: true },
+      { id: 6, start: '01:50', end: '02:40', label: 'Period 5' },
+      { id: 7, start: '02:40', end: '03:30', label: 'Period 6' },
+      { id: 8, start: '03:30', end: '04:20', label: 'Period 7' },
     ],
     lunchSlot: { start: '01:10', end: '01:50' },
   },
@@ -191,7 +190,32 @@ export const CURRICULUM_R22 = [
 // ═══════════════════════════════════════════
 // COMBINED CURRICULUM
 // ═══════════════════════════════════════════
-export const ALL_CURRICULUM = [...CURRICULUM_R25, ...CURRICULUM_R22];
+export const ALL_CURRICULUM = [
+  ...CURRICULUM_R25, 
+  ...CURRICULUM_R22,
+  // ─── Co-Curricular Standard Offerings ───
+  { code: 'VBIT-SPORTS', name: 'Sports', type: 'theory', credits: 1, regulation: 'R25', year: 1, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-SPORTS', name: 'Sports', type: 'theory', credits: 1, regulation: 'R25', year: 2, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-SPORTS', name: 'Sports', type: 'theory', credits: 1, regulation: 'R22', year: 3, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-SPORTS', name: 'Sports', type: 'theory', credits: 1, regulation: 'R22', year: 4, semester: 1, department: 'CSE-DS' },
+  
+  { code: 'VBIT-LIBRARY', name: 'Library', type: 'theory', credits: 1, regulation: 'R25', year: 1, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-LIBRARY', name: 'Library', type: 'theory', credits: 1, regulation: 'R25', year: 2, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-LIBRARY', name: 'Library', type: 'theory', credits: 1, regulation: 'R22', year: 3, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-LIBRARY', name: 'Library', type: 'theory', credits: 1, regulation: 'R22', year: 4, semester: 1, department: 'CSE-DS' },
+  
+  { code: 'VBIT-TUTORIAL', name: 'Tutorial', type: 'theory', credits: 1, regulation: 'R25', year: 1, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-TUTORIAL', name: 'Tutorial', type: 'theory', credits: 1, regulation: 'R25', year: 2, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-TUTORIAL', name: 'Tutorial', type: 'theory', credits: 1, regulation: 'R22', year: 3, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-TUTORIAL', name: 'Tutorial', type: 'theory', credits: 1, regulation: 'R22', year: 4, semester: 1, department: 'CSE-DS' },
+  
+  { code: 'VBIT-MENTORING', name: 'Mentoring', type: 'theory', credits: 1, regulation: 'R25', year: 1, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-MENTORING', name: 'Mentoring', type: 'theory', credits: 1, regulation: 'R25', year: 2, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-MENTORING', name: 'Mentoring', type: 'theory', credits: 1, regulation: 'R22', year: 3, semester: 1, department: 'CSE-DS' },
+  { code: 'VBIT-MENTORING', name: 'Mentoring', type: 'theory', credits: 1, regulation: 'R22', year: 4, semester: 1, department: 'CSE-DS' },
+  
+  { code: 'VBIT-NPTEL', name: 'NPTEL Certification', type: 'theory', credits: 1, regulation: 'R22', year: 4, semester: 1, department: 'CSE-DS' },
+];
 
 /**
  * Get curriculum filtered by parameters.
@@ -227,4 +251,65 @@ export function getSections(department, year) {
   // Default section counts; can be overridden per department
   const defaults = { 1: ['A', 'B', 'C'], 2: ['A', 'B', 'C'], 3: ['A', 'B'], 4: ['A', 'B'] };
   return defaults[year] || ['A'];
+}
+
+const SUBJECT_SHORTS = {
+  // R25
+  'Matrices and Calculus': 'M&C',
+  'Engineering Chemistry': 'EC',
+  'Electronic Devices and Circuits': 'EDC',
+  'Basic Electrical Engineering': 'BEE',
+  'Programming for Problem Solving': 'PPS',
+  'Chemistry Lab': 'Chem Lab',
+  'PPS Lab': 'PPS Lab',
+  'IT Workshop': 'IT Workshop',
+  'BEE Lab': 'BEE Lab',
+  'Engineering Workshop': 'Eng Workshop',
+  'ODE & Vector Calculus': 'OVC',
+  'Advanced Physics': 'AP',
+  'Engineering Graphics': 'EG',
+  'English for Skill Enhancement': 'ESE',
+  'Data Structures': 'DS',
+  'Physics Lab': 'Phys Lab',
+  'Data Structures Lab': 'DS Lab',
+  'Python Lab': 'Python Lab',
+  'English Communication Lab': 'ELCS Lab',
+  // R22
+  'Neural Networks & Deep Learning': 'NNDL',
+  'Web & Social Media Analytics': 'W&SMA',
+  'Cloud Computing': 'CC',
+  'Database Security': 'DBS',
+  'IoT': 'IOT',
+  'Internet of Things': 'IOT',
+  'Data Science Applications': 'DSA',
+  'Quantum Computing': 'QC',
+  'Privacy Preserving': 'PP',
+  'Mining Massive Datasets': 'MMD',
+  'Exploratory Data Analysis': 'EDA',
+  'Deep Learning Lab': 'NNDL Lab',
+  'Web Analytics Lab': 'W&SMA Lab',
+  'Internship': 'Internship',
+  'Project Stage-I': 'Major Project Stage-I',
+  'Project Stage-II & Seminar': 'Major Project Stage-II',
+  'Organizational Behavior': 'OB',
+  'Data Stream Mining': 'DSM',
+  'Web Security': 'WS',
+  'Video Analytics': 'VA',
+  'Blockchain': 'BC',
+  // Extra co-curricular
+  'Sports': 'SPORTS',
+  'Tutorial': 'TUTORIAL',
+  'Library': 'LIBRARY',
+  'Mentoring': 'MENTORING',
+  'NPTEL Certification': 'NPTEL',
+};
+
+export function getShortName(name) {
+  if (!name) return '';
+  const cleanName = name.replace(/\s*\(.*?\)\s*/g, '').trim();
+  if (cleanName.length <= 6) return cleanName;
+  if (SUBJECT_SHORTS[cleanName]) return SUBJECT_SHORTS[cleanName];
+  if (/^[A-Z0-9&\s-]+$/.test(cleanName)) return cleanName;
+  // Auto abbreviate fallback
+  return cleanName.split(/[\s&_-]+/).map(w => w[0]?.toUpperCase()).filter(Boolean).join('');
 }

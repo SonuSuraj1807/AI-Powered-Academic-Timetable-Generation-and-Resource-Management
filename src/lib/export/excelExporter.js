@@ -6,7 +6,7 @@
  */
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { WEEKDAYS } from '../../data/curriculumSeed';
+import { WEEKDAYS, getShortName } from '../../data/curriculumSeed';
 
 const COLORS = {
   header: 'FF1A2040',
@@ -129,7 +129,8 @@ export async function exportToExcel(schedule, timeConfig, filename = 'timetable'
       }
 
       const cell = ws.getCell(rowIdx, colIdx);
-      cell.value = slot.subjectCode || slot.subjectName || slot.label || '—';
+      const displayVal = slot.label || (slot.subjectName ? getShortName(slot.subjectName) : '') || slot.subjectCode || '—';
+      cell.value = displayVal;
       if (slot.facultyName) {
         cell.value = `${cell.value}\n(${slot.facultyName})`;
       }

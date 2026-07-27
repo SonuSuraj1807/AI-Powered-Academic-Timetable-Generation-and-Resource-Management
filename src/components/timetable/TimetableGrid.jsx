@@ -7,7 +7,7 @@
  * - Color-coded cells: theory, lab, elective, lunch, free, training
  * - Two-column legend table below the grid
  */
-import { WEEKDAYS } from '../../data/curriculumSeed';
+import { WEEKDAYS, getShortName } from '../../data/curriculumSeed';
 
 export default function TimetableGrid({ 
   schedule, 
@@ -150,7 +150,7 @@ export default function TimetableGrid({
                     }}
                   >
                     <div>
-                      {slot.subjectCode || slot.subjectName || slot.label || '—'}
+                      {slot.label || (slot.subjectName ? getShortName(slot.subjectName) : '') || slot.subjectCode || '—'}
                     </div>
                     {slot.facultyName && (
                       <div style={{ 
@@ -229,7 +229,7 @@ export default function TimetableGrid({
                   {item.subjectName}
                 </span>
                 <span style={{ color: 'var(--text-tertiary)', textAlign: 'right' }}>
-                  {item.facultyName}
+                  {Array.isArray(item.facultyName) ? item.facultyName.join(', ') : item.facultyName}
                 </span>
               </div>
             ))}

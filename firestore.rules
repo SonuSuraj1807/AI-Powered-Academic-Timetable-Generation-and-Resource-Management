@@ -11,8 +11,12 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
     
+    function isSuperAdmin() {
+      return isRole('superadmin');
+    }
+
     function isAdmin() {
-      return isRole('admin');
+      return isRole('admin') || isSuperAdmin();
     }
     
     function isFaculty() {
@@ -30,7 +34,7 @@ service cloud.firestore {
     // ── Users Collection ──
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isSuperAdmin();
       allow update: if isOwner(userId) && 
                     request.resource.data.role == resource.data.role; // Can't change own role
     }
@@ -52,12 +56,12 @@ service cloud.firestore {
     // ── Notifications ──
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && 
-                   resource.data.recipientUID == request.auth.uid;
+                   (resource.data.recipientUID == request.auth.uid || isSuperAdmin());
       allow update: if isAuthenticated() && 
                     resource.data.recipientUID == request.auth.uid &&
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
-      allow create: if isAdmin() || isFaculty();
-      allow delete: if false; // Notifications are never deleted
+      allow create: if isAdmin() || isFaculty() || isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     // ── Faculty Collection ──
@@ -84,6 +88,30 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAdmin();
       allow update: if isAdmin();
+    }
+
+    // ── Exam Rooms ──
+    match /exam_rooms/{roomId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Exam Sessions ──
+    match /exam_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Seating Plans ──
+    match /seating_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Exam Students (uploaded registrations) ──
+    match /exam_students/{studentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // ── Deny all unmatched paths ──

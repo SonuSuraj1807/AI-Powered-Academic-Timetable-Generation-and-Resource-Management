@@ -2,7 +2,9 @@
  * AdminDashboard — Main admin overview panel.
  * Shows department stats, quick actions, and system status.
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   Calendar, Users, BookOpen, Cpu, FileSpreadsheet, 
   BarChart3, ArrowUpRight, Clock, CheckCircle, AlertTriangle,
@@ -10,13 +12,6 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../stores/authStore';
-
-const STAT_CARDS = [
-  { label: 'Active Schedules', value: '24', change: '+3 this week', icon: Calendar, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-  { label: 'Faculty Members', value: '86', change: '12 departments', icon: Users, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
-  { label: 'Subjects Registered', value: '142', change: 'R22 + R25', icon: BookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
-  { label: 'Active Sections', value: '48', change: 'Across all years', icon: Building2, color: '#E8522E', bg: 'rgba(232,82,46,0.1)' },
-];
 
 const QUICK_ACTIONS = [
   { label: 'Generate Timetable', description: 'AI-powered schedule generation', icon: Cpu, path: '/admin/generate', color: '#E8522E' },
@@ -39,6 +34,46 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { profile } = useAuthStore();
 
+  const [schedulesCount, setSchedulesCount] = useState(0);
+  const [facultyCount, setFacultyCount] = useState(0);
+  const [curriculumCount, setCurriculumCount] = useState(0);
+  const [sectionsCount, setSectionsCount] = useState(0);
+
+  useEffect(() => {
+    const unsubSchedules = onSnapshot(collection(db, 'schedules'), (snap) => {
+      setSchedulesCount(snap.size);
+      const activeSecs = new Set();
+      snap.forEach(doc => {
+        const data = doc.data();
+        if (data.section && data.department) {
+          activeSecs.add(`${data.department}_${data.year}_${data.section}`);
+        }
+      });
+      setSectionsCount(activeSecs.size || 12);
+    });
+
+    const unsubFaculty = onSnapshot(collection(db, 'faculty'), (snap) => {
+      setFacultyCount(snap.size);
+    });
+
+    const unsubCurriculum = onSnapshot(collection(db, 'curriculum_registry'), (snap) => {
+      setCurriculumCount(snap.size);
+    });
+
+    return () => {
+      unsubSchedules();
+      unsubFaculty();
+      unsubCurriculum();
+    };
+  }, []);
+
+  const STAT_CARDS = [
+    { label: 'Active Schedules', value: String(schedulesCount), change: '+3 this week', icon: Calendar, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+    { label: 'Faculty Members', value: String(facultyCount), change: '12 departments', icon: Users, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
+    { label: 'Subjects Registered', value: String(curriculumCount), change: 'R22 + R25', icon: BookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+    { label: 'Active Sections', value: String(sectionsCount), change: 'Across all years', icon: Building2, color: '#E8522E', bg: 'rgba(232,82,46,0.1)' },
+  ];
+
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* Welcome Header */}
@@ -59,7 +94,6 @@ export default function AdminDashboard() {
           gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
           gap: '16px',
           marginBottom: '28px',
-          opacity: 0,
         }}
       >
         {STAT_CARDS.map((stat, i) => (
@@ -91,7 +125,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="animate-fade-in-up delay-2" style={{ marginBottom: '28px', opacity: 0 }}>
+      <div className="animate-fade-in-up delay-2" style={{ marginBottom: '28px' }}>
         <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Cpu size={18} style={{ color: 'var(--accent-primary)' }} />
           Quick Actions
@@ -131,7 +165,7 @@ export default function AdminDashboard() {
       {/* Two-Column: Recent Activity + System Status */}
       <div 
         className="animate-fade-in-up delay-3"
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', opacity: 0 }}
+        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}
       >
         {/* Recent Activity */}
         <div className="solid-card" style={{ padding: '20px' }}>

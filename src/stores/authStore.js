@@ -42,11 +42,21 @@ const useAuthStore = create((set, get) => ({
 
       const profile = userDoc.data();
       
-      if (profile.role !== expectedRole) {
+      // Allow superadmin access or match expectedRole
+      if (expectedRole !== 'superadmin' && profile.role !== expectedRole) {
         await signOut(auth);
         set({ 
           loading: false, 
           error: `This account is registered as "${profile.role}". Please use the correct login portal.` 
+        });
+        return false;
+      }
+
+      if (expectedRole === 'superadmin' && profile.role !== 'superadmin') {
+        await signOut(auth);
+        set({
+          loading: false,
+          error: 'Access denied: Requires Institutional Super Admin credentials.'
         });
         return false;
       }

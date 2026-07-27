@@ -10,12 +10,15 @@ import { Menu, Search } from 'lucide-react';
 import Sidebar from '../components/navigation/Sidebar';
 import NotificationBell from '../components/notifications/NotificationBell';
 import NotificationOverlay from '../components/notifications/NotificationOverlay';
+import GlobalSearchModal from '../components/navigation/GlobalSearchModal';
 import useAuthStore from '../stores/authStore';
 import useNotificationStore from '../stores/notificationStore';
 
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { profile } = useAuthStore();
   const { subscribeToNotifications, cleanup } = useNotificationStore();
 
@@ -66,19 +69,41 @@ export default function DashboardLayout() {
             >
               <Menu size={20} />
             </button>
-            
+
+            {/* Department Badge (Locked to authenticated user profile) */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: 'var(--accent-blue-subtle)',
+              border: '1px solid rgba(59,130,246,0.3)',
+              borderRadius: '10px',
+              padding: '6px 12px',
+            }}>
+              <span style={{ fontSize: '0.688rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase' }}>Dept:</span>
+              <span style={{ fontSize: '0.813rem', fontWeight: 800, color: 'var(--accent-blue)' }}>
+                {profile?.department || 'CSE-DS'}
+              </span>
+            </div>
+
             <div style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               background: 'var(--surface-glass)',
               borderRadius: '10px',
               padding: '8px 14px',
-              minWidth: '240px',
+              minWidth: '220px',
             }}>
               <Search size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
               <input
                 type="text"
                 placeholder="Search schedules, faculty..."
                 id="global-search-input"
+                value={searchQuery}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setIsSearchOpen(true);
+                }}
+                onFocus={() => {
+                  if (searchQuery.trim()) setIsSearchOpen(true);
+                }}
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -130,6 +155,14 @@ export default function DashboardLayout() {
 
         {/* Substitution Notification Overlay */}
         <NotificationOverlay />
+
+        {/* Global Real-Time Search Modal */}
+        <GlobalSearchModal
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+        />
       </div>
 
       <style>{`

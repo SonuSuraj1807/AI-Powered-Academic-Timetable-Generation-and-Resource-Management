@@ -9,11 +9,21 @@ import {
   LayoutDashboard, Calendar, BookOpen, Users, Bell, Settings,
   GraduationCap, FileSpreadsheet, Clock, Cpu, UserCheck,
   BarChart3, CalendarCheck, ChevronLeft, ChevronRight,
-  Shield, FlaskConical, Layers, LogOut,
+  Shield, FlaskConical, Layers, LogOut, Zap, ClipboardList, Building2
 } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 
 const MENU_CONFIG = {
+  superadmin: {
+    label: 'Super Admin',
+    color: '#8B5CF6',
+    items: [
+      { path: '/superadmin', icon: Shield, label: 'Super Admin Console', end: true },
+      { path: '/admin/schedules', icon: Calendar, label: 'All Schedules' },
+      { path: '/admin/faculty', icon: Users, label: 'All Faculty Pool' },
+      { path: '/admin/reports', icon: BarChart3, label: 'Analytics' },
+    ],
+  },
   admin: {
     label: 'Administrator',
     color: '#E8522E',
@@ -24,8 +34,11 @@ const MENU_CONFIG = {
       { path: '/admin/exam-scheduler', icon: CalendarCheck, label: 'Exam Scheduler' },
       { path: '/admin/faculty', icon: Users, label: 'Faculty Management' },
       { path: '/admin/curriculum', icon: BookOpen, label: 'Curriculum Registry' },
-      { path: '/admin/overrides', icon: Layers, label: 'Training Overrides' },
+      { path: '/admin/overrides', icon: Zap, label: 'Training Overrides' },
+      { path: '/admin/substitutions', icon: UserCheck, label: 'Faculty Substitution' },
       { path: '/admin/reports', icon: BarChart3, label: 'Reports & Analytics' },
+      { path: '/admin/exam-seating', icon: ClipboardList, label: 'Exam Seating Plan' },
+      { path: '/admin/exam-rooms', icon: Building2, label: 'Exam Rooms' },
       { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ],
   },
