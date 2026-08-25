@@ -22,17 +22,65 @@ function getCellClass(rawSubject) {
   return 'cell-theory';
 }
 
+export function getStudentYear(rollNo) {
+  if (!rollNo) return 4;
+  const clean = String(rollNo).toUpperCase().trim();
+  const match = clean.match(/^(\d{2})/);
+  if (!match) return 4;
+  const yearDigits = parseInt(match[1], 10);
+
+  const isLateral = clean.includes('5A') || clean.includes('65A');
+
+  if (isLateral) {
+    if (yearDigits === 24) return 4;
+    if (yearDigits === 25) return 3;
+    if (yearDigits === 26) return 2;
+    return 4;
+  } else {
+    if (yearDigits === 23) return 4;
+    if (yearDigits === 24) return 3;
+    if (yearDigits === 25) return 2;
+    if (yearDigits === 26) return 1;
+    return 4;
+  }
+}
+
+export function getStudentSection(rollNo) {
+  if (!rollNo) return 'A';
+  const clean = String(rollNo).toUpperCase().trim();
+  const isLateral = clean.includes('5A') || clean.includes('65A');
+
+  // Extract last numeric digits (e.g. 6794 -> 6794, 6701 -> 6701)
+  const numMatch = clean.match(/(\d{4}|\d{3}|\d{2})$/);
+  const num = numMatch ? parseInt(numMatch[1], 10) : NaN;
+
+  if (isLateral) {
+    // 24P65A6701 to 6708 -> Sec A; 6709+ -> Sec B
+    if (!isNaN(num) && num >= 6701 && num <= 6708) return 'A';
+    if (!isNaN(num) && num > 6708) return 'B';
+    return 'A';
+  } else {
+    // Regular: 6701 to 6764 -> Sec A; 6765+ -> Sec B
+    if (!isNaN(num) && num >= 6701 && num <= 6764) return 'A';
+    if (!isNaN(num) && num >= 6765) return 'B';
+    return 'A';
+  }
+}
+
 export default function StudentDashboard() {
   const { profile } = useAuthStore();
   const { notifications, subscribeToNotifications, markAsRead } = useNotificationStore();
-  const [searchHTNo, setSearchHTNo] = useState(profile?.hallTicketNo || '23P61A6701');
+  const studentHT = profile?.hallTicketNo || (profile?.email ? profile.email.split('@')[0].toUpperCase() : '23P61A6794');
+  const studentYear = getStudentYear(studentHT);
+  const studentSec = getStudentSection(studentHT);
+  const [searchHTNo, setSearchHTNo] = useState(studentHT);
   const [publishedPlans, setPublishedPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
   const [seatingMatch, setSeatingMatch] = useState(null);
 
   // Subscribe to real-time notification hub
   useEffect(() => {
-    const unsub = subscribeToNotifications('student', profile?.email, profile?.department);
+    const unsub = subscribeToNotifications('student', profile?.email, profile?.department, profile?.section || 'A');
     return () => unsub && unsub();
   }, [profile, subscribeToNotifications]);
 
@@ -81,14 +129,25 @@ export default function StudentDashboard() {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
       setPublishedSchedules(list);
-      if (list.length > 0 && !selectedScheduleId) {
-        setSelectedScheduleId(list[0].id);
+      
+      if (list.length > 0) {
+        // Auto-select schedule matching student's actual academic year and section (e.g. Year 4 Sec B for 23P61A6794)
+        const match = list.find(s => 
+          Number(s.year) === Number(studentYear) && 
+          String(s.section).toUpperCase() === String(studentSec).toUpperCase() &&
+          (s.department === (profile?.department || 'CSE-DS'))
+        ) || list.find(s => 
+          Number(s.year) === Number(studentYear) && 
+          (s.department === (profile?.department || 'CSE-DS'))
+        ) || list.find(s => Number(s.year) === Number(studentYear)) || list[0];
+
+        setSelectedScheduleId(match.id);
       }
       setLoadingSchedules(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [studentYear, studentSec, profile]);
 
   // Perform search whenever searchHTNo or publishedPlans updates
   useEffect(() => {

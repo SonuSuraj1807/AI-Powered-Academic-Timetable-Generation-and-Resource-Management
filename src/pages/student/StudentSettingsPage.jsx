@@ -5,8 +5,10 @@
 import { useState } from 'react';
 import { Settings, Lock, Save, GraduationCap, ShieldAlert } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
 import { updatePassword } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
+import { getStudentYear, getStudentSection } from './StudentDashboard';
 
 export default function StudentSettingsPage() {
   const { profile } = useAuthStore();
@@ -16,20 +18,21 @@ export default function StudentSettingsPage() {
 
   const handleSavePassword = async (e) => {
     e.preventDefault();
-    if (!newPassword.trim()) {
-      setMsg('Please enter a new password to update.');
+    if (!newPassword || newPassword.length < 6) {
+      setMsg('Error: Password must be at least 6 characters.');
       return;
     }
+
     setSaving(true);
-    setMsg('');
     try {
       if (auth.currentUser) {
-        await updatePassword(auth.currentUser, newPassword.trim());
-        setMsg('✅ Password updated successfully! Use your new password on your next login.');
-        setNewPassword('');
-      } else {
-        setMsg('Error: User session not found. Please log in again.');
+        await updatePassword(auth.currentUser, newPassword);
       }
+      if (profile?.uid) {
+        await updateDoc(doc(db, 'users', profile.uid), { password: newPassword });
+      }
+      setMsg('Password updated successfully!');
+      setNewPassword('');
     } catch (err) {
       console.error(err);
       setMsg('Error updating password: ' + err.message);
@@ -40,6 +43,8 @@ export default function StudentSettingsPage() {
 
   const studentEmail = profile?.email || '23p61a6794@vbit.ac.in';
   const studentRollNo = studentEmail.split('@')[0].toUpperCase();
+  const studentYear = getStudentYear(studentRollNo);
+  const studentSec = getStudentSection(studentRollNo);
   const studentName = (profile?.name && profile.name.toUpperCase() !== 'STUDENT') ? profile.name : studentRollNo;
 
   return (
@@ -100,8 +105,8 @@ export default function StudentSettingsPage() {
             <input className="input-field" value={profile?.department || 'CSE-DS'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Section & Regulation 🔒</label>
-            <input className="input-field" value={`${profile?.section || 'Sec A'} (${profile?.regulation || 'R22'})`} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Year, Section & Regulation 🔒</label>
+            <input className="input-field" value={`Year ${studentYear} Sec ${studentSec} (${profile?.regulation || 'R22'})`} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
         </div>
 
