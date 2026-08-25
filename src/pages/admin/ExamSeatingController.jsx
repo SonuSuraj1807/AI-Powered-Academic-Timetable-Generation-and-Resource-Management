@@ -16,7 +16,7 @@ import {
   ClipboardList, ChevronRight, ChevronLeft, Calendar, Building2,
   Users, Upload, Sparkles, FileSpreadsheet, Download, Check,
   AlertTriangle, Loader2, Plus, Trash2, X, User, Search,
-  Printer, CheckCircle, BookOpen, Eye, EyeOff
+  Printer, CheckCircle, BookOpen, Eye, EyeOff, Folder, FolderOpen, ChevronDown
 } from 'lucide-react';
 import {
   generateSeatingPlan,
@@ -88,10 +88,125 @@ export default function ExamSeatingController() {
   const [newRoomData, setNewRoomData] = useState({ roomNumber: '', block: 'Srujan', floor: 0, rows: 6, cols: 4, capacity: 24 });
   const [isAddingRoom, setIsAddingRoom] = useState(false);
 
-  // ── Published Plans Inspector State ──
+  // ── Published Plans Inspector & Folder Grouping State ──
   const [publishedPlansList, setPublishedPlansList] = useState([]);
   const [viewingPublishedTab, setViewingPublishedTab] = useState(false);
   const [previewRoomPlanDoc, setPreviewRoomPlanDoc] = useState(null);
+  const [selectedPlanIds, setSelectedPlanIds] = useState([]);
+  const [expandedFolders, setExpandedFolders] = useState({});
+  const [directorySearch, setDirectorySearch] = useState('');
+
+  // ── Group seating plans into date-created batch folders ──
+  const groupedBatches = useMemo(() => {
+    const map = {};
+    publishedPlansList.forEach(planDoc => {
+      const title = planDoc.examTitle || 'B.Tech Examinations';
+      const date = planDoc.sessionDate || 'General Session';
+      const slot = planDoc.sessionSlot || 'FN';
+      const createdFormatted = planDoc.createdAt 
+        ? new Date(planDoc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+        : date;
+      
+      // Folder grouping key by Exam Title + Session Date + Created Date
+      const key = `${title} • Date: ${date} (${slot}) • Created: ${createdFormatted}`;
+
+      if (!map[key]) {
+        map[key] = {
+          key,
+          examTitle: title,
+          sessionDate: date,
+          sessionSlot: slot,
+          createdAt: planDoc.createdAt,
+          plans: [],
+        };
+      }
+      map[key].plans.push(planDoc);
+    });
+
+    // Sort folders by newest created date first
+    return Object.values(map).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  }, [publishedPlansList]);
+
+  // Filter batch folders and rooms by search query
+  const filteredBatches = useMemo(() => {
+    if (!directorySearch.trim()) return groupedBatches;
+    const q = directorySearch.toLowerCase();
+
+    return groupedBatches.map(group => {
+      const matchingPlans = group.plans.filter(p =>
+        String(p.roomNumber || '').toLowerCase().includes(q) ||
+        String(p.block || '').toLowerCase().includes(q) ||
+        String(p.examTitle || '').toLowerCase().includes(q) ||
+        p.branches?.some(b => String(b).toLowerCase().includes(q)) ||
+        p.assignedInvigilators?.some(i => String(i.name).toLowerCase().includes(q))
+      );
+      return matchingPlans.length > 0 ? { ...group, plans: matchingPlans } : null;
+    }).filter(Boolean);
+  }, [groupedBatches, directorySearch]);
+
+  const toggleFolder = (key) => {
+    setExpandedFolders(prev => ({
+      ...prev,
+      [key]: prev[key] === undefined ? false : !prev[key] // Default expanded, click toggles
+    }));
+  };
+
+  const handleTogglePlanSelect = (id) => {
+    setSelectedPlanIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleFolderSelect = (groupPlans) => {
+    const groupIds = groupPlans.map(p => p.id);
+    const allSelected = groupIds.every(id => selectedPlanIds.includes(id));
+
+    if (allSelected) {
+      setSelectedPlanIds(prev => prev.filter(id => !groupIds.includes(id)));
+    } else {
+      setSelectedPlanIds(prev => Array.from(new Set([...prev, ...groupIds])));
+    }
+  };
+
+  const handleBulkDeletePlans = async () => {
+    if (selectedPlanIds.length === 0) return;
+    if (!confirm(`Are you sure you want to unpublish the ${selectedPlanIds.length} selected room seating plan(s)?`)) return;
+
+    try {
+      const batch = writeBatch(db);
+      selectedPlanIds.forEach(id => {
+        batch.delete(doc(db, 'seating_plans', id));
+      });
+      await batch.commit();
+
+      setPublishedPlansList(prev => prev.filter(p => !selectedPlanIds.includes(p.id)));
+      setSelectedPlanIds([]);
+      alert(`Successfully unpublished ${selectedPlanIds.length} seating plan(s).`);
+    } catch (err) {
+      console.error(err);
+      alert('Error unpublishing seating plans: ' + err.message);
+    }
+  };
+
+  const handleExportGroupPDFs = (group) => {
+    const reconstructedPlans = group.plans.map(p => {
+      let parsedGrid = [];
+      try { parsedGrid = JSON.parse(p.gridData || '[]'); } catch (e) {}
+      return {
+        room: { roomNumber: p.roomNumber, block: p.block, floor: p.floor, cols: 4, rows: 6 },
+        grid: parsedGrid,
+        branches: p.branches,
+        studentCount: p.studentCount,
+        assignedInvigilators: p.assignedInvigilators,
+      };
+    });
+
+    exportBatchPDF(reconstructedPlans, {
+      date: group.sessionDate,
+      session: group.sessionSlot,
+      examTitle: group.examTitle
+    });
+  };
 
   // ── Load rooms, faculty, and published plans from Firestore ──
   useEffect(() => {
@@ -437,9 +552,78 @@ export default function ExamSeatingController() {
       {viewingPublishedTab ? (
         <div className="animate-fade-in-up">
           <div className="solid-card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Building2 size={20} style={{ color: 'var(--accent-blue)' }} /> Published Room Seating Plans Directory
-            </h3>
+            {/* Directory Header Bar with Search & Batch Action Controls */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={20} style={{ color: 'var(--accent-blue)' }} /> Published Room Seating Plans Directory
+                </h3>
+                <p style={{ fontSize: '0.813rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                  Grouped into clean generation batch folders by creation date. Expand folders or use multi-select to delete batch plans.
+                </p>
+              </div>
+
+              {/* Action Toolbar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                {/* Search Query Input */}
+                <div style={{ position: 'relative' }}>
+                  <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Search room, block, invigilator, branch..."
+                    value={directorySearch}
+                    onChange={e => setDirectorySearch(e.target.value)}
+                    style={{ paddingLeft: '32px', paddingRight: '12px', fontSize: '0.813rem', width: '260px' }}
+                  />
+                </div>
+
+                {/* Directory Select All */}
+                {publishedPlansList.length > 0 && (
+                  <div
+                    onClick={() => {
+                      if (selectedPlanIds.length === publishedPlansList.length) {
+                        setSelectedPlanIds([]);
+                      } else {
+                        setSelectedPlanIds(publishedPlansList.map(p => p.id));
+                      }
+                    }}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                      userSelect: 'none', padding: '6px 12px', borderRadius: '8px',
+                      background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <div style={{
+                      width: '18px', height: '18px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: (publishedPlansList.length > 0 && selectedPlanIds.length === publishedPlansList.length) ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.05)',
+                      border: (publishedPlansList.length > 0 && selectedPlanIds.length === publishedPlansList.length) ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.2)',
+                    }}>
+                      {(publishedPlansList.length > 0 && selectedPlanIds.length === publishedPlansList.length) && (
+                        <Check size={12} color="#ffffff" strokeWidth={3} />
+                      )}
+                    </div>
+                    <span style={{ fontSize: '0.813rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Select All ({publishedPlansList.length})</span>
+                  </div>
+                )}
+
+                {/* Delete Selected (N) Button */}
+                {selectedPlanIds.length > 0 && (
+                  <button
+                    onClick={handleBulkDeletePlans}
+                    className="btn"
+                    style={{
+                      background: 'var(--danger)', color: '#fff', padding: '6px 14px', fontSize: '0.813rem',
+                      fontWeight: 700, borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                      boxShadow: '0 2px 10px rgba(239, 68, 68, 0.4)'
+                    }}
+                  >
+                    <Trash2 size={14} />
+                    Delete Selected ({selectedPlanIds.length})
+                  </button>
+                )}
+              </div>
+            </div>
 
             {publishedPlansList.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
@@ -447,94 +631,218 @@ export default function ExamSeatingController() {
                 <p style={{ fontSize: '0.875rem' }}>No published exam seating plans found in database.</p>
                 <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Use the ⚡ Wizard Generator tab above to create and publish seating plans.</p>
               </div>
+            ) : filteredBatches.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
+                <p style={{ fontSize: '0.875rem' }}>No seating plans match "{directorySearch}".</p>
+              </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-                {publishedPlansList.map(planDoc => {
-                  let parsedGrid = [];
-                  try { parsedGrid = JSON.parse(planDoc.gridData || '[]'); } catch (e) {}
+              /* Date-Created Batch Folders Rendering */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {filteredBatches.map(group => {
+                  const isExpanded = expandedFolders[group.key] !== false; // Default expanded
+                  const groupIds = group.plans.map(p => p.id);
+                  const isFolderAllSelected = groupIds.length > 0 && groupIds.every(id => selectedPlanIds.includes(id));
+                  const folderSelectedCount = groupIds.filter(id => selectedPlanIds.includes(id)).length;
 
                   return (
                     <div
-                      key={planDoc.id}
-                      className="solid-card"
+                      key={group.key}
                       style={{
-                        padding: '18px', borderRadius: '12px',
+                        borderRadius: '14px',
                         background: 'var(--surface-glass)',
                         border: '1px solid var(--border-primary)',
-                        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                        overflow: 'hidden',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
                       }}
                     >
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', background: 'var(--accent-blue-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
-                            Room {planDoc.roomNumber} ({planDoc.block} Block)
-                          </span>
-                          <span style={{ fontSize: '0.688rem', color: 'var(--text-muted)' }}>
-                            {planDoc.sessionSlot} • {planDoc.sessionDate}
-                          </span>
-                        </div>
-
-                        <div style={{ fontSize: '0.938rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                          {planDoc.examTitle || 'B.Tech Examinations'}
-                        </div>
-
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                          Branches: {planDoc.branches?.join(', ') || 'CSE-DS'} • {planDoc.studentCount} Students
-                        </div>
-
-                        {planDoc.assignedInvigilators && planDoc.assignedInvigilators.length > 0 && (
-                          <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
-                            👤 Invigilator: {planDoc.assignedInvigilators.map(i => i.name).join(', ')}
+                      {/* Folder Header */}
+                      <div
+                        onClick={() => toggleFolder(group.key)}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '16px 20px', background: 'rgba(255, 255, 255, 0.02)',
+                          borderBottom: isExpanded ? '1px solid var(--border-primary)' : 'none',
+                          cursor: 'pointer', userSelect: 'none'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          {/* Folder Selection Checkbox */}
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFolderSelect(group.plans);
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <div style={{
+                              width: '20px', height: '20px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: isFolderAllSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.05)',
+                              border: isFolderAllSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.2)',
+                            }}>
+                              {isFolderAllSelected && <Check size={13} color="#ffffff" strokeWidth={3} />}
+                            </div>
                           </div>
-                        )}
+
+                          {/* Folder Icon & Info */}
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {isExpanded ? <FolderOpen size={20} style={{ color: '#F59E0B' }} /> : <Folder size={20} style={{ color: '#F59E0B' }} />}
+                              <span style={{ fontWeight: 800, fontSize: '1.063rem', color: 'var(--text-primary)' }}>
+                                {group.examTitle}
+                              </span>
+                              <span style={{
+                                fontSize: '0.75rem', padding: '2px 10px', borderRadius: '12px',
+                                background: 'var(--accent-blue-subtle)', color: 'var(--accent-blue)', fontWeight: 700
+                              }}>
+                                {group.plans.length} Rooms Allocated
+                              </span>
+                              {folderSelectedCount > 0 && (
+                                <span style={{ fontSize: '0.688rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.2)', color: 'var(--danger)', fontWeight: 700 }}>
+                                  {folderSelectedCount} Selected
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'flex', gap: '16px' }}>
+                              <span>📅 Session: <strong>{group.sessionDate} ({group.sessionSlot})</strong></span>
+                              <span>🕒 Created: <strong>{group.createdAt ? new Date(group.createdAt).toLocaleString() : group.sessionDate}</strong></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Folder Header Actions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }} onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={() => handleExportGroupPDFs(group)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <Download size={13} /> Export Batch PDF ({group.plans.length})
+                          </button>
+                          <button
+                            onClick={() => toggleFolder(group.key)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '6px' }}
+                          >
+                            <ChevronDown size={18} style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }} />
+                          </button>
+                        </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '6px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-primary)' }}>
-                        <button
-                          onClick={() => setPreviewRoomPlanDoc(planDoc)}
-                          className="btn btn-primary btn-sm"
-                          style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                        >
-                          <Eye size={13} /> View Grid
-                        </button>
+                      {/* Expanded Folder Content Grid */}
+                      {isExpanded && (
+                        <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px', background: 'rgba(0, 0, 0, 0.15)' }}>
+                          {group.plans.map(planDoc => {
+                            const isSelected = selectedPlanIds.includes(planDoc.id);
+                            let parsedGrid = [];
+                            try { parsedGrid = JSON.parse(planDoc.gridData || '[]'); } catch (e) {}
 
-                        <button
-                          onClick={() => {
-                            const reconstructedPlan = {
-                              room: { roomNumber: planDoc.roomNumber, block: planDoc.block, floor: planDoc.floor, cols: 4, rows: 6 },
-                              grid: parsedGrid,
-                              branches: planDoc.branches,
-                              studentCount: planDoc.studentCount,
-                              assignedInvigilators: planDoc.assignedInvigilators,
-                            };
-                            exportSingleRoomPDF(reconstructedPlan, { date: planDoc.sessionDate, session: planDoc.sessionSlot, examTitle: planDoc.examTitle });
-                          }}
-                          className="btn btn-ghost btn-sm"
-                          style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                        >
-                          <Download size={13} /> PDF
-                        </button>
+                            return (
+                              <div
+                                key={planDoc.id}
+                                className="solid-card"
+                                style={{
+                                  padding: '16px', borderRadius: '12px',
+                                  background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface-glass)',
+                                  border: isSelected ? '1px solid var(--accent-blue)' : '1px solid var(--border-primary)',
+                                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                    {/* Room Card Checkbox */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <div
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleTogglePlanSelect(planDoc.id);
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                      >
+                                        <div style={{
+                                          width: '18px', height: '18px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                          background: isSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.05)',
+                                          border: isSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.2)',
+                                        }}>
+                                          {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                                        </div>
+                                      </div>
+                                      <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', background: 'var(--accent-blue-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
+                                        Room {planDoc.roomNumber} ({planDoc.block} Block)
+                                      </span>
+                                    </div>
+                                    <span style={{ fontSize: '0.688rem', color: 'var(--text-muted)' }}>
+                                      {planDoc.sessionSlot} • {planDoc.sessionDate}
+                                    </span>
+                                  </div>
 
-                        <button
-                          onClick={async () => {
-                            if (confirm(`Unpublish seating plan for room ${planDoc.roomNumber}?`)) {
-                              try {
-                                await deleteDoc(doc(db, 'seating_plans', planDoc.id));
-                                setPublishedPlansList(prev => prev.filter(p => p.id !== planDoc.id));
-                                alert(`Room ${planDoc.roomNumber} plan successfully unpublished.`);
-                              } catch (err) {
-                                console.error('Unpublish error:', err);
-                                alert('Error unpublishing plan: ' + err.message);
-                              }
-                            }
-                          }}
-                          className="btn btn-ghost btn-sm"
-                          style={{ color: 'var(--danger)', padding: '6px 10px' }}
-                          title="Unpublish Plan"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                                  <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                    {planDoc.examTitle || 'B.Tech Examinations'}
+                                  </div>
+
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                                    Branches: {planDoc.branches?.join(', ') || 'CSE-DS'} • {planDoc.studentCount} Students
+                                  </div>
+
+                                  {planDoc.assignedInvigilators && planDoc.assignedInvigilators.length > 0 && (
+                                    <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
+                                      👤 Invigilator: {planDoc.assignedInvigilators.map(i => i.name).join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-primary)' }}>
+                                  <button
+                                    onClick={() => setPreviewRoomPlanDoc(planDoc)}
+                                    className="btn btn-primary btn-sm"
+                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                  >
+                                    <Eye size={13} /> View Grid
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      const reconstructedPlan = {
+                                        room: { roomNumber: planDoc.roomNumber, block: planDoc.block, floor: planDoc.floor, cols: 4, rows: 6 },
+                                        grid: parsedGrid,
+                                        branches: planDoc.branches,
+                                        studentCount: planDoc.studentCount,
+                                        assignedInvigilators: planDoc.assignedInvigilators,
+                                      };
+                                      exportSingleRoomPDF(reconstructedPlan, { date: planDoc.sessionDate, session: planDoc.sessionSlot, examTitle: planDoc.examTitle });
+                                    }}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                  >
+                                    <Download size={13} /> PDF
+                                  </button>
+
+                                  <button
+                                    onClick={async () => {
+                                      if (confirm(`Unpublish seating plan for room ${planDoc.roomNumber}?`)) {
+                                        try {
+                                          await deleteDoc(doc(db, 'seating_plans', planDoc.id));
+                                          setPublishedPlansList(prev => prev.filter(p => p.id !== planDoc.id));
+                                          alert(`Room ${planDoc.roomNumber} plan successfully unpublished.`);
+                                        } catch (err) {
+                                          console.error('Unpublish error:', err);
+                                          alert('Error unpublishing plan: ' + err.message);
+                                        }
+                                      }
+                                    }}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ color: 'var(--danger)', padding: '6px 10px' }}
+                                    title="Unpublish Plan"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
