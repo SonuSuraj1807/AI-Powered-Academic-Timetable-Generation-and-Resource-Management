@@ -4,7 +4,7 @@
  * Collapsible sidebar with animated menu items, role-specific sections,
  * and active state highlighting.
  */
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, BookOpen, Users, Bell, Settings,
   GraduationCap, FileSpreadsheet, Clock, Cpu, UserCheck,
