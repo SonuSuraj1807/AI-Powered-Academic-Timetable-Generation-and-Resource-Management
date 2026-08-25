@@ -36,7 +36,7 @@ const MENU_CONFIG = {
     ],
   },
   admin: {
-    label: 'Administrator',
+    label: 'Administrator / HOD',
     color: '#E8522E',
     items: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -50,6 +50,7 @@ const MENU_CONFIG = {
       { path: '/admin/reports', icon: BarChart3, label: 'Reports & Analytics' },
       { path: '/admin/exam-seating', icon: ClipboardList, label: 'Exam Seating Plan' },
       { path: '/admin/exam-rooms', icon: Building2, label: 'Exam Rooms' },
+      { path: '/faculty/schedule', icon: Clock, label: 'My Personal Schedule' },
       { path: '/admin/settings', icon: Settings, label: 'Settings' },
     ],
   },

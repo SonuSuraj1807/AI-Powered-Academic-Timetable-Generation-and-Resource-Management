@@ -56,8 +56,33 @@ const useAuthStore = create((set, get) => ({
     try {
       let userCredential = null;
       let actualRole = expectedRole;
-      if (email.startsWith('superadmin')) actualRole = 'superadmin';
-      else if (email.startsWith('examcontroller') || email.includes('exam')) actualRole = 'exam_controller';
+      if (email.startsWith('superadmin')) {
+        actualRole = 'superadmin';
+      } else if (email.startsWith('examcontroller') || email.includes('exam')) {
+        actualRole = 'exam_controller';
+      } else {
+        // Auto-detect HODs and Department Administrators (e.g. Dr. Y. Raju)
+        const lowerEmail = email.toLowerCase();
+        let isHodOrAdmin = lowerEmail.includes('hod') || lowerEmail.includes('admin') || lowerEmail.includes('raju') || lowerEmail.includes('y.raju');
+
+        if (!isHodOrAdmin) {
+          try {
+            const facQuery = query(collection(db, 'faculty'), where('email', '==', email));
+            const facSnap = await getDocs(facQuery);
+            if (!facSnap.empty) {
+              const facData = facSnap.docs[0].data();
+              const desig = String(facData.designation || '').toLowerCase();
+              if (facData.isHod || desig.includes('hod') || desig.includes('head') || facData.role === 'hod' || facData.role === 'admin') {
+                isHodOrAdmin = true;
+              }
+            }
+          } catch (e) {}
+        }
+
+        if (isHodOrAdmin && expectedRole !== 'student') {
+          actualRole = 'admin';
+        }
+      }
 
       // 1. Try Firebase Auth Sign In
       try {
@@ -210,19 +235,24 @@ const useAuthStore = create((set, get) => ({
           let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
             const profile = userDoc.data();
-            const email = firebaseUser.email || profile.email || '';
+            const email = (firebaseUser.email || profile.email || '').toLowerCase();
             const computedDept = getDeptFromEmail(email);
             const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
 
-            const updatedProfile = { uid: firebaseUser.uid, ...profile, department: resolvedDept };
+            let resolvedRole = profile.role;
+            if (email.includes('raju') || email.includes('y.raju') || email.includes('hod')) {
+              resolvedRole = 'admin';
+            }
 
-            if (profile.department !== resolvedDept) {
-              setDoc(doc(db, 'users', firebaseUser.uid), { department: resolvedDept }, { merge: true }).catch(() => {});
+            const updatedProfile = { uid: firebaseUser.uid, ...profile, role: resolvedRole, department: resolvedDept };
+
+            if (profile.department !== resolvedDept || profile.role !== resolvedRole) {
+              setDoc(doc(db, 'users', firebaseUser.uid), { role: resolvedRole, department: resolvedDept }, { merge: true }).catch(() => {});
             }
 
             set({
               user: firebaseUser,
-              role: profile.role,
+              role: resolvedRole,
               profile: updatedProfile,
               loading: false,
               initialized: true,
