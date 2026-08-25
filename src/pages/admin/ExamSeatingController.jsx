@@ -1630,11 +1630,12 @@ export default function ExamSeatingController() {
             </div>
 
             <SeatingSheetPreview
-              plan={{
+              roomPlan={{
                 room: { roomNumber: previewRoomPlanDoc.roomNumber, block: previewRoomPlanDoc.block, floor: previewRoomPlanDoc.floor, cols: 4, rows: 6 },
-                grid: typeof previewRoomPlanDoc.gridData === 'string' ? JSON.parse(previewRoomPlanDoc.gridData) : previewRoomPlanDoc.gridData,
-                assignedInvigilators: previewRoomPlanDoc.assignedInvigilators,
-                studentCount: previewRoomPlanDoc.studentCount,
+                grid: typeof previewRoomPlanDoc.gridData === 'string' ? JSON.parse(previewRoomPlanDoc.gridData || '[]') : (previewRoomPlanDoc.gridData || []),
+                branches: previewRoomPlanDoc.branches || ['CSE-DS'],
+                assignedInvigilators: previewRoomPlanDoc.assignedInvigilators || [],
+                studentCount: previewRoomPlanDoc.studentCount || 0,
               }}
               sessionInfo={{ date: previewRoomPlanDoc.sessionDate, session: previewRoomPlanDoc.sessionSlot, examTitle: previewRoomPlanDoc.examTitle }}
             />

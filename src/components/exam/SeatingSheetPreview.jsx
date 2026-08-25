@@ -43,9 +43,19 @@ function getBranchColor(branch) {
 export default function SeatingSheetPreview({ roomPlan, onDownloadPDF, compact = false }) {
   if (!roomPlan) return null;
 
-  const { room, grid, branches, branchCount, studentCount, assignedInvigilators } = roomPlan;
-  const rows = room.rows || 6;
-  const cols = room.cols || 4;
+  const room = roomPlan.room || { roomNumber: 'N/A', block: 'Avishkar', floor: 0, rows: 6, cols: 4, capacity: 24 };
+  let grid = roomPlan.grid || [];
+  if (typeof grid === 'string') {
+    try { grid = JSON.parse(grid); } catch (e) { grid = []; }
+  }
+
+  const branches = Array.isArray(roomPlan.branches) && roomPlan.branches.length > 0 ? roomPlan.branches : ['CSE-DS'];
+  const assignedInvigilators = Array.isArray(roomPlan.assignedInvigilators) ? roomPlan.assignedInvigilators : [];
+  const studentCount = roomPlan.studentCount || 0;
+  const branchCount = roomPlan.branchCount || branches.length;
+
+  const rows = room.rows || (grid.length > 0 ? grid.length : 6);
+  const cols = room.cols || (grid[0] && grid[0].length ? grid[0].length : 4);
 
   return (
     <div style={{
