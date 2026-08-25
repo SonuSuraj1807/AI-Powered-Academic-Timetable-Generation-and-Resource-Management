@@ -81,11 +81,11 @@ export default function StudentSettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Full Name 🔒</label>
-            <input className="input-field" value={profile?.name || profile?.displayName || 'SURAJ'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={profile?.name || profile?.displayName || (profile?.email ? profile.email.split('@')[0].toUpperCase() : 'SURAJ')} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Hall Ticket / Roll Number 🔒</label>
-            <input className="input-field" value={profile?.hallTicketNo || '23P61A6794'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={profile?.hallTicketNo || (profile?.email ? profile.email.split('@')[0].toUpperCase() : '23P61A6794')} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Institutional Email 🔒</label>

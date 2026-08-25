@@ -118,14 +118,16 @@ const useAuthStore = create((set, get) => ({
         const profile = userDoc.data();
         const computedDept = getDeptFromEmail(email);
         const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
+        const resolvedHT = profile?.hallTicketNo || (actualRole === 'student' ? email.split('@')[0].toUpperCase() : null);
 
         const updatedProfile = {
           ...profile,
           role: actualRole,
           department: resolvedDept,
+          ...(resolvedHT ? { hallTicketNo: resolvedHT } : {}),
         };
 
-        if (profile?.role !== actualRole || profile?.department !== resolvedDept) {
+        if (profile?.role !== actualRole || profile?.department !== resolvedDept || !profile?.hallTicketNo) {
           await setDoc(doc(db, 'users', uid), updatedProfile, { merge: true });
         }
 
