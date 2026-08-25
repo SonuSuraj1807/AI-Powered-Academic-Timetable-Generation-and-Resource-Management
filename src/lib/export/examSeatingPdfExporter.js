@@ -259,10 +259,24 @@ export function exportSingleRoomPDF(roomPlan, sessionInfo, customFilename) {
  */
 export function exportBatchPDF(roomPlans, sessionInfo, customFilename) {
   const doc = new jsPDF('portrait', 'mm', 'a4');
-  roomPlans.forEach((plan, idx) => {
+
+  // Sort room plans strictly Block -> Floor -> Room Number ascending (001, 002...)
+  const sortedPlans = [...roomPlans].sort((a, b) => {
+    const blockA = (a.room?.block || '').toUpperCase();
+    const blockB = (b.room?.block || '').toUpperCase();
+    if (blockA !== blockB) return blockA.localeCompare(blockB);
+
+    const floorA = a.room?.floor ?? 0;
+    const floorB = b.room?.floor ?? 0;
+    if (floorA !== floorB) return floorA - floorB;
+
+    return String(a.room?.roomNumber || '').localeCompare(String(b.room?.roomNumber || ''), undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  sortedPlans.forEach((plan, idx) => {
     renderRoomPage(doc, plan, sessionInfo, idx > 0);
   });
-  const filename = customFilename || buildOfficialFilename(sessionInfo, roomPlans);
+  const filename = customFilename || buildOfficialFilename(sessionInfo, sortedPlans);
   doc.save(filename);
 }
 

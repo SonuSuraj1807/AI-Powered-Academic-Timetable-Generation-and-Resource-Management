@@ -14,12 +14,14 @@ const useNotificationStore = create((set, get) => ({
   notifications: [],
   unreadCount: 0,
   loading: false,
+  currentUserKey: 'guest',
 
   /**
    * Listen to real-time notifications for a target user role / email / department
    */
   subscribeToNotifications: (userRole, userEmail, department) => {
-    set({ loading: true });
+    const userKey = (userEmail || userRole || 'guest').toLowerCase();
+    set({ loading: true, currentUserKey: userKey });
 
     try {
       const q = query(
@@ -34,21 +36,33 @@ const useNotificationStore = create((set, get) => ({
           allList.push({ id: docSnap.id, ...docSnap.data() });
         });
 
+        // Get user-scoped read & dismissed IDs from localStorage
+        const readStorageKey = `vbit_read_notifications_${userKey}`;
+        const dismissStorageKey = `vbit_dismissed_notifications_${userKey}`;
+        const readIds = new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]'));
+        const dismissedIds = new Set(JSON.parse(localStorage.getItem(dismissStorageKey) || '[]'));
+
         // Filter notifications relevant to current user
-        const userNotifications = allList.filter(n => {
-          if (n.targetRole === 'ALL') return true;
-          if (n.targetRole === userRole) {
-            if (!n.targetDepartment || n.targetDepartment === 'ALL' || n.targetDepartment === department) {
+        const userNotifications = allList
+          .filter(n => !dismissedIds.has(n.id))
+          .filter(n => {
+            if (n.targetRole === 'ALL') return true;
+            if (n.targetRole === userRole) {
+              if (!n.targetDepartment || n.targetDepartment === 'ALL' || n.targetDepartment === department) {
+                return true;
+              }
+            }
+            if (n.targetEmail && n.targetEmail.toLowerCase() === (userEmail || '').toLowerCase()) {
               return true;
             }
-          }
-          if (n.targetEmail && n.targetEmail.toLowerCase() === (userEmail || '').toLowerCase()) {
-            return true;
-          }
-          return false;
-        });
+            return false;
+          })
+          .map(n => ({
+            ...n,
+            isRead: readIds.has(n.id),
+          }));
 
-        const unread = userNotifications.filter(n => !n.read).length;
+        const unread = userNotifications.filter(n => !n.isRead).length;
         set({ notifications: userNotifications, unreadCount: unread, loading: false });
       }, (err) => {
         console.error('Notification snapshot error:', err);
@@ -75,7 +89,6 @@ const useNotificationStore = create((set, get) => ({
         targetRole, // 'student' | 'faculty' | 'admin' | 'exam_controller' | 'ALL'
         targetDepartment,
         targetEmail,
-        read: false,
         createdAt: new Date().toISOString(),
       });
       return true;
@@ -86,27 +99,50 @@ const useNotificationStore = create((set, get) => ({
   },
 
   /**
-   * Mark a notification as read
+   * Mark a notification as read for current user
    */
-  markAsRead: async (notificationId) => {
-    try {
-      await updateDoc(doc(db, 'notifications', notificationId), { read: true });
-    } catch (err) {
-      console.error('Error marking notification read:', err);
-    }
+  markAsRead: (notificationId) => {
+    const { currentUserKey, notifications } = get();
+    if (!currentUserKey) return;
+    const readStorageKey = `vbit_read_notifications_${currentUserKey}`;
+    const readIds = new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]'));
+    readIds.add(notificationId);
+    localStorage.setItem(readStorageKey, JSON.stringify([...readIds]));
+
+    const updated = notifications.map(n => n.id === notificationId ? { ...n, isRead: true } : n);
+    const unread = updated.filter(n => !n.isRead).length;
+    set({ notifications: updated, unreadCount: unread });
+  },
+
+  /**
+   * Dismiss notification banner from screen
+   */
+  dismissNotification: (notificationId) => {
+    const { currentUserKey, notifications } = get();
+    if (!currentUserKey) return;
+    const dismissStorageKey = `vbit_dismissed_notifications_${currentUserKey}`;
+    const dismissedIds = new Set(JSON.parse(localStorage.getItem(dismissStorageKey) || '[]'));
+    dismissedIds.add(notificationId);
+    localStorage.setItem(dismissStorageKey, JSON.stringify([...dismissedIds]));
+
+    const updated = notifications.filter(n => n.id !== notificationId);
+    const unread = updated.filter(n => !n.isRead).length;
+    set({ notifications: updated, unreadCount: unread });
   },
 
   /**
    * Mark all unread notifications as read
    */
-  markAllRead: async () => {
-    const { notifications } = get();
-    const unreadItems = notifications.filter(n => !n.read);
-    try {
-      await Promise.all(unreadItems.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true })));
-    } catch (err) {
-      console.error('Error marking all notifications read:', err);
-    }
+  markAllRead: () => {
+    const { currentUserKey, notifications } = get();
+    if (!currentUserKey) return;
+    const readStorageKey = `vbit_read_notifications_${currentUserKey}`;
+    const readIds = new Set(JSON.parse(localStorage.getItem(readStorageKey) || '[]'));
+    notifications.forEach(n => readIds.add(n.id));
+    localStorage.setItem(readStorageKey, JSON.stringify([...readIds]));
+
+    const updated = notifications.map(n => ({ ...n, isRead: true }));
+    set({ notifications: updated, unreadCount: 0 });
   }
 }));
 

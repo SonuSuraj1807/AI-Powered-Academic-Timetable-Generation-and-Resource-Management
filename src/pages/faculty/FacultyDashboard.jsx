@@ -1,34 +1,42 @@
-/**
- * FacultyDashboard — Faculty panel with 100% real-time Firestore class timetable & examination duties.
- */
 import { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, BookOpen, UserCheck, Bell, 
-  ArrowRight, FileText, ChevronRight, TrendingUp, AlertCircle
+  ArrowRight, FileText, ChevronRight, TrendingUp, AlertCircle, Download, Eye, X, Building2
 } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import useNotificationStore from '../../stores/notificationStore';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
+import { exportSingleRoomPDF, exportBatchPDF } from '../../lib/export/examSeatingPdfExporter';
 
 export default function FacultyDashboard() {
   const { profile } = useAuthStore();
-  const { notifications, unreadCount } = useNotificationStore();
+  const { notifications, subscribeToNotifications, dismissNotification } = useNotificationStore();
   const [realtimeDuties, setRealtimeDuties] = useState([]);
   const [loadingDuties, setLoadingDuties] = useState(true);
   const [realtimeSchedules, setRealtimeSchedules] = useState([]);
   const [loadingSchedules, setLoadingSchedules] = useState(true);
+  const [publishedPlans, setPublishedPlans] = useState([]);
+
+  // Subscribe to real-time notification hub
+  useEffect(() => {
+    const unsub = subscribeToNotifications('faculty', profile?.email, profile?.department);
+    return () => unsub && unsub();
+  }, [profile, subscribeToNotifications]);
 
   // Real-time synchronization with Cloud Firestore /seating_plans
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'seating_plans'), (snapshot) => {
       const duties = [];
+      const plans = [];
       const userEmail = profile?.email?.toLowerCase() || '';
       const userName = profile?.name?.toLowerCase() || profile?.displayName?.toLowerCase() || '';
       const userUid = profile?.uid || '';
 
       snapshot.forEach(docSnap => {
-        const plan = docSnap.data();
+        const plan = { id: docSnap.id, ...docSnap.data() };
+        plans.push(plan);
+
         const invs = plan.assignedInvigilators || [];
 
         // Check if logged-in faculty is assigned
@@ -55,12 +63,31 @@ export default function FacultyDashboard() {
       });
 
       duties.sort((a, b) => (a.sessionDate || '').localeCompare(b.sessionDate || ''));
+      setPublishedPlans(plans);
       setRealtimeDuties(duties);
       setLoadingDuties(false);
     });
 
     return () => unsubscribe();
   }, [profile]);
+
+  // Group published plans by Exam Title + Session Date for batch PDF download
+  const groupedExamBatches = Object.values(
+    publishedPlans.reduce((acc, planDoc) => {
+      const key = `${planDoc.examTitle || 'Exam'}_${planDoc.sessionDate}_${planDoc.sessionSlot}`;
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          examTitle: planDoc.examTitle || 'B.Tech Examinations',
+          sessionDate: planDoc.sessionDate,
+          sessionSlot: planDoc.sessionSlot,
+          plans: [],
+        };
+      }
+      acc[key].plans.push(planDoc);
+      return acc;
+    }, {})
+  );
 
   // Real-time synchronization with Cloud Firestore /schedules (Class Timetables)
   useEffect(() => {
@@ -230,6 +257,51 @@ export default function FacultyDashboard() {
               </div>
             )}
           </div>
+
+          {/* All Published Exam Seating Plans PDF Access */}
+          <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-primary)' }}>
+            <h3 style={{ fontSize: '0.938rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-blue)' }}>
+              <Building2 size={16} /> All Published Room Seating Arrangement PDFs
+            </h3>
+            {groupedExamBatches.length === 0 ? (
+              <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--surface-glass)', border: '1px solid var(--border-primary)', fontSize: '0.813rem', color: 'var(--text-tertiary)' }}>
+                No published seating plans found in database.
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                {groupedExamBatches.map(batch => (
+                  <div
+                    key={batch.key}
+                    style={{
+                      padding: '12px 14px', borderRadius: '10px', background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.813rem', fontWeight: 700, color: 'var(--text-primary)' }}>{batch.examTitle}</div>
+                      <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>Date: {batch.sessionDate} ({batch.sessionSlot}) • {batch.plans.length} Rooms</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const reconstructed = batch.plans.map(p => ({
+                          room: { roomNumber: p.roomNumber, block: p.block, floor: p.floor, cols: 4, rows: 6 },
+                          grid: typeof p.gridData === 'string' ? JSON.parse(p.gridData || '[]') : (p.gridData || []),
+                          branches: p.branches,
+                          studentCount: p.studentCount,
+                          assignedInvigilators: p.assignedInvigilators,
+                        }));
+                        exportBatchPDF(reconstructed, { date: batch.sessionDate, session: batch.sessionSlot, examTitle: batch.examTitle });
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Download size={12} /> Seating PDF
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Recent Notifications */}
@@ -249,15 +321,28 @@ export default function FacultyDashboard() {
               {notifications.slice(0, 5).map((notif) => (
                 <div key={notif.id} style={{
                   padding: '10px 12px', borderRadius: '8px',
-                  background: notif.status === 'unread' ? 'var(--accent-amber-subtle)' : 'var(--surface-glass)',
+                  background: notif.isRead ? 'var(--surface-glass)' : 'var(--accent-amber-subtle)',
                   border: '1px solid var(--border-primary)',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px',
                 }}>
-                  <div style={{ fontSize: '0.813rem', fontWeight: notif.status === 'unread' ? 600 : 400 }}>
-                    {notif.title}
+                  <div>
+                    <div style={{ fontSize: '0.813rem', fontWeight: notif.isRead ? 400 : 700 }}>
+                      {notif.title}
+                    </div>
+                    <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {notif.message || notif.body?.substring(0, 60)}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    {notif.message || notif.body?.substring(0, 60)}
-                  </div>
+                  <button
+                    onClick={() => dismissNotification(notif.id)}
+                    style={{
+                      background: 'none', border: 'none', color: 'var(--text-tertiary)',
+                      cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center'
+                    }}
+                    title="Dismiss notification"
+                  >
+                    <X size={13} />
+                  </button>
                 </div>
               ))}
             </div>

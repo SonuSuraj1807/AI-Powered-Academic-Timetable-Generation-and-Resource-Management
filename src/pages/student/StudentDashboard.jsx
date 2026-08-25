@@ -2,7 +2,7 @@
  * StudentDashboard — Real-time Student panel with 100% real-time Firestore exam seating lookup & published class timetables.
  */
 import { useState, useEffect } from 'react';
-import { Calendar, CalendarCheck, Download, FileSpreadsheet, BookOpen, Clock, Search, AlertCircle } from 'lucide-react';
+import { Calendar, CalendarCheck, Download, FileSpreadsheet, BookOpen, Clock, Search, AlertCircle, X, Eye, ClipboardList } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import useNotificationStore from '../../stores/notificationStore';
 import { db } from '../../lib/firebase';
@@ -10,6 +10,7 @@ import { collection, onSnapshot } from 'firebase/firestore';
 import { TIME_SLOTS } from '../../data/curriculumSeed';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
+import { exportSingleRoomPDF, exportBatchPDF } from '../../lib/export/examSeatingPdfExporter';
 
 function getCellClass(rawSubject) {
   if (!rawSubject) return 'cell-free';
@@ -22,7 +23,7 @@ function getCellClass(rawSubject) {
 
 export default function StudentDashboard() {
   const { profile } = useAuthStore();
-  const { notifications, subscribeToNotifications } = useNotificationStore();
+  const { notifications, subscribeToNotifications, dismissNotification } = useNotificationStore();
   const [searchHTNo, setSearchHTNo] = useState(profile?.hallTicketNo || '23P61A6701');
   const [publishedPlans, setPublishedPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -52,6 +53,24 @@ export default function StudentDashboard() {
 
     return () => unsubscribe();
   }, []);
+
+  // Group published plans by Exam Title + Session Date for batch PDF download
+  const groupedExamBatches = Object.values(
+    publishedPlans.reduce((acc, planDoc) => {
+      const key = `${planDoc.examTitle || 'Exam'}_${planDoc.sessionDate}_${planDoc.sessionSlot}`;
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          examTitle: planDoc.examTitle || 'B.Tech Examinations',
+          sessionDate: planDoc.sessionDate,
+          sessionSlot: planDoc.sessionSlot,
+          plans: [],
+        };
+      }
+      acc[key].plans.push(planDoc);
+      return acc;
+    }, {})
+  );
 
   // Real-time Firestore synchronization with /schedules (Class Timetables)
   useEffect(() => {
@@ -157,7 +176,7 @@ export default function StudentDashboard() {
         </p>
       </div>
 
-      {/* Real-time Notifications Banner */}
+      {/* Real-time Notifications Banner with Cross Dismissal Button */}
       {notifications.length > 0 && (
         <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {notifications.slice(0, 3).map(n => (
@@ -171,7 +190,20 @@ export default function StudentDashboard() {
                 <span style={{ fontWeight: 800, fontSize: '0.875rem', color: 'var(--text-primary)', marginRight: '8px' }}>🔔 {n.title}:</span>
                 <span style={{ fontSize: '0.813rem', color: 'var(--text-secondary)' }}>{n.message}</span>
               </div>
-              <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <button
+                  onClick={() => dismissNotification(n.id)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)', border: 'none', borderRadius: '50%',
+                    width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 150ms ease'
+                  }}
+                  title="Dismiss notification"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -183,9 +215,9 @@ export default function StudentDashboard() {
         style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px', opacity: 0 }}
       >
         {[
-          { label: 'Section', value: activeSchedule ? `${activeSchedule.department} Sec ${activeSchedule.section}` : 'CSE-DS A', icon: BookOpen, color: '#3B82F6' },
-          { label: 'Academic Year', value: activeSchedule ? `Year ${activeSchedule.year} Sem ${activeSchedule.semester}` : 'III Year II Sem', icon: FileSpreadsheet, color: '#10B981' },
-          { label: 'Classroom', value: activeSchedule ? `Room ${activeSchedule.room}` : 'Room 302', icon: Calendar, color: '#8B5CF6' },
+          { label: 'Section', value: activeSchedule ? `${activeSchedule.department} Sec ${activeSchedule.section}` : 'CSE-DS Sec A', icon: BookOpen, color: '#3B82F6' },
+          { label: 'Academic Year', value: activeSchedule ? `Year ${activeSchedule.year} Sem ${activeSchedule.semester}` : 'Year 3 Sem 1', icon: FileSpreadsheet, color: '#10B981' },
+          { label: 'Classroom', value: activeSchedule ? `Room ${activeSchedule.room}` : 'Room 304', icon: Calendar, color: '#8B5CF6' },
           { label: 'Published Plans', value: publishedPlans.length.toString(), icon: CalendarCheck, color: '#E8522E' },
         ].map((stat, i) => (
           <div key={i} className="solid-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -219,14 +251,13 @@ export default function StudentDashboard() {
                 placeholder="Enter Hall Ticket No (e.g. 23P61A6701)"
                 value={searchHTNo}
                 onChange={e => setSearchHTNo(e.target.value)}
-                id="student-hallticket-search"
-                style={{ width: '100%', paddingLeft: '34px' }}
+                style={{ width: '100%', paddingLeft: '32px', fontSize: '0.813rem' }}
               />
-              <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
               ({publishedPlans.length} published room seating plans in database)
-            </div>
+            </span>
           </div>
 
           {/* Real-Time Seating Match Display */}
@@ -262,6 +293,47 @@ export default function StudentDashboard() {
           ) : (
             <div style={{ padding: '14px', borderRadius: '10px', background: 'var(--surface-glass)', border: '1px solid var(--border-primary)', fontSize: '0.813rem', color: 'var(--text-tertiary)' }}>
               No seating record found for Hall Ticket No: <strong>{searchHTNo}</strong> in the current published database.
+            </div>
+          )}
+
+          {/* Published Seating PDFs Download Section for Students */}
+          {groupedExamBatches.length > 0 && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-primary)' }}>
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 700, marginBottom: '10px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Download size={14} style={{ color: 'var(--accent-blue)' }} /> Download Full Published Seating Arrangement PDFs
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px' }}>
+                {groupedExamBatches.map(batch => (
+                  <div
+                    key={batch.key}
+                    style={{
+                      padding: '12px 14px', borderRadius: '10px', background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.813rem', fontWeight: 700, color: 'var(--text-primary)' }}>{batch.examTitle}</div>
+                      <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>Date: {batch.sessionDate} ({batch.sessionSlot}) • {batch.plans.length} Rooms</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const reconstructed = batch.plans.map(p => ({
+                          room: { roomNumber: p.roomNumber, block: p.block, floor: p.floor, cols: 4, rows: 6 },
+                          grid: typeof p.gridData === 'string' ? JSON.parse(p.gridData || '[]') : (p.gridData || []),
+                          branches: p.branches,
+                          studentCount: p.studentCount,
+                          assignedInvigilators: p.assignedInvigilators,
+                        }));
+                        exportBatchPDF(reconstructed, { date: batch.sessionDate, session: batch.sessionSlot, examTitle: batch.examTitle });
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <Download size={12} /> Seating PDF
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
