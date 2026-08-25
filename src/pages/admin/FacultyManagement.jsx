@@ -248,7 +248,7 @@ export default function FacultyManagement() {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}
         >
           {seeding ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
-          {seeding ? 'Seeding Faculty Pool...' : 'Seed VBIT DS Faculty Pool'}
+          {seeding ? `Syncing ${profile?.department || 'CSE'} Faculty...` : `Seed VBIT ${profile?.department || 'CSE'} Faculty Pool`}
         </button>
       </div>
 
