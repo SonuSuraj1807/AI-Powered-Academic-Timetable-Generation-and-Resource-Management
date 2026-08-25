@@ -187,6 +187,62 @@ export default function SeatingSheetPreview({ roomPlan, onDownloadPDF, compact =
                 </td>
                 {Array.from({ length: cols }, (_, c) => {
                   const cell = grid[r] && grid[r][c];
+                  const hasDualSeats = cell && (cell.seat1 || cell.seat2);
+
+                  if (hasDualSeats) {
+                    const s1 = cell.seat1;
+                    const s2 = cell.seat2;
+                    const c1 = s1 ? getBranchColor(s1.branch) : '#64748B';
+                    const c2 = s2 ? getBranchColor(s2.branch) : '#64748B';
+
+                    return (
+                      <td key={c} style={{
+                        padding: compact ? '3px 4px' : '5px 6px',
+                        textAlign: 'center',
+                        border: '1px solid var(--border-primary)',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                      }}>
+                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                          {/* Seat 1 (Left) */}
+                          <div style={{
+                            flex: 1, padding: '4px 3px', borderRadius: '5px',
+                            background: s1 ? `${c1}15` : 'transparent',
+                            border: `1px solid ${s1 ? `${c1}40` : 'transparent'}`,
+                          }}>
+                            {s1 ? (
+                              <>
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: compact ? '0.625rem' : '0.688rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {s1.hallTicketNo}
+                                </div>
+                                <div style={{ fontSize: '0.563rem', fontWeight: 700, color: c1 }}>
+                                  {s1.branch}
+                                </div>
+                              </>
+                            ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>—</span>}
+                          </div>
+
+                          {/* Seat 2 (Right) */}
+                          <div style={{
+                            flex: 1, padding: '4px 3px', borderRadius: '5px',
+                            background: s2 ? `${c2}15` : 'transparent',
+                            border: `1px solid ${s2 ? `${c2}40` : 'transparent'}`,
+                          }}>
+                            {s2 ? (
+                              <>
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: compact ? '0.625rem' : '0.688rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {s2.hallTicketNo}
+                                </div>
+                                <div style={{ fontSize: '0.563rem', fontWeight: 700, color: c2 }}>
+                                  {s2.branch}
+                                </div>
+                              </>
+                            ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.625rem' }}>—</span>}
+                          </div>
+                        </div>
+                      </td>
+                    );
+                  }
+
                   const color = cell ? getBranchColor(cell.branch) : '#64748B';
                   return (
                     <td key={c} style={{

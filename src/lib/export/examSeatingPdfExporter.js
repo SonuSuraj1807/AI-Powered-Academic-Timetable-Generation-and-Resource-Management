@@ -334,21 +334,43 @@ export function exportRoomAttendanceSheet(roomPlan, sessionInfo, customFilename)
     try { parsedGrid = JSON.parse(parsedGrid); } catch (e) { parsedGrid = []; }
   }
 
-  // Extract all seated students in roll number order
+  // Extract all seated students in roll number order (supporting dual-seat bench cells)
   const seatedStudents = [];
   if (Array.isArray(parsedGrid)) {
     for (let r = 0; r < parsedGrid.length; r++) {
       for (let c = 0; c < (parsedGrid[r]?.length || 0); c++) {
         const cell = parsedGrid[r][c];
-        if (cell && cell.hallTicketNo) {
-          seatedStudents.push({
-            hallTicketNo: cell.hallTicketNo,
-            branch: cell.branch || (branches && branches[0]) || 'CSE',
-            yearSem: cell.yearSem || '',
-            name: cell.name || 'Student',
-            col: c + 1,
-            row: r + 1,
-          });
+        if (cell) {
+          if (cell.seat1 && cell.seat1.hallTicketNo) {
+            seatedStudents.push({
+              hallTicketNo: cell.seat1.hallTicketNo,
+              branch: cell.seat1.branch || 'CSE',
+              yearSem: cell.seat1.yearSem || '',
+              name: cell.seat1.name || 'Student',
+              col: c + 1,
+              row: r + 1,
+            });
+          }
+          if (cell.seat2 && cell.seat2.hallTicketNo) {
+            seatedStudents.push({
+              hallTicketNo: cell.seat2.hallTicketNo,
+              branch: cell.seat2.branch || 'CSE-DS',
+              yearSem: cell.seat2.yearSem || '',
+              name: cell.seat2.name || 'Student',
+              col: c + 1,
+              row: r + 1,
+            });
+          }
+          if (!cell.seat1 && !cell.seat2 && cell.hallTicketNo) {
+            seatedStudents.push({
+              hallTicketNo: cell.hallTicketNo,
+              branch: cell.branch || (branches && branches[0]) || 'CSE',
+              yearSem: cell.yearSem || '',
+              name: cell.name || 'Student',
+              col: c + 1,
+              row: r + 1,
+            });
+          }
         }
       }
     }

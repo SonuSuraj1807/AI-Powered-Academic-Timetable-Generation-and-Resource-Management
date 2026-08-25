@@ -101,6 +101,13 @@ function interleaveIntoRooms(branchGroups, rooms) {
    * Fill a single room with students from two branch arrays.
    * branchA → columns 0, 2;  branchB → columns 1, 3
    */
+  /**
+   * Fill a single room with students from two branch arrays.
+   * On each bench (Row r, Column c):
+   * - Seat 1 (Left): Branch A (e.g. CSE)
+   * - Seat 2 (Right): Branch B (e.g. CSE-DS)
+   * This ensures Column 1, 2, 3, 4 ALL have CSE and CSE-DS seated side-by-side!
+   */
   function fillRoom(room, branchAName, branchBName) {
     const rows = room.rows || 6;
     const cols = room.cols || 4;
@@ -111,36 +118,46 @@ function interleaveIntoRooms(branchGroups, rooms) {
     let aIdx = consumed[branchAName] || 0;
     let bIdx = consumed[branchBName] || 0;
 
-    const colAssignment = {};
-    // Branch A gets even columns (0, 2)
-    // Branch B gets odd columns (1, 3)
-    for (let c = 0; c < cols; c++) {
-      colAssignment[c] = c % 2 === 0 ? branchAName : branchBName;
-    }
-
     let seatedCount = 0;
     const seatedBranches = new Set();
 
+    // Fill Column by Column (c = 0..3), Row by Row (r = 0..5)
     for (let c = 0; c < cols; c++) {
-      const branch = colAssignment[c];
-      const students = branchGroups[branch];
-      let idx = consumed[branch];
-
       for (let r = 0; r < rows; r++) {
-        if (idx >= students.length) break;
-        grid[r][c] = {
-          hallTicketNo: students[idx].hallTicketNo,
-          branch: students[idx].branch,
-          yearSem: students[idx].yearSem || `${students[idx].branch}-${students[idx].year || '?'}-${students[idx].semester || '?'} Sem`,
-          name: students[idx].name || '',
-          regulation: students[idx].regulation || '',
-        };
-        idx++;
-        seatedCount++;
-        seatedBranches.add(branch);
+        if (aIdx >= branchA.length && bIdx >= branchB.length) break;
+
+        const student1 = aIdx < branchA.length ? {
+          hallTicketNo: branchA[aIdx].hallTicketNo,
+          branch: branchA[aIdx].branch,
+          yearSem: branchA[aIdx].yearSem || branchAName,
+          name: branchA[aIdx].name || '',
+          regulation: branchA[aIdx].regulation || '',
+        } : null;
+        if (student1) { aIdx++; seatedCount++; seatedBranches.add(branchAName); }
+
+        const student2 = bIdx < branchB.length ? {
+          hallTicketNo: branchB[bIdx].hallTicketNo,
+          branch: branchB[bIdx].branch,
+          yearSem: branchB[bIdx].yearSem || branchBName,
+          name: branchB[bIdx].name || '',
+          regulation: branchB[bIdx].regulation || '',
+        } : null;
+        if (student2) { bIdx++; seatedCount++; seatedBranches.add(branchBName); }
+
+        if (student1 || student2) {
+          grid[r][c] = {
+            seat1: student1,
+            seat2: student2,
+            // Backward-compatible properties for single-cell readers
+            hallTicketNo: student1 ? (student2 ? `${student1.hallTicketNo} / ${student2.hallTicketNo}` : student1.hallTicketNo) : (student2 ? student2.hallTicketNo : ''),
+            branch: student1 ? (student2 ? `${student1.branch} & ${student2.branch}` : student1.branch) : (student2 ? student2.branch : ''),
+          };
+        }
       }
-      consumed[branch] = idx;
     }
+
+    consumed[branchAName] = aIdx;
+    consumed[branchBName] = bIdx;
 
     if (seatedCount === 0) return null;
 
