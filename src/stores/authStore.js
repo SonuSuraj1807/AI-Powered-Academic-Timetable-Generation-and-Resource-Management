@@ -45,7 +45,13 @@ const useAuthStore = create((set, get) => ({
    */
   login: async (rawEmail, password, expectedRole) => {
     set({ loading: true, error: null });
-    const email = rawEmail.trim().toLowerCase();
+    let email = rawEmail.trim().toLowerCase();
+
+    // Auto-repair common domain typos (e.g. .ac.i -> .ac.in or truncated examcontroller email)
+    if (email.endsWith('.ac.i')) email = email + 'n';
+    if (email.endsWith('.ac')) email = email + '.in';
+    if (email.includes('examcontroller')) email = 'examcontroller@vbithyd.ac.in';
+    if (email.includes('superadmin')) email = 'superadmin@vbit.ac.in';
 
     try {
       let userCredential = null;

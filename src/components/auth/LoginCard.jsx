@@ -8,6 +8,7 @@
  * - Solid orange-red button labeled "Login"
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -15,6 +16,7 @@ import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firesto
 import { auth, db } from '../../lib/firebase';
 
 export default function LoginCard({ role, title }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -33,8 +35,22 @@ export default function LoginCard({ role, title }) {
     if (!password.trim()) { setLocalError('Password is required'); return; }
 
     setIsSubmitting(true);
-    await login(email.trim(), password, role);
+    const success = await login(email.trim(), password, role);
     setIsSubmitting(false);
+
+    if (success) {
+      const activeRole = useAuthStore.getState().role;
+      const targetRoute = activeRole === 'exam_controller' 
+        ? '/admin/exam-scheduler' 
+        : activeRole === 'superadmin' 
+        ? '/superadmin' 
+        : activeRole === 'faculty' 
+        ? '/faculty' 
+        : activeRole === 'student' 
+        ? '/student' 
+        : '/admin';
+      navigate(targetRoute, { replace: true });
+    }
   };
 
   const handleSetupPassword = async (e) => {
