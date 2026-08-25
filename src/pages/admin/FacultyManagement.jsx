@@ -498,15 +498,52 @@ export default function FacultyManagement() {
               </h3>
 
               {filteredFaculty.length > 0 && (
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.813rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
-                  <input
-                    type="checkbox"
-                    checked={filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length}
-                    onChange={handleSelectAll}
-                    style={{ width: '16px', height: '16px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-                  />
-                  <span>Select All</span>
-                </label>
+                <div
+                  onClick={() => {
+                    if (selectedIds.length === filteredFaculty.length) {
+                      setSelectedIds([]);
+                    } else {
+                      setSelectedIds(filteredFaculty.map(f => f.id));
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: (filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length)
+                        ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)'
+                        : 'rgba(255, 255, 255, 0.05)',
+                      border: (filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length)
+                        ? '1px solid #60A5FA'
+                        : '1px solid rgba(255, 255, 255, 0.2)',
+                      boxShadow: (filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length)
+                        ? '0 0 8px rgba(59, 130, 246, 0.4)'
+                        : 'none'
+                    }}
+                  >
+                    {(filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length) && (
+                      <Check size={12} color="#ffffff" strokeWidth={3} />
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Select All</span>
+                </div>
               )}
 
               {selectedIds.length > 0 && (
@@ -559,14 +596,42 @@ export default function FacultyManagement() {
                     border: isChecked ? '1px solid var(--accent-blue)' : '1px solid var(--border-primary)',
                     transition: 'all 0.15s ease'
                   }}>
-                    {/* Checkbox */}
-                    <div style={{ display: 'flex', alignItems: 'center', paddingRight: '12px' }}>
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleSelect(f.id)}
-                        style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
-                      />
+                    {/* Stylish Custom Checkbox */}
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleSelect(f.id);
+                      }}
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        paddingRight: '14px',
+                        cursor: 'pointer' 
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                          background: isChecked 
+                            ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' 
+                            : 'rgba(255, 255, 255, 0.05)',
+                          border: isChecked 
+                            ? '1px solid #60A5FA' 
+                            : '1px solid rgba(255, 255, 255, 0.2)',
+                          boxShadow: isChecked 
+                            ? '0 0 10px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)' 
+                            : 'none',
+                          transform: isChecked ? 'scale(1.05)' : 'scale(1)',
+                        }}
+                      >
+                        {isChecked && <Check size={13} color="#ffffff" strokeWidth={3} />}
+                      </div>
                     </div>
 
                     {isEditing === f.id ? (
