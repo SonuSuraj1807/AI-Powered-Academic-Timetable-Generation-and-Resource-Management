@@ -277,6 +277,9 @@ export default function FacultyManagement() {
     }
   }, [profile?.department]);
 
+  // Multi-select state for bulk operations
+  const [selectedIds, setSelectedIds] = useState([]);
+
   // Edit states
   const [isEditing, setIsEditing] = useState(null);
   const [editName, setEditName] = useState('');
@@ -307,6 +310,42 @@ export default function FacultyManagement() {
     });
     return () => unsubscribe();
   }, [profile]);
+
+  const filteredFaculty = facultyList.filter(f => 
+    !filterQuery || 
+    f.name.toLowerCase().includes(filterQuery.toLowerCase()) || 
+    f.email.toLowerCase().includes(filterQuery.toLowerCase())
+  );
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredFaculty.map(f => f.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!confirm(`Are you sure you want to remove the ${selectedIds.length} selected faculty member(s)?`)) return;
+
+    try {
+      for (const id of selectedIds) {
+        await deleteDoc(doc(db, 'faculty', id));
+        await deleteDoc(doc(db, 'users', id));
+      }
+      setSelectedIds([]);
+    } catch (err) {
+      console.error(err);
+      alert('Error performing bulk delete: ' + err.message);
+    }
+  };
 
   const handleSeedFaculty = async () => {
     const targetDept = profile?.department || 'CSE';
@@ -453,9 +492,45 @@ export default function FacultyManagement() {
         {/* Faculty List Card */}
         <div className="solid-card" style={{ padding: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>
-              Registered Faculty ({facultyList.filter(f => !filterQuery || f.name.toLowerCase().includes(filterQuery.toLowerCase()) || f.email.toLowerCase().includes(filterQuery.toLowerCase())).length})
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
+                Registered Faculty ({filteredFaculty.length})
+              </h3>
+
+              {filteredFaculty.length > 0 && (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.813rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length}
+                    onChange={handleSelectAll}
+                    style={{ width: '16px', height: '16px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                  />
+                  <span>Select All</span>
+                </label>
+              )}
+
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="btn"
+                  style={{
+                    background: 'var(--danger)',
+                    color: '#fff',
+                    padding: '4px 12px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    borderRadius: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+                  }}
+                >
+                  <Trash2 size={13} />
+                  Delete Selected ({selectedIds.length})
+                </button>
+              )}
+            </div>
 
             {/* Filter Search Input */}
             <input
@@ -470,79 +545,92 @@ export default function FacultyManagement() {
 
           {loading ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading faculty members...</p>
-          ) : facultyList.length === 0 ? (
+          ) : filteredFaculty.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No faculty members registered yet.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {facultyList
-                .filter(f => !filterQuery || f.name.toLowerCase().includes(filterQuery.toLowerCase()) || f.email.toLowerCase().includes(filterQuery.toLowerCase()))
-                .map((f) => (
-                <div key={f.id} style={{
-                  display: 'flex', justifyItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: '10px',
-                  background: 'var(--surface-glass)', border: '1px solid var(--border-primary)'
-                }}>
-                  {isEditing === f.id ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, marginRight: '10px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input className="input-field" value={editName} onChange={e => setEditName(e.target.value)} style={{ flex: 1 }} placeholder="Name" />
-                        <input className="input-field" value={editEmail} onChange={e => setEditEmail(e.target.value)} style={{ flex: 1 }} placeholder="Email" />
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <select className="input-field" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} style={{ flex: 1, padding: '4px 8px', fontSize: '0.75rem' }}>
-                          {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.id}</option>)}
-                        </select>
-                        <select className="input-field" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} style={{ flex: 1, padding: '4px 8px', fontSize: '0.75rem' }}>
-                          <option value="Professor & HoD">Professor & HoD</option>
-                          <option value="Professor">Professor</option>
-                          <option value="Associate Professor">Associate Professor</option>
-                          <option value="Assistant Professor">Assistant Professor</option>
-                        </select>
-                      </div>
+              {filteredFaculty.map((f) => {
+                const isChecked = selectedIds.includes(f.id);
+                return (
+                  <div key={f.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '14px 16px', borderRadius: '10px',
+                    background: isChecked ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface-glass)',
+                    border: isChecked ? '1px solid var(--accent-blue)' : '1px solid var(--border-primary)',
+                    transition: 'all 0.15s ease'
+                  }}>
+                    {/* Checkbox */}
+                    <div style={{ display: 'flex', alignItems: 'center', paddingRight: '12px' }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleSelect(f.id)}
+                        style={{ width: '18px', height: '18px', accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                      />
                     </div>
-                  ) : (
-                    <div 
-                      onClick={() => setSelectedFacultyModal(f)}
-                      style={{ cursor: 'pointer', flex: 1 }}
-                      title="Click to view detailed subject assignments & weekly time slot schedule"
-                    >
-                      <div style={{ fontWeight: 700, fontSize: '0.938rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {f.name}
-                        <CalendarCheck size={14} style={{ opacity: 0.6 }} />
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{f.email} • {f.designation} ({f.department})</div>
-                    </div>
-                  )}
 
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     {isEditing === f.id ? (
-                      <>
-                        <button onClick={() => handleSaveEdit(f.id)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--success)' }}>
-                          <Check size={16} />
-                        </button>
-                        <button onClick={() => setIsEditing(null)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--text-muted)' }}>
-                          <X size={16} />
-                        </button>
-                      </>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, marginRight: '10px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input className="input-field" value={editName} onChange={e => setEditName(e.target.value)} style={{ flex: 1 }} placeholder="Name" />
+                          <input className="input-field" value={editEmail} onChange={e => setEditEmail(e.target.value)} style={{ flex: 1 }} placeholder="Email" />
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <select className="input-field" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} style={{ flex: 1, padding: '4px 8px', fontSize: '0.75rem' }}>
+                            {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.id}</option>)}
+                          </select>
+                          <select className="input-field" value={editDesignation} onChange={e => setEditDesignation(e.target.value)} style={{ flex: 1, padding: '4px 8px', fontSize: '0.75rem' }}>
+                            <option value="Professor & HoD">Professor & HoD</option>
+                            <option value="Professor">Professor</option>
+                            <option value="Associate Professor">Associate Professor</option>
+                            <option value="Assistant Professor">Assistant Professor</option>
+                          </select>
+                        </div>
+                      </div>
                     ) : (
-                      <>
-                        <button onClick={() => {
-                          setIsEditing(f.id);
-                          setEditName(f.name);
-                          setEditEmail(f.email);
-                          setEditDepartment(f.department || 'CSE-DS');
-                          setEditDesignation(f.designation || 'Assistant Professor');
-                        }} className="btn btn-ghost" style={{ padding: '6px' }}>
-                          <Edit2 size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(f.id)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--danger)' }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </>
+                      <div 
+                        onClick={() => setSelectedFacultyModal(f)}
+                        style={{ cursor: 'pointer', flex: 1 }}
+                        title="Click to view detailed subject assignments & weekly time slot schedule"
+                      >
+                        <div style={{ fontWeight: 700, fontSize: '0.938rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {f.name}
+                          <CalendarCheck size={14} style={{ opacity: 0.6 }} />
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{f.email} • {f.designation} ({f.department})</div>
+                      </div>
                     )}
+
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {isEditing === f.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(f.id)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--success)' }}>
+                            <Check size={16} />
+                          </button>
+                          <button onClick={() => setIsEditing(null)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--text-muted)' }}>
+                            <X size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => {
+                            setIsEditing(f.id);
+                            setEditName(f.name);
+                            setEditEmail(f.email);
+                            setEditDepartment(f.department || 'CSE-DS');
+                            setEditDesignation(f.designation || 'Assistant Professor');
+                          }} className="btn btn-ghost" style={{ padding: '6px' }}>
+                            <Edit2 size={16} />
+                          </button>
+                          <button onClick={() => handleDelete(f.id)} className="btn btn-ghost" style={{ padding: '6px', color: 'var(--danger)' }}>
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
