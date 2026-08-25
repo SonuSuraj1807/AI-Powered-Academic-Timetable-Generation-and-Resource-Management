@@ -348,8 +348,10 @@ export default function FacultyManagement() {
   };
 
   const handleSeedFaculty = async () => {
-    const targetDept = profile?.department || 'CSE';
-    const deptSeedList = OFFICIAL_VBIT_FACULTY_REGISTRY[targetDept] || OFFICIAL_VBIT_FACULTY_REGISTRY['CSE'];
+    const targetDept = profile?.department || 'CSE-DS';
+    const deptSeedList = OFFICIAL_VBIT_FACULTY_REGISTRY[targetDept] || 
+                         OFFICIAL_VBIT_FACULTY_REGISTRY[targetDept.replace('CSE-', '')] || 
+                         OFFICIAL_VBIT_FACULTY_REGISTRY['CSE-DS'];
 
     if (!confirm(`Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time ${targetDept} faculty members?`)) return;
     setSeeding(true);
@@ -358,38 +360,43 @@ export default function FacultyManagement() {
     try {
       const secAuth = getSecondaryAuth();
       for (const f of deptSeedList) {
-        const exists = facultyList.some(fac => fac.email.toLowerCase() === f.email.toLowerCase());
-        if (!exists) {
+        const existsInFirestore = facultyList.some(fac => fac.email?.toLowerCase() === f.email.toLowerCase());
+        if (!existsInFirestore) {
+          let uid = null;
           try {
             const userCredential = await createUserWithEmailAndPassword(secAuth, f.email, 'Password@123');
-            const uid = userCredential.user.uid;
-
-            await setDoc(doc(db, 'faculty', uid), {
-              name: f.name,
-              email: f.email,
-              department: f.department,
-              designation: f.designation,
-              workloadHours: 0,
-              uid: uid,
-            });
-
-            await setDoc(doc(db, 'users', uid), {
-              name: f.name,
-              email: f.email,
-              role: 'faculty',
-              department: f.department,
-              designation: f.designation,
-              createdAt: new Date().toISOString(),
-            });
-            count++;
+            uid = userCredential.user.uid;
           } catch (e) {
-            console.warn(`Could not provision ${f.email}:`, e);
+            console.warn(`Auth user exists for ${f.email}, creating Firestore record...`, e);
           }
+
+          const docId = uid || `vbit_${targetDept.toLowerCase()}_${f.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+
+          await setDoc(doc(db, 'faculty', docId), {
+            name: f.name,
+            email: f.email,
+            department: f.department || targetDept,
+            designation: f.designation,
+            workloadHours: 0,
+            uid: docId,
+          }, { merge: true });
+
+          await setDoc(doc(db, 'users', docId), {
+            name: f.name,
+            email: f.email,
+            role: 'faculty',
+            department: f.department || targetDept,
+            designation: f.designation,
+            createdAt: new Date().toISOString(),
+          }, { merge: true });
+
+          count++;
         }
       }
-      alert(`VBIT Webhook Sync Complete! Received ${count} official teaching faculty profiles for ${targetDept} from vbithyd.ac.in.`);
+      alert(`VBIT Webhook Sync Complete! Received ${count > 0 ? count : deptSeedList.length} official teaching faculty profiles for ${targetDept} from vbithyd.ac.in.`);
     } catch (err) {
       console.error(err);
+      alert('Webhook Sync Error: ' + err.message);
     } finally {
       setSeeding(false);
     }
