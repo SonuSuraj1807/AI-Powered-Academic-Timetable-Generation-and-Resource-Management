@@ -38,6 +38,10 @@ export default function StudentSettingsPage() {
     }
   };
 
+  const studentEmail = profile?.email || '23p61a6794@vbit.ac.in';
+  const studentRollNo = studentEmail.split('@')[0].toUpperCase();
+  const studentName = (profile?.name && profile.name.toUpperCase() !== 'STUDENT') ? profile.name : studentRollNo;
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '16px' }}>
       <div style={{ marginBottom: '24px' }}>
@@ -81,15 +85,15 @@ export default function StudentSettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Full Name 🔒</label>
-            <input className="input-field" value={profile?.name || profile?.displayName || (profile?.email ? profile.email.split('@')[0].toUpperCase() : 'SURAJ')} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={studentName} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Hall Ticket / Roll Number 🔒</label>
-            <input className="input-field" value={profile?.hallTicketNo || (profile?.email ? profile.email.split('@')[0].toUpperCase() : '23P61A6794')} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={studentRollNo} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Institutional Email 🔒</label>
-            <input className="input-field" value={profile?.email || '23p61a6794@vbit.ac.in'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={studentEmail} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Department / Branch 🔒</label>
