@@ -659,6 +659,7 @@ export default function ExamSeatingController() {
                       {/* Folder Header */}
                       <div
                         onClick={() => toggleFolder(group.key)}
+                        className="hover-checkbox-parent"
                         style={{
                           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                           padding: '16px 20px', background: 'rgba(255, 255, 255, 0.02)',
@@ -675,11 +676,14 @@ export default function ExamSeatingController() {
                             }}
                             style={{ cursor: 'pointer' }}
                           >
-                            <div style={{
-                              width: '20px', height: '20px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              background: isFolderAllSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.05)',
-                              border: isFolderAllSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.2)',
-                            }}>
+                            <div
+                              className={`hover-checkbox ${isFolderAllSelected || folderSelectedCount > 0 ? 'selected' : ''}`}
+                              style={{
+                                width: '20px', height: '20px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                background: isFolderAllSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.08)',
+                                border: isFolderAllSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.3)',
+                              }}
+                            >
                               {isFolderAllSelected && <Check size={13} color="#ffffff" strokeWidth={3} />}
                             </div>
                           </div>
@@ -740,7 +744,7 @@ export default function ExamSeatingController() {
                             return (
                               <div
                                 key={planDoc.id}
-                                className="solid-card"
+                                className="solid-card hover-checkbox-parent"
                                 style={{
                                   padding: '16px', borderRadius: '12px',
                                   background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface-glass)',
@@ -760,11 +764,14 @@ export default function ExamSeatingController() {
                                         }}
                                         style={{ cursor: 'pointer' }}
                                       >
-                                        <div style={{
-                                          width: '18px', height: '18px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                          background: isSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.05)',
-                                          border: isSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.2)',
-                                        }}>
+                                        <div
+                                          className={`hover-checkbox ${isSelected ? 'selected' : ''}`}
+                                          style={{
+                                            width: '18px', height: '18px', borderRadius: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            background: isSelected ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' : 'rgba(255, 255, 255, 0.08)',
+                                            border: isSelected ? '1px solid #60A5FA' : '1px solid rgba(255, 255, 255, 0.3)',
+                                          }}
+                                        >
                                           {isSelected && <Check size={12} color="#ffffff" strokeWidth={3} />}
                                         </div>
                                       </div>

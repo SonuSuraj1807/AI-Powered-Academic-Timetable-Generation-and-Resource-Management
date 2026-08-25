@@ -596,7 +596,7 @@ export default function FacultyManagement() {
               {filteredFaculty.map((f) => {
                 const isChecked = selectedIds.includes(f.id);
                 return (
-                  <div key={f.id} style={{
+                  <div key={f.id} className="hover-checkbox-parent" style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '14px 16px', borderRadius: '10px',
                     background: isChecked ? 'rgba(59, 130, 246, 0.08)' : 'var(--surface-glass)',
@@ -617,6 +617,7 @@ export default function FacultyManagement() {
                       }}
                     >
                       <div
+                        className={`hover-checkbox ${isChecked ? 'selected' : ''}`}
                         style={{
                           width: '20px',
                           height: '20px',
@@ -624,17 +625,15 @@ export default function FacultyManagement() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                           background: isChecked 
                             ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)' 
-                            : 'rgba(255, 255, 255, 0.05)',
+                            : 'rgba(255, 255, 255, 0.08)',
                           border: isChecked 
                             ? '1px solid #60A5FA' 
-                            : '1px solid rgba(255, 255, 255, 0.2)',
+                            : '1px solid rgba(255, 255, 255, 0.3)',
                           boxShadow: isChecked 
                             ? '0 0 10px rgba(59, 130, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)' 
                             : 'none',
-                          transform: isChecked ? 'scale(1.05)' : 'scale(1)',
                         }}
                       >
                         {isChecked && <Check size={13} color="#ffffff" strokeWidth={3} />}

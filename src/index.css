@@ -636,3 +636,16 @@ img {
     padding: 0 var(--space-4);
   }
 }
+
+/* Dynamic Checkbox Visibility: Hidden by default, visible when selected or card is hovered */
+.hover-checkbox-parent .hover-checkbox {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-checkbox-parent:hover .hover-checkbox,
+.hover-checkbox-parent .hover-checkbox.selected {
+  opacity: 1;
+  transform: scale(1);
+}
