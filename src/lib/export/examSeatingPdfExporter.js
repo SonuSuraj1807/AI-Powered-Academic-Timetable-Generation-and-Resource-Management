@@ -319,9 +319,134 @@ export function exportInvigilatorDutySheet(invigilatorSummary, sessionInfo, cust
   doc.save(filename);
 }
 
+/**
+ * Export official Student Attendance & Signature Roll Sheet for a specific room.
+ */
+export function exportRoomAttendanceSheet(roomPlan, sessionInfo, customFilename) {
+  const doc = new jsPDF('portrait', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 12;
+
+  const { room, grid, branches, assignedInvigilators } = roomPlan;
+  let parsedGrid = grid;
+  if (typeof parsedGrid === 'string') {
+    try { parsedGrid = JSON.parse(parsedGrid); } catch (e) { parsedGrid = []; }
+  }
+
+  // Extract all seated students in roll number order
+  const seatedStudents = [];
+  if (Array.isArray(parsedGrid)) {
+    for (let r = 0; r < parsedGrid.length; r++) {
+      for (let c = 0; c < (parsedGrid[r]?.length || 0); c++) {
+        const cell = parsedGrid[r][c];
+        if (cell && cell.hallTicketNo) {
+          seatedStudents.push({
+            hallTicketNo: cell.hallTicketNo,
+            branch: cell.branch || (branches && branches[0]) || 'CSE',
+            yearSem: cell.yearSem || '',
+            name: cell.name || 'Student',
+            col: c + 1,
+            row: r + 1,
+          });
+        }
+      }
+    }
+  }
+  // Sort students by Hall Ticket Number
+  seatedStudents.sort((a, b) => a.hallTicketNo.localeCompare(b.hallTicketNo));
+
+  // 1. Header Box
+  doc.setDrawColor(15, 83, 62);
+  doc.setLineWidth(0.8);
+  doc.rect(margin, 8, pageWidth - margin * 2, 22);
+
+  // Logo box
+  doc.setFillColor(238, 108, 43);
+  doc.rect(margin + 2, 10, 18, 18, 'F');
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.6);
+  doc.circle(margin + 11, 19, 5);
+
+  doc.setTextColor(15, 83, 62);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('VIGNANA BHARATHI INSTITUTE OF TECHNOLOGY', margin + 24, 16);
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EXAMINATION BRANCH — STUDENT ATTENDANCE & SIGNATURE ROLL', margin + 24, 24);
+
+  // 2. Exam Session Subtitle & Metadata
+  let cursorY = 36;
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  
+  const examTitle = sessionInfo?.examTitle || 'B.Tech Regular/Supplementary Examinations';
+  const blockName = (room?.block || 'AVISHKAR').toUpperCase();
+  const roomLabel = `Room ${room?.roomNumber || '302'} (${blockName} Block)`;
+  const dateLabel = `Date: ${formatDateDDMMYYYYSlash(sessionInfo?.date)} (${sessionInfo?.session || 'FN'})`;
+  const timeLabel = sessionInfo?.session === 'FN' ? 'Time: 10:00 AM - 01:00 PM' : 'Time: 01:30 PM - 04:30 PM';
+
+  doc.text(examTitle, margin, cursorY);
+  doc.text(roomLabel, pageWidth - margin, cursorY, { align: 'right' });
+  cursorY += 5;
+  doc.text(dateLabel, margin, cursorY);
+  doc.text(timeLabel, pageWidth - margin, cursorY, { align: 'right' });
+  cursorY += 6;
+
+  // 3. Attendance Table
+  const head = [['#', 'Hall Ticket No', 'Student Name', 'Branch / Year', 'Answer Book No.', 'Student Signature']];
+  const body = seatedStudents.map((s, idx) => [
+    String(idx + 1),
+    s.hallTicketNo,
+    s.name,
+    s.branch,
+    '', // Blank for student to fill Answer Book Serial Number
+    '', // Blank for Student Signature
+  ]);
+
+  autoTable(doc, {
+    startY: cursorY,
+    head,
+    body,
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 3.5, halign: 'center', valign: 'middle', lineColor: [50, 50, 50], lineWidth: 0.3 },
+    headStyles: { fillColor: [15, 83, 62], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 35, fontStyle: 'bold', halign: 'center' },
+      2: { cellWidth: 45, halign: 'left' },
+      3: { cellWidth: 28 },
+      4: { cellWidth: 35 },
+      5: { cellWidth: 33 },
+    },
+    margin: { left: margin, right: margin },
+  });
+
+  const finalY = Math.min(doc.lastAutoTable.finalY + 15, pageHeight - 20);
+  
+  // Invigilator Signature Section
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+
+  const invNames = assignedInvigilators && assignedInvigilators.length > 0
+    ? assignedInvigilators.map(i => i.name).join(', ')
+    : 'Assigned Invigilator';
+
+  doc.text(`Invigilator Name: ${invNames}`, margin, finalY);
+  doc.text('Invigilator Signature: _______________________', pageWidth - margin, finalY, { align: 'right' });
+
+  const dateStr = formatDateDDMMYYYY(sessionInfo?.date);
+  const filename = customFilename || `Attendance_Room_${room?.roomNumber}_${dateStr}_${sessionInfo?.session || 'FN'}.pdf`;
+  doc.save(filename);
+}
+
 export default {
   exportSingleRoomPDF,
   exportBatchPDF,
   exportInvigilatorDutySheet,
+  exportRoomAttendanceSheet,
   buildOfficialFilename,
 };

@@ -187,28 +187,53 @@ function interleaveIntoRooms(branchGroups, rooms) {
     const { branchA, branchB } = pair;
 
     if (!branchB) {
-      // Single branch – fill rooms with just this branch (no interleaving needed)
+      // Single branch – split roll numbers into two halves for column interleaving (Col 0, 2 vs Col 1, 3)
+      // to ensure adjacent bench seats NEVER have contiguous roll numbers
       const students = branchGroups[branchA];
-      while (consumed[branchA] < students.length) {
+      const remainingStudents = students.slice(consumed[branchA]);
+      const half = Math.ceil(remainingStudents.length / 2);
+      const halfA = remainingStudents.slice(0, half);
+      const halfB = remainingStudents.slice(half);
+
+      let aPtr = 0;
+      let bPtr = 0;
+
+      while (aPtr < halfA.length || bPtr < halfB.length) {
         if (roomIdx >= rooms.length) break;
         const room = rooms[roomIdx];
         const rows = room.rows || 6;
         const cols = room.cols || 4;
         const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
-
         let seated = 0;
+
         for (let c = 0; c < cols; c++) {
+          const isColA = c % 2 === 0; // Col 0, 2 -> Group A (Lower Roll Nos); Col 1, 3 -> Group B (Upper Roll Nos)
           for (let r = 0; r < rows; r++) {
-            if (consumed[branchA] >= students.length) break;
-            grid[r][c] = {
-              hallTicketNo: students[consumed[branchA]].hallTicketNo,
-              branch: students[consumed[branchA]].branch,
-              yearSem: students[consumed[branchA]].yearSem || `${branchA}-?-? Sem`,
-              name: students[consumed[branchA]].name || '',
-              regulation: students[consumed[branchA]].regulation || '',
-            };
-            consumed[branchA]++;
-            seated++;
+            if (isColA) {
+              if (aPtr < halfA.length) {
+                grid[r][c] = {
+                  hallTicketNo: halfA[aPtr].hallTicketNo,
+                  branch: halfA[aPtr].branch,
+                  yearSem: halfA[aPtr].yearSem || `${branchA}`,
+                  name: halfA[aPtr].name || '',
+                  regulation: halfA[aPtr].regulation || '',
+                };
+                aPtr++;
+                seated++;
+              }
+            } else {
+              if (bPtr < halfB.length) {
+                grid[r][c] = {
+                  hallTicketNo: halfB[bPtr].hallTicketNo,
+                  branch: halfB[bPtr].branch,
+                  yearSem: halfB[bPtr].yearSem || `${branchA}`,
+                  name: halfB[bPtr].name || '',
+                  regulation: halfB[bPtr].regulation || '',
+                };
+                bPtr++;
+                seated++;
+              }
+            }
           }
         }
 
@@ -224,6 +249,7 @@ function interleaveIntoRooms(branchGroups, rooms) {
         }
         roomIdx++;
       }
+      consumed[branchA] = students.length;
       continue;
     }
 

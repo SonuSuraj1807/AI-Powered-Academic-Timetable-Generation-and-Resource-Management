@@ -30,6 +30,7 @@ import {
   exportSingleRoomPDF,
   exportBatchPDF,
   exportInvigilatorDutySheet,
+  exportRoomAttendanceSheet,
 } from '../../lib/export/examSeatingPdfExporter';
 import SeatingSheetPreview from '../../components/exam/SeatingSheetPreview';
 import { db } from '../../lib/firebase';
@@ -799,11 +800,11 @@ export default function ExamSeatingController() {
                                   )}
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '6px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', gap: '6px', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
                                   <button
                                     onClick={() => setPreviewRoomPlanDoc(planDoc)}
                                     className="btn btn-primary btn-sm"
-                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '80px' }}
                                   >
                                     <Eye size={13} /> View Grid
                                   </button>
@@ -820,9 +821,28 @@ export default function ExamSeatingController() {
                                       exportSingleRoomPDF(reconstructedPlan, { date: planDoc.sessionDate, session: planDoc.sessionSlot, examTitle: planDoc.examTitle });
                                     }}
                                     className="btn btn-ghost btn-sm"
-                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', minWidth: '70px' }}
+                                    title="Download Seating Plan PDF"
                                   >
-                                    <Download size={13} /> PDF
+                                    <Download size={13} /> Grid PDF
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      const reconstructedPlan = {
+                                        room: { roomNumber: planDoc.roomNumber, block: planDoc.block, floor: planDoc.floor, cols: 4, rows: 6 },
+                                        grid: parsedGrid,
+                                        branches: planDoc.branches,
+                                        studentCount: planDoc.studentCount,
+                                        assignedInvigilators: planDoc.assignedInvigilators,
+                                      };
+                                      exportRoomAttendanceSheet(reconstructedPlan, { date: planDoc.sessionDate, session: planDoc.sessionSlot, examTitle: planDoc.examTitle });
+                                    }}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: 'var(--accent-amber)', minWidth: '95px' }}
+                                    title="Download Official Student Attendance & Signature Roll Sheet"
+                                  >
+                                    <ClipboardList size={13} /> Attendance
                                   </button>
 
                                   <button
