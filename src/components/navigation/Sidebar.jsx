@@ -24,6 +24,16 @@ const MENU_CONFIG = {
       { path: '/admin/reports', icon: BarChart3, label: 'Analytics' },
     ],
   },
+  exam_controller: {
+    label: 'Exam Controller',
+    color: '#EC4899',
+    items: [
+      { path: '/admin/exam-scheduler', icon: CalendarCheck, label: 'Publish Exam Schedules', end: true },
+      { path: '/admin/exam-seating', icon: ClipboardList, label: 'Seating Allocation' },
+      { path: '/admin/exam-rooms', icon: Building2, label: 'Invigilation & Rooms' },
+      { path: '/admin/schedules', icon: Calendar, label: 'View All Timetables' },
+    ],
+  },
   admin: {
     label: 'Administrator',
     color: '#E8522E',
@@ -68,19 +78,34 @@ const MENU_CONFIG = {
 export default function Sidebar({ collapsed, onToggle }) {
   const { role, profile, logout } = useAuthStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const config = MENU_CONFIG[role] || MENU_CONFIG.admin;
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} id="main-sidebar">
-      {/* Header */}
-      <div style={{
-        padding: collapsed ? '20px 12px' : '20px 20px',
-        borderBottom: '1px solid var(--border-primary)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-        minHeight: '72px',
-      }}>
+      {/* Brand Header */}
+      <div 
+        onClick={() => {
+          const ROLE_ROUTES = {
+            superadmin: '/superadmin',
+            admin: '/admin',
+            faculty: '/faculty',
+            student: '/student',
+            exam_controller: '/admin/exam-scheduler',
+          };
+          navigate(ROLE_ROUTES[role] || '/');
+        }}
+        style={{
+          padding: collapsed ? '16px 12px' : '16px 20px',
+          borderBottom: '1px solid var(--border-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          minHeight: '72px',
+          cursor: 'pointer',
+        }}
+        title="Go to Dashboard"
+      >
         <div style={{
           width: '40px', height: '40px', flexShrink: 0,
           borderRadius: '12px',

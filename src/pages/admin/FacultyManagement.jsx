@@ -45,7 +45,10 @@ const getSecondaryAuth = () => {
   return getAuth(app);
 };
 
+import useAuthStore from '../../stores/authStore';
+
 export default function FacultyManagement() {
+  const profile = useAuthStore(state => state.profile);
   const [searchParams] = useSearchParams();
   const [facultyList, setFacultyList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,12 +56,18 @@ export default function FacultyManagement() {
   const [filterQuery, setFilterQuery] = useState(searchParams.get('q') || '');
   const [selectedFacultyModal, setSelectedFacultyModal] = useState(null);
 
-  // Form states
+  // Form states — default department to logged-in profile
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [department, setDepartment] = useState('CSE-DS');
+  const [department, setDepartment] = useState(profile?.department || 'CSE-DS');
   const [designation, setDesignation] = useState('Assistant Professor');
+
+  useEffect(() => {
+    if (profile?.department) {
+      setDepartment(profile.department);
+    }
+  }, [profile?.department]);
 
   // Edit states
   const [isEditing, setIsEditing] = useState(null);

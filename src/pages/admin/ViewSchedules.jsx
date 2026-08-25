@@ -1,16 +1,22 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { Calendar, Trash2, FileSpreadsheet, Download, RefreshCw, Eye } from 'lucide-react';
 import TimetableGrid from '../../components/timetable/TimetableGrid';
 import { TIME_SLOTS } from '../../data/curriculumSeed';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
 
+import useAuthStore from '../../stores/authStore';
+
 export default function ViewSchedules() {
+  const profile = useAuthStore(state => state.profile);
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
+
+  const isSuperAdmin = profile?.role === 'superadmin' || profile?.role === 'exam_controller';
+  const userDept = profile?.department;
 
   // Real-time syncing with Firestore
   useEffect(() => {
@@ -60,6 +66,10 @@ export default function ViewSchedules() {
     exportToPDF(sched, timeConfig, `${sched.department}_Y${sched.year}_Sem${sched.semester}_Sec${sched.section}_Timetable`);
   };
 
+  const displaySchedules = isSuperAdmin 
+    ? schedules 
+    : (userDept ? schedules.filter(s => s.department === userDept) : schedules);
+
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px' }}>
       <div>
@@ -75,14 +85,14 @@ export default function ViewSchedules() {
       <div style={{ marginTop: '24px' }}>
         {/* Published Directory (Full Width) */}
         <div className="solid-card" style={{ padding: '20px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Published Directory</h3>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Published Directory ({displaySchedules.length})</h3>
           {loading ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading timetables...</p>
-          ) : schedules.length === 0 ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No published timetables found.</p>
+          ) : displaySchedules.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No published timetables found for this scope.</p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-              {schedules.map(sched => (
+              {displaySchedules.map(sched => (
                 <div 
                   key={sched.id} 
                   style={{

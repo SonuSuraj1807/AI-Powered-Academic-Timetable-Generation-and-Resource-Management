@@ -28,11 +28,13 @@ export function findSubstitutes({ absentFacultyId, affectedSlots, allFaculty, al
   // Build workload map (hours per faculty this week)
   const workloadMap = buildWorkloadMap(allSchedules);
 
+  const absentFaculty = allFaculty.find(f => (f.uid || f.id) === absentFacultyId);
   const candidates = [];
 
   for (const faculty of allFaculty) {
+    const facId = faculty.uid || faculty.id;
     // Skip the absent faculty themselves
-    if (faculty.uid === absentFacultyId) continue;
+    if (facId === absentFacultyId) continue;
 
     let totalScore = 0;
     const matchReasons = [];
@@ -43,9 +45,9 @@ export function findSubstitutes({ absentFacultyId, affectedSlots, allFaculty, al
       const slotKey = `${slot.day}-${slot.periodIndex}`;
       
       // ── Availability Check ──
-      if (busyMap[faculty.uid]?.[slotKey]) {
+      if (busyMap[facId]?.[slotKey]) {
         canCoverAll = false;
-        conflicts.push(`Busy on ${slot.day} Period ${slot.periodIndex + 1} (${busyMap[faculty.uid][slotKey]})`);
+        conflicts.push(`Busy on ${slot.day} Period ${slot.periodIndex + 1} (${busyMap[facId][slotKey]})`);
         continue;
       }
 
@@ -58,14 +60,14 @@ export function findSubstitutes({ absentFacultyId, affectedSlots, allFaculty, al
       }
 
       // ── Same Department Bonus ──
-      if (faculty.department === allFaculty.find(f => f.uid === absentFacultyId)?.department) {
+      if (absentFaculty && faculty.department === absentFaculty.department) {
         totalScore += 10;
         if (!matchReasons.includes('Same department')) matchReasons.push('Same department');
       }
     }
 
     // ── Workload Balance Penalty ──
-    const currentHours = workloadMap[faculty.uid] || 0;
+    const currentHours = workloadMap[facId] || 0;
     const maxHours = faculty.maxHoursPerWeek || 20;
     const hoursRemaining = maxHours - currentHours;
     
@@ -80,11 +82,10 @@ export function findSubstitutes({ absentFacultyId, affectedSlots, allFaculty, al
     }
 
     // ── 7-Day Week Boundary Check ──
-    // Ensure substitution is within the current calendar week
-    totalScore += 2; // Base score for being within bounds
+    totalScore += 2;
 
     candidates.push({
-      facultyId: faculty.uid,
+      facultyId: facId,
       facultyName: faculty.name,
       department: faculty.department,
       score: totalScore,

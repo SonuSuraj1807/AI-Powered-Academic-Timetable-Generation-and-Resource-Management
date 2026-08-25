@@ -20,15 +20,18 @@ export default function DashboardLayout() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const { profile } = useAuthStore();
-  const { subscribeToNotifications, cleanup } = useNotificationStore();
+  const { subscribeToNotifications } = useNotificationStore();
 
-  // Subscribe to notifications when the dashboard mounts
+  // Subscribe to real-time notifications when the dashboard mounts
   useEffect(() => {
-    if (profile?.uid) {
-      subscribeToNotifications(profile.uid);
+    let unsub = null;
+    if (profile?.role) {
+      unsub = subscribeToNotifications(profile.role, profile.email, profile.department);
     }
-    return () => cleanup();
-  }, [profile?.uid]);
+    return () => {
+      if (typeof unsub === 'function') unsub();
+    };
+  }, [profile, subscribeToNotifications]);
 
   return (
     <div className="dashboard-layout">

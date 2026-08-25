@@ -12,6 +12,8 @@ const ROLE_ROUTES = {
   admin: '/admin',
   faculty: '/faculty',
   student: '/student',
+  superadmin: '/superadmin',
+  exam_controller: '/examcontroller',
 };
 
 export default function useAuthGuard(requiredRole = null) {
@@ -29,6 +31,9 @@ export default function useAuthGuard(requiredRole = null) {
 
     // Logged in but wrong role for this route
     if (requiredRole && role !== requiredRole) {
+      // Super Admin has global access to all admin, exam_controller, faculty, and student views
+      if (role === 'superadmin') return;
+
       const correctRoute = ROLE_ROUTES[role] || '/';
       navigate(correctRoute, { replace: true });
     }

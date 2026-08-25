@@ -241,12 +241,6 @@ export default function LoginCard({ role, title }) {
             marginTop: '4px',
             opacity: isSubmitting ? 0.8 : 1,
           }}
-          onMouseEnter={(e) => {
-            if (!isSubmitting) e.target.style.opacity = '0.95';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.opacity = '1';
-          }}
         >
           {isSubmitting ? (
             <>

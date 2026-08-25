@@ -37,6 +37,7 @@ import {
   collection, getDocs, addDoc, doc, writeBatch
 } from 'firebase/firestore';
 import useAuthStore from '../../stores/authStore';
+import useNotificationStore from '../../stores/notificationStore';
 
 const STEP_LABELS = [
   { label: 'Session Setup', icon: Calendar, desc: 'Configure date, session & blocks' },
@@ -78,11 +79,21 @@ export default function ExamSeatingController() {
   const [showFacultyPanel, setShowFacultyPanel] = useState(false);
   const [facultySearch, setFacultySearch] = useState('');
 
-  // ── Step 4 State ──
+  // ── Step 4 & Extra State ──
   const [isPublishing, setIsPublishing] = useState(false);
   const [published, setPublished] = useState(false);
 
-  // ── Load rooms and faculty from Firestore ──
+  // ── Quick Add Room Modal State ──
+  const [showAddRoomModal, setShowAddRoomModal] = useState(false);
+  const [newRoomData, setNewRoomData] = useState({ roomNumber: '', block: 'Srujan', floor: 0, rows: 6, cols: 4, capacity: 24 });
+  const [isAddingRoom, setIsAddingRoom] = useState(false);
+
+  // ── Published Plans Inspector State ──
+  const [publishedPlansList, setPublishedPlansList] = useState([]);
+  const [viewingPublishedTab, setViewingPublishedTab] = useState(false);
+  const [previewRoomPlanDoc, setPreviewRoomPlanDoc] = useState(null);
+
+  // ── Load rooms, faculty, and published plans from Firestore ──
   useEffect(() => {
     getDocs(collection(db, 'exam_rooms')).then(snap => {
       setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -90,7 +101,141 @@ export default function ExamSeatingController() {
     getDocs(collection(db, 'faculty')).then(snap => {
       setFacultyList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+    getDocs(collection(db, 'seating_plans')).then(snap => {
+      setPublishedPlansList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
   }, []);
+
+  // ── Auto-Save Draft to sessionStorage ──
+  useEffect(() => {
+    if (sessionDate || examTitle || studentData.length > 0) {
+      const draft = { sessionDate, sessionSlot, examTitle, examType, selectedRegulations, selectedBlocks, subjects, studentData, csvFileName };
+      sessionStorage.setItem('vbit_seating_wizard_draft', JSON.stringify(draft));
+    }
+  }, [sessionDate, sessionSlot, examTitle, examType, selectedRegulations, selectedBlocks, subjects, studentData, csvFileName]);
+
+  // ── Restore Draft from sessionStorage ──
+  useEffect(() => {
+    const saved = sessionStorage.getItem('vbit_seating_wizard_draft');
+    if (saved) {
+      try {
+        const d = JSON.parse(saved);
+        if (d.sessionDate) setSessionDate(d.sessionDate);
+        if (d.sessionSlot) setSessionSlot(d.sessionSlot);
+        if (d.examTitle) setExamTitle(d.examTitle);
+        if (d.examType) setExamType(d.examType);
+        if (d.selectedRegulations) setSelectedRegulations(d.selectedRegulations);
+        if (d.selectedBlocks) setSelectedBlocks(d.selectedBlocks);
+        if (d.subjects) setSubjects(d.subjects);
+        if (d.studentData) setStudentData(d.studentData);
+        if (d.csvFileName) setCsvFileName(d.csvFileName);
+      } catch (err) {
+        console.error('Draft restore error:', err);
+      }
+    }
+  }, []);
+
+  // ── Quick Add Room Handler ──
+  const handleQuickAddRoom = async () => {
+    if (!newRoomData.roomNumber.trim()) return;
+    setIsAddingRoom(true);
+    try {
+      const docRef = await addDoc(collection(db, 'exam_rooms'), {
+        roomNumber: newRoomData.roomNumber,
+        block: newRoomData.block,
+        floor: Number(newRoomData.floor || 0),
+        rows: Number(newRoomData.rows || 6),
+        cols: Number(newRoomData.cols || 4),
+        capacity: Number(newRoomData.capacity || 24),
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+
+      const added = { id: docRef.id, ...newRoomData, isActive: true };
+      setRooms(prev => [...prev, added]);
+      if (!selectedBlocks.includes(newRoomData.block)) {
+        setSelectedBlocks(prev => [...prev, newRoomData.block]);
+      }
+      setShowAddRoomModal(false);
+      setNewRoomData({ roomNumber: '', block: 'Srujan', floor: 0, rows: 6, cols: 4, capacity: 24 });
+    } catch (err) {
+      alert('Error adding room: ' + err.message);
+    }
+    setIsAddingRoom(false);
+  };
+
+  // ── PUBLISH & SEND NOTIFICATIONS ──
+  const handlePublish = async () => {
+    if (!result || result.roomPlans.length === 0) return;
+    setIsPublishing(true);
+
+    try {
+      const batch = writeBatch(db);
+      const notifiedFaculty = new Set();
+
+      for (const plan of result.roomPlans) {
+        const planRef = doc(collection(db, 'seating_plans'));
+        const cleanInvigilators = (plan.assignedInvigilators || []).map(inv => ({
+          facultyId: String(inv.facultyId || ''),
+          name: String(inv.name || ''),
+          designation: String(inv.designation || ''),
+          department: String(inv.department || ''),
+        }));
+
+        batch.set(planRef, {
+          sessionDate: String(sessionDate || ''),
+          sessionSlot: String(sessionSlot || 'FN'),
+          examTitle: String(examTitle || ''),
+          examType: String(examType || 'regular'),
+          roomId: String(plan.room?.id || ''),
+          roomNumber: String(plan.room?.roomNumber || ''),
+          block: String(plan.room?.block || ''),
+          floor: Number(plan.room?.floor || 0),
+          gridData: JSON.stringify(plan.grid || []),
+          branches: Array.isArray(plan.branches) ? plan.branches.map(String) : [],
+          branchCount: Number(plan.branchCount || 0),
+          studentCount: Number(plan.studentCount || 0),
+          assignedInvigilators: cleanInvigilators,
+          totalRegistered: Number(plan.totalRegistered || 0),
+          createdBy: String(profile?.uid || 'unknown'),
+          createdAt: new Date().toISOString(),
+        });
+
+        // Queue Invigilation Notification to /notifications collection for each assigned faculty
+        cleanInvigilators.forEach(inv => {
+          if (inv.facultyId && !notifiedFaculty.has(inv.facultyId)) {
+            notifiedFaculty.add(inv.facultyId);
+            const notifRef = doc(collection(db, 'notifications'));
+            batch.set(notifRef, {
+              userId: inv.facultyId,
+              title: 'New Invigilation Duty Assigned 📋',
+              message: `You are assigned invigilation duty for "${examTitle}" on ${sessionDate} (${sessionSlot}) at Room ${plan.room?.roomNumber}, ${plan.room?.block} Block.`,
+              type: 'invigilation',
+              read: false,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        });
+      }
+
+      await batch.commit();
+      
+      // Dispatch real-time notification to Student & Faculty portals
+      useNotificationStore.getState().sendNotification({
+        title: 'Exam Seating Arrangement Published 🪑',
+        message: `Seating plan for "${examTitle}" on ${sessionDate} (${sessionSlot}) has been published. View your seat allocation on the Student Portal.`,
+        type: 'exam',
+        targetRole: 'ALL',
+      });
+
+      setPublished(true);
+      sessionStorage.removeItem('vbit_seating_wizard_draft');
+    } catch (err) {
+      console.error('Publish error:', err);
+      alert('Publishing error: ' + err.message);
+    }
+    setIsPublishing(false);
+  };
 
   // ── Filtered rooms by selected blocks ──
   const filteredRooms = useMemo(() => {
@@ -213,43 +358,6 @@ export default function ExamSeatingController() {
     setIsGenerating(false);
   };
 
-  // ── PUBLISH ──
-  const handlePublish = async () => {
-    if (!result || result.roomPlans.length === 0) return;
-    setIsPublishing(true);
-
-    try {
-      const batch = writeBatch(db);
-
-      for (const plan of result.roomPlans) {
-        const planRef = doc(collection(db, 'seating_plans'));
-        batch.set(planRef, {
-          sessionDate,
-          sessionSlot,
-          examTitle,
-          examType,
-          roomId: plan.room.id,
-          roomNumber: plan.room.roomNumber,
-          block: plan.room.block,
-          floor: plan.room.floor,
-          gridData: plan.grid,
-          branches: plan.branches,
-          branchCount: plan.branchCount,
-          studentCount: plan.studentCount,
-          assignedInvigilators: plan.assignedInvigilators || [],
-          totalRegistered: plan.totalRegistered,
-          createdBy: profile?.uid || 'unknown',
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      await batch.commit();
-      setPublished(true);
-    } catch (err) {
-      console.error('Publish error:', err);
-    }
-    setIsPublishing(false);
-  };
 
   // ── PDF EXPORTS ──
   const sessionInfo = {
@@ -282,16 +390,160 @@ export default function ExamSeatingController() {
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* ── Header ── */}
-      <div className="animate-fade-in-up" style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <ClipboardList size={24} style={{ color: '#E8522E' }} />
-          Exam Seating Plan Controller
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
-          Generate anti-malpractice interleaved seating plans with dynamic invigilation allocation.
-        </p>
+      {/* ── Header with Published Directory Switcher ── */}
+      <div className="animate-fade-in-up" style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ClipboardList size={24} style={{ color: '#E8522E' }} />
+            Exam Seating Plan Controller
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
+            Generate anti-malpractice interleaved seating plans & browse published room blueprints.
+          </p>
+        </div>
+
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
+          <button
+            onClick={() => setViewingPublishedTab(false)}
+            style={{
+              padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+              background: !viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
+              color: !viewingPublishedTab ? 'white' : 'var(--text-secondary)',
+              border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
+            }}
+          >
+            ⚡ Wizard Generator
+          </button>
+          <button
+            onClick={() => setViewingPublishedTab(true)}
+            id="view-published-plans-tab"
+            style={{
+              padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+              background: viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
+              color: viewingPublishedTab ? 'white' : 'var(--text-secondary)',
+              border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <Eye size={15} /> Published Plans ({publishedPlansList.length})
+          </button>
+        </div>
       </div>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* DIRECTORY VIEW FOR PUBLISHED SEATING PLANS  */}
+      {/* ═══════════════════════════════════════════ */}
+      {viewingPublishedTab ? (
+        <div className="animate-fade-in-up">
+          <div className="solid-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Building2 size={20} style={{ color: 'var(--accent-blue)' }} /> Published Room Seating Plans Directory
+            </h3>
+
+            {publishedPlansList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                <ClipboardList size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                <p style={{ fontSize: '0.875rem' }}>No published exam seating plans found in database.</p>
+                <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>Use the ⚡ Wizard Generator tab above to create and publish seating plans.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+                {publishedPlansList.map(planDoc => {
+                  let parsedGrid = [];
+                  try { parsedGrid = JSON.parse(planDoc.gridData || '[]'); } catch (e) {}
+
+                  return (
+                    <div
+                      key={planDoc.id}
+                      className="solid-card"
+                      style={{
+                        padding: '18px', borderRadius: '12px',
+                        background: 'var(--surface-glass)',
+                        border: '1px solid var(--border-primary)',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', background: 'var(--accent-blue-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
+                            Room {planDoc.roomNumber} ({planDoc.block} Block)
+                          </span>
+                          <span style={{ fontSize: '0.688rem', color: 'var(--text-muted)' }}>
+                            {planDoc.sessionSlot} • {planDoc.sessionDate}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: '0.938rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                          {planDoc.examTitle || 'B.Tech Examinations'}
+                        </div>
+
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                          Branches: {planDoc.branches?.join(', ') || 'CSE-DS'} • {planDoc.studentCount} Students
+                        </div>
+
+                        {planDoc.assignedInvigilators && planDoc.assignedInvigilators.length > 0 && (
+                          <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '6px' }}>
+                            👤 Invigilator: {planDoc.assignedInvigilators.map(i => i.name).join(', ')}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-primary)' }}>
+                        <button
+                          onClick={() => setPreviewRoomPlanDoc(planDoc)}
+                          className="btn btn-primary btn-sm"
+                          style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        >
+                          <Eye size={13} /> View Grid
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            const reconstructedPlan = {
+                              room: { roomNumber: planDoc.roomNumber, block: planDoc.block, floor: planDoc.floor, cols: 4, rows: 6 },
+                              grid: parsedGrid,
+                              branches: planDoc.branches,
+                              studentCount: planDoc.studentCount,
+                              assignedInvigilators: planDoc.assignedInvigilators,
+                            };
+                            exportSingleRoomPDF(reconstructedPlan, { date: planDoc.sessionDate, session: planDoc.sessionSlot, examTitle: planDoc.examTitle });
+                          }}
+                          className="btn btn-ghost btn-sm"
+                          style={{ flex: 1, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                        >
+                          <Download size={13} /> PDF
+                        </button>
+
+                        <button
+                          onClick={async () => {
+                            if (confirm(`Unpublish seating plan for room ${planDoc.roomNumber}?`)) {
+                              try {
+                                await deleteDoc(doc(db, 'seating_plans', planDoc.id));
+                                setPublishedPlansList(prev => prev.filter(p => p.id !== planDoc.id));
+                                alert(`Room ${planDoc.roomNumber} plan successfully unpublished.`);
+                              } catch (err) {
+                                console.error('Unpublish error:', err);
+                                alert('Error unpublishing plan: ' + err.message);
+                              }
+                            }
+                          }}
+                          className="btn btn-ghost btn-sm"
+                          style={{ color: 'var(--danger)', padding: '6px 10px' }}
+                          title="Unpublish Plan"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
 
       {/* ── Stepper ── */}
       <div className="solid-card animate-fade-in-up delay-1" style={{ padding: '16px 20px', marginBottom: '20px', opacity: 0 }}>
@@ -489,14 +741,96 @@ export default function ExamSeatingController() {
               })}
             </div>
 
-            {/* Summary */}
+            {/* Summary & Quick Add Room */}
             <div style={{
               marginTop: '16px', padding: '12px', borderRadius: '10px',
               background: 'var(--accent-green-subtle)',
               fontSize: '0.813rem', fontWeight: 600, color: 'var(--accent-green)',
-              textAlign: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
-              {filteredRooms.length} rooms selected • {filteredRooms.reduce((s, r) => s + (r.capacity || 24), 0)} total seats
+              <span>{filteredRooms.length} rooms selected • {filteredRooms.reduce((s, r) => s + (r.capacity || 24), 0)} total seats</span>
+              <button
+                onClick={() => setShowAddRoomModal(true)}
+                className="btn btn-sm btn-ghost"
+                style={{ color: 'var(--accent-green)', border: '1px solid var(--accent-green)' }}
+                id="quick-add-room-btn"
+              >
+                <Plus size={14} /> Add Room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick Add Room Modal Overlay ── */}
+      {showAddRoomModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div className="solid-card animate-fade-in-up" style={{ padding: '24px', width: '420px', maxWidth: '90vw' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Building2 size={18} style={{ color: '#E8522E' }} /> Quick Add Exam Room
+              </h3>
+              <button onClick={() => setShowAddRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Room Number / Code *</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. 108 or Ground-108"
+                  value={newRoomData.roomNumber}
+                  onChange={e => setNewRoomData(p => ({ ...p, roomNumber: e.target.value }))}
+                  id="modal-room-number-input"
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Block</label>
+                <select
+                  className="input-field"
+                  value={newRoomData.block}
+                  onChange={e => setNewRoomData(p => ({ ...p, block: e.target.value }))}
+                >
+                  {EXAM_BLOCKS.map(b => (
+                    <option key={b.id} value={b.name}>{b.name} Block</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Floor</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={newRoomData.floor}
+                    onChange={e => setNewRoomData(p => ({ ...p, floor: Number(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Capacity</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={newRoomData.capacity}
+                    onChange={e => setNewRoomData(p => ({ ...p, capacity: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                <button onClick={() => setShowAddRoomModal(false)} className="btn btn-ghost">Cancel</button>
+                <button onClick={handleQuickAddRoom} disabled={isAddingRoom || !newRoomData.roomNumber.trim()} className="btn btn-primary" id="save-quick-room-btn">
+                  {isAddingRoom ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Room</>}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -947,10 +1281,51 @@ export default function ExamSeatingController() {
             Next <ChevronRight size={16} />
           </button>
         )}
-        {currentStep === STEP_LABELS.length - 1 && (
-          <div />
-        )}
       </div>
+      </>
+      )}
+
+      {/* Modal Overlay for Published Room Grid Preview */}
+      {previewRoomPlanDoc && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '20px'
+        }} onClick={() => setPreviewRoomPlanDoc(null)}>
+          <div style={{
+            background: '#0F172A', border: '1px solid var(--border-primary)',
+            borderRadius: '16px', width: '100%', maxWidth: '1000px',
+            maxHeight: '90vh', overflowY: 'auto', padding: '24px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            position: 'relative'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '16px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+                  🏛️ Room {previewRoomPlanDoc.roomNumber} ({previewRoomPlanDoc.block} Block)
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {previewRoomPlanDoc.examTitle} • Date: {previewRoomPlanDoc.sessionDate} ({previewRoomPlanDoc.sessionSlot})
+                </p>
+              </div>
+              <button onClick={() => setPreviewRoomPlanDoc(null)} className="btn btn-ghost btn-sm" style={{ fontSize: '1.2rem', padding: '4px 12px' }}>
+                ×
+              </button>
+            </div>
+
+            <SeatingSheetPreview
+              plan={{
+                room: { roomNumber: previewRoomPlanDoc.roomNumber, block: previewRoomPlanDoc.block, floor: previewRoomPlanDoc.floor, cols: 4, rows: 6 },
+                grid: typeof previewRoomPlanDoc.gridData === 'string' ? JSON.parse(previewRoomPlanDoc.gridData) : previewRoomPlanDoc.gridData,
+                assignedInvigilators: previewRoomPlanDoc.assignedInvigilators,
+                studentCount: previewRoomPlanDoc.studentCount,
+              }}
+              sessionInfo={{ date: previewRoomPlanDoc.sessionDate, session: previewRoomPlanDoc.sessionSlot, examTitle: previewRoomPlanDoc.examTitle }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

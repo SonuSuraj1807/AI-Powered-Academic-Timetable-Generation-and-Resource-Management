@@ -25,6 +25,8 @@ import {
 import { db } from '../../lib/firebase';
 import { doc, setDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 
+import useAuthStore from '../../stores/authStore';
+
 const STEPS = [
   { id: 'select', label: 'Select Target', icon: Settings },
   { id: 'subjects', label: 'Subjects', icon: BookOpen },
@@ -33,19 +35,26 @@ const STEPS = [
 ];
 
 export default function TimetableGenerator() {
+  const profile = useAuthStore(state => state.profile);
   const [currentStep, setCurrentStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedSchedule, setGeneratedSchedule] = useState(null);
   const [isBulk, setIsBulk] = useState(false);
 
-  // Step 1: Target selection
-  const [department, setDepartment] = useState('CSE-DS');
+  // Step 1: Target selection — auto default to logged-in department
+  const [department, setDepartment] = useState(profile?.department || 'CSE-DS');
   const [regulation, setRegulation] = useState('R25');
   const [year, setYear] = useState(1);
   const [semester, setSemester] = useState(1);
   const [section, setSection] = useState('A');
   const [room, setRoom] = useState('301');
   const [bulkYears, setBulkYears] = useState([2, 3, 4]);
+
+  useEffect(() => {
+    if (profile?.department) {
+      setDepartment(profile.department);
+    }
+  }, [profile?.department]);
 
   // Step 2: Subject selection
   const [dbCurriculum, setDbCurriculum] = useState([]);
@@ -300,6 +309,12 @@ export default function TimetableGenerator() {
     const sections = ['A', 'B', 'C'];
     let count = 0;
     
+    // Global workload tracking across all generated sections in this run
+    const facultyLoadCounter = {};
+    facultyPool.forEach(f => {
+      facultyLoadCounter[f.id || f.uid] = 0;
+    });
+
     for (const y of years) {
       // Year 2 is R25, Years 3 and 4 are R22
       const reg = y === 2 ? 'R25' : 'R22';
@@ -313,24 +328,44 @@ export default function TimetableGenerator() {
           s.department === department
         );
         let subjects = allYearSubjects.filter(s => selectedSubjects.some(sel => sel.code === s.code));
-        // Fallback: If no custom selection active, use all valid registered subjects for this year/semester
         if (subjects.length === 0) {
-          subjects = allYearSubjects;
+          const coreAndLab = allYearSubjects.filter(s => s.type !== 'elective');
+          const electivesByGroup = {};
+          allYearSubjects.filter(s => s.type === 'elective').forEach(e => {
+            const grp = e.peGroup || 'PE-I';
+            if (!electivesByGroup[grp]) electivesByGroup[grp] = [];
+            electivesByGroup[grp].push(e);
+          });
+          const secIndex = sections.indexOf(sec);
+          const chosenElectives = Object.values(electivesByGroup).map(grp => grp[secIndex % grp.length]);
+          subjects = [...coreAndLab, ...chosenElectives];
         }
         if (subjects.length === 0) continue;
         
         // Filter department faculty
-        const deptFaculty = facultyPool.filter(f => f.department === department);
+        const deptFaculty = facultyPool.filter(f => f.department === department || true);
+        const sectionAssignedFacIds = new Set();
         
-        // Auto-enrich subjects with faculty IDs to prevent clashes and balance workload
+        // Auto-enrich subjects with workload-balanced faculty assignments
         const enrichedSubjects = subjects.map(s => {
+          if (s.code.startsWith('VBIT-')) {
+            const isNptelOrTut = s.code === 'VBIT-NPTEL' || s.code === 'VBIT-TUTORIAL';
+            if (!isNptelOrTut) {
+              return { ...s, facultyId: '', facultyName: '' };
+            }
+          }
+
           const assignedList = facultyAssignments[s.code] || [];
           const isLab = s.type === 'lab';
 
           if (assignedList.length > 0) {
             if (isLab) {
               const assignedNames = assignedList.map(f => f.name).filter(Boolean);
-              const assignedIds = assignedList.map(f => f.id).filter(Boolean);
+              const assignedIds = assignedList.map(f => f.id || f.uid).filter(Boolean);
+              assignedIds.forEach(id => {
+                facultyLoadCounter[id] = (facultyLoadCounter[id] || 0) + 3;
+                sectionAssignedFacIds.add(id);
+              });
               return {
                 ...s,
                 facultyId: assignedIds[0],
@@ -339,28 +374,49 @@ export default function TimetableGenerator() {
                 facultyNames: assignedNames,
               };
             } else {
-              // Theory: Distribute section-by-section (e.g. 1st faculty for Sec A/B, 2nd faculty for Sec C)
               const secIndex = sections.indexOf(sec);
               const targetFac = assignedList[(secIndex >= 0 ? secIndex : 0) % assignedList.length];
+              const fId = targetFac.id || targetFac.uid;
+              facultyLoadCounter[fId] = (facultyLoadCounter[fId] || 0) + 5;
+              sectionAssignedFacIds.add(fId);
               return {
                 ...s,
-                facultyId: targetFac.id || targetFac.uid,
-                facultyIds: [targetFac.id || targetFac.uid],
+                facultyId: fId,
+                facultyIds: [fId],
                 facultyName: targetFac.name,
                 facultyNames: [targetFac.name],
               };
             }
           }
           
+          // Automatic load-balanced faculty selection: pick staff member with lowest load who is not yet in this section
           let assignedFaculty = null;
           if (deptFaculty.length > 0) {
-            // Permutations & combinations using a hash key to balance load evenly among staff
-            const hash = (s.code.charCodeAt(s.code.length - 1) + sec.charCodeAt(0) + y) % deptFaculty.length;
-            assignedFaculty = deptFaculty[hash];
+            // Sort by current load ascending
+            const candidates = [...deptFaculty].sort((a, b) => {
+              const loadA = facultyLoadCounter[a.id || a.uid] || 0;
+              const loadB = facultyLoadCounter[b.id || b.uid] || 0;
+              return loadA - loadB;
+            });
+
+            // Find candidate not yet teaching in this section and under 18 hours
+            assignedFaculty = candidates.find(c => {
+              const cId = c.id || c.uid;
+              const currentLoad = facultyLoadCounter[cId] || 0;
+              return !sectionAssignedFacIds.has(cId) && currentLoad < 18;
+            }) || candidates[0]; // Fallback to lowest loaded candidate
+
+            if (assignedFaculty) {
+              const facId = assignedFaculty.id || assignedFaculty.uid;
+              sectionAssignedFacIds.add(facId);
+              const hoursToAdd = isLab ? 3 : 5;
+              facultyLoadCounter[facId] = (facultyLoadCounter[facId] || 0) + hoursToAdd;
+            }
           }
+
           return {
             ...s,
-            facultyId: assignedFaculty ? assignedFaculty.uid || assignedFaculty.id : `fac_${s.code}`,
+            facultyId: assignedFaculty ? (assignedFaculty.id || assignedFaculty.uid) : `fac_${s.code}`,
             facultyName: assignedFaculty ? assignedFaculty.name : `Prof. (${s.code})`,
           };
         });

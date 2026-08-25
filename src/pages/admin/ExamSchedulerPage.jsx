@@ -27,13 +27,18 @@ const DEMO_ROOMS = [
 
 const SLOT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#E8522E', '#F59E0B', '#06B6D4', '#EC4899', '#6366F1'];
 
+import useNotificationStore from '../../stores/notificationStore';
+
 export default function ExamSchedulerPage() {
   const [algorithm, setAlgorithm] = useState('dsatur');
   const [result, setResult] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [published, setPublished] = useState(false);
+  const sendNotification = useNotificationStore(state => state.sendNotification);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
+    setPublished(false);
     await new Promise(r => setTimeout(r, 1000));
     
     const schedule = generateExamSchedule({
@@ -43,6 +48,16 @@ export default function ExamSchedulerPage() {
     });
     setResult(schedule);
     setIsGenerating(false);
+  };
+
+  const handlePublishExams = async () => {
+    await sendNotification({
+      title: 'Exam Schedule Published',
+      message: `Examination Controller published the semester exam schedule (${DEMO_EXAMS.length} exams across ${DEMO_ROOMS.length} halls).`,
+      type: 'exam',
+      targetRole: 'ALL',
+    });
+    setPublished(true);
   };
 
   return (
@@ -68,10 +83,17 @@ export default function ExamSchedulerPage() {
               <option value="welsh-powell">Welsh-Powell</option>
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-            <button onClick={handleGenerate} disabled={isGenerating} className="btn btn-green" id="generate-exam-schedule">
-              {isGenerating ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : <><Sparkles size={16} /> Generate Schedule</>}
-            </button>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={handleGenerate} disabled={isGenerating} className="btn btn-green" id="generate-exam-schedule">
+                {isGenerating ? <><Loader2 size={16} className="animate-spin" /> Processing...</> : <><Sparkles size={16} /> Generate Schedule</>}
+              </button>
+              {result && (
+                <button onClick={handlePublishExams} disabled={published} className="btn btn-primary" style={{ background: published ? '#10B981' : undefined }}>
+                  {published ? <><Check size={16} /> Published to Portals</> : <><CalendarCheck size={16} /> Publish to Student & Faculty Portals</>}
+                </button>
+              )}
+            </div>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             {DEMO_EXAMS.length} exams • {DEMO_ROOMS.length} rooms

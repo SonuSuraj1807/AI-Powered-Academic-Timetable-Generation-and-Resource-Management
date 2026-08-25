@@ -50,15 +50,20 @@ export const REGULATION_OPTIONS = ['R25', 'R22', 'R21', 'R19'];
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Group students by branch and sort each group by hall ticket number (ascending).
+ * Group students by branch and year/sem (or paper code) and sort each group by hall ticket number (ascending).
+ * Supports Cross-Year (e.g. CSD III Year vs CSD IV Year) and Cross-Paper interleaving.
  *
- * @param {Array} students – [{ hallTicketNo, branch, yearSem, ... }]
- * @returns {Object} { branchName: [sorted students] }
+ * @param {Array} students – [{ hallTicketNo, branch, year, semester, yearSem, ... }]
+ * @returns {Object} { groupKey: [sorted students] }
  */
 function groupByBranch(students) {
   const groups = {};
   for (const s of students) {
-    const key = s.branch || 'UNKNOWN';
+    // Distinct key including Branch and Year (e.g. CSE-III or CSD-IV) to allow III vs IV Year interleaving
+    const branch = s.branch || 'UNKNOWN';
+    const yr = s.year || s.yearSem?.split('-')[1] || '';
+    const key = yr ? `${branch}-${yr}` : branch;
+
     if (!groups[key]) groups[key] = [];
     groups[key].push(s);
   }

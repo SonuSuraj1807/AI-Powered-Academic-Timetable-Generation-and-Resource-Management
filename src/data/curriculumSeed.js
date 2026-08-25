@@ -11,16 +11,19 @@
 // DEPARTMENT DEFINITIONS
 // ═══════════════════════════════════════════
 export const DEPARTMENTS = [
-  { id: 'CSE', name: 'CSE', code: 'CS' },
-  { id: 'CSE-DS', name: 'CSE-DS', code: 'DS' },
-  { id: 'CSE-AIML', name: 'CSE-AIML', code: 'AM' },
-  { id: 'CSE-CS', name: 'CSE-CS', code: 'CC' },
-  { id: 'CSE-BS', name: 'CSE-BS', code: 'CB' },
-  { id: 'IT', name: 'IT', code: 'IT' },
-  { id: 'ECE', name: 'ECE', code: 'EC' },
-  { id: 'EEE', name: 'EEE', code: 'EE' },
-  { id: 'MECH', name: 'MECH', code: 'ME' },
-  { id: 'CIVIL', name: 'CIVIL', code: 'CE' }
+  { id: 'CSE', name: 'Computer Science & Engineering', code: 'CS' },
+  { id: 'CSE-DS', name: 'CSE - Data Science', code: 'DS' },
+  { id: 'CSE-AIML', name: 'CSE - AI & Machine Learning', code: 'AM' },
+  { id: 'CSE-CS', name: 'CSE - Cyber Security', code: 'CC' },
+  { id: 'CSE-BS', name: 'Computer Science & Business Systems', code: 'CB' },
+  { id: 'IT', name: 'Information Technology', code: 'IT' },
+  { id: 'ECE', name: 'Electronics & Communication Eng', code: 'EC' },
+  { id: 'EEE', name: 'Electrical & Electronics Eng', code: 'EE' },
+  { id: 'MECH', name: 'Mechanical Engineering', code: 'ME' },
+  { id: 'CIVIL', name: 'Civil Engineering', code: 'CE' },
+  { id: 'FRESHMAN_ENG', name: 'Freshman Engineering (H&S 1st Year)', code: 'FE' },
+  { id: 'MBA', name: 'Master of Business Administration', code: 'MB' },
+  { id: 'MTECH', name: 'Master of Technology', code: 'MT' }
 ];
 
 // ═══════════════════════════════════════════
@@ -245,12 +248,26 @@ export function getElectiveGroups({ regulation, year, semester, department } = {
 }
 
 /**
- * Get sections array based on year (typical VBIT sizing)
+ * Get sections array based on department (VBIT official sizing).
+ * CSE: 6 sections (A-F), CSE-DS/CSE-AIML/CSE-CS/CSE-BS: 3 sections (A-C), IT/ECE/EEE/MECH/CIVIL: 2-3 sections.
  */
 export function getSections(department, year) {
-  // Default section counts; can be overridden per department
-  const defaults = { 1: ['A', 'B', 'C'], 2: ['A', 'B', 'C'], 3: ['A', 'B'], 4: ['A', 'B'] };
-  return defaults[year] || ['A'];
+  const sectionMap = {
+    'CSE':          ['A', 'B', 'C', 'D', 'E', 'F'],
+    'CSE-DS':       ['A', 'B', 'C'],
+    'CSE-AIML':     ['A', 'B', 'C'],
+    'CSE-CS':       ['A', 'B', 'C'],
+    'CSE-BS':       ['A', 'B'],
+    'IT':           ['A', 'B', 'C'],
+    'ECE':          ['A', 'B', 'C'],
+    'EEE':          ['A', 'B'],
+    'MECH':         ['A', 'B'],
+    'CIVIL':        ['A', 'B'],
+    'FRESHMAN_ENG': ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+    'MBA':          ['A', 'B'],
+    'MTECH':        ['A'],
+  };
+  return sectionMap[department] || ['A', 'B', 'C'];
 }
 
 const SUBJECT_SHORTS = {

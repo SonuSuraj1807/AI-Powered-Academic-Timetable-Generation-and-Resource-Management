@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../stores/authStore';
-import { Shield, Lock, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { Shield, Lock, ArrowRight, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 export default function SuperAdminLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const login = useAuthStore((s) => s.login);
@@ -96,15 +97,28 @@ export default function SuperAdminLogin() {
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>
               Governance Passcode
             </label>
-            <input
-              type="password"
-              className="input-field"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••••••"
-              required
-              style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'white' }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="input-field"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••••••"
+                required
+                style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'white', paddingRight: '40px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '2px'
+                }}
+                title={showPassword ? 'Hide Passcode' : 'Show Passcode'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button

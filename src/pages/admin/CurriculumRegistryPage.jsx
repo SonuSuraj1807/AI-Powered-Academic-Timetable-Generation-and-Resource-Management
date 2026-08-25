@@ -4,11 +4,14 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, getDocs, wri
 import { BookOpen, Plus, Trash2, Edit2, Check, X, ShieldAlert } from 'lucide-react';
 import { ALL_CURRICULUM, DEPARTMENTS } from '../../data/curriculumSeed';
 
+import useAuthStore from '../../stores/authStore';
+
 export default function CurriculumRegistryPage() {
+  const profile = useAuthStore(state => state.profile);
   const [dbSubjects, setDbSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Form states for adding
+  // Form states for adding — auto-default department from profile
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('theory');
@@ -16,7 +19,13 @@ export default function CurriculumRegistryPage() {
   const [regulation, setRegulation] = useState('R25');
   const [year, setYear] = useState(1);
   const [semester, setSemester] = useState(1);
-  const [department, setDepartment] = useState('CSE-DS');
+  const [department, setDepartment] = useState(profile?.department || 'CSE-DS');
+
+  useEffect(() => {
+    if (profile?.department) {
+      setDepartment(profile.department);
+    }
+  }, [profile?.department]);
 
   // Custom regulation input states
   const [customRegulation, setCustomRegulation] = useState('');

@@ -1,262 +1,218 @@
 /**
- * Exam Seating PDF Exporter — VBIT-compliant A4 portrait seating plan sheets.
+ * Exam Seating PDF Exporter — Official VBIT-compliant A4 portrait seating plan sheets.
  *
- * Generates official examination seating plans matching the institutional format:
- * - Header: Institution name, exam title, subject info, date/session/room/block/floor
- * - Body: 4×6 grid showing Hall Ticket No + Branch-Year-Sem per cell
- * - Footer: Absentee note, counters, invigilator signatures (1 or 2), CoE signature
- *
- * Uses jsPDF + jspdf-autotable (already in project dependencies).
+ * Generates official examination seating plans matching Vignana Bharathi Institute of Technology template:
+ * - File Name Format: [DD-MM-YYYY] [FN/AN] ([BRANCH_LIST]) SEETING PLAN.pdf
+ *   (e.g., 21-08-2026 AN (EEE,CSE,IT,CSD) SEETING PLAN.pdf)
+ * - Header: Institutional logo box, SEATING PLAN title, B.Tech Year/Sem/Regulation subheader
+ * - Metadata Lines: Subject (Branch), Date, Room (Block-Floor-Room), Session
+ * - Body: 4-Column × 6-Row Grid of 24 individual seat boxes (HallTicketNo bold + Branch-Year-Sem)
+ * - Footer: Absentee note, Attendance Summary Table (Registered, Absent, Present), Invigilator & CoE signatures
  */
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// ═══════════════════════════════════════════════════════════
-// SINGLE ROOM PDF
-// ═══════════════════════════════════════════════════════════
+// Helper to format date into DD-MM-YYYY
+function formatDateDDMMYYYY(dateStr) {
+  if (!dateStr) return '01-01-2026';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr.replace(/\//g, '-');
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+// Helper to format date into DD/MM/YYYY
+function formatDateDDMMYYYYSlash(dateStr) {
+  if (!dateStr) return '01/01/2026';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
 
 /**
- * Render a single room's seating plan as one A4 portrait page.
- *
- * @param {jsPDF} doc – jsPDF document instance
- * @param {Object} roomPlan – { room, grid[][], branches[], branchCount, studentCount, assignedInvigilators[], totalRegistered }
- * @param {Object} sessionInfo – { date, session, examTitle, examType, subjects }
- * @param {boolean} addPage – Whether to add a new page before rendering
+ * Render a single room's seating plan matching VBIT official PDF layout.
  */
 function renderRoomPage(doc, roomPlan, sessionInfo, addPage = false) {
   if (addPage) doc.addPage();
 
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
+  const pageWidth = doc.internal.pageSize.getWidth(); // 210 mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 297 mm
   const margin = 12;
-  let cursorY = margin;
 
-  const { room, grid, branches, branchCount, studentCount, assignedInvigilators } = roomPlan;
+  const { room, grid, branches, studentCount, assignedInvigilators } = roomPlan;
 
-  // ── Institution Header ──
-  doc.setFillColor(26, 32, 64);
-  doc.rect(0, 0, pageWidth, 32, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(13);
-  doc.setFont(undefined, 'bold');
-  doc.text('VIGNANA BHARATHI INSTITUTE OF TECHNOLOGY', pageWidth / 2, 9, { align: 'center' });
-
-  doc.setFontSize(7);
-  doc.setFont(undefined, 'normal');
-  doc.text('(Approved by AICTE, Affiliated to JNTUH, Hyderabad)', pageWidth / 2, 14, { align: 'center' });
-  doc.text('Aushapur(V), Ghatkesar(M), Medchal-Malkajgiri(Dist) - 501301, Telangana', pageWidth / 2, 18.5, { align: 'center' });
-
-  doc.setFontSize(11);
-  doc.setFont(undefined, 'bold');
-  doc.text('SEATING PLAN', pageWidth / 2, 26, { align: 'center' });
-
-  // Underline
-  doc.setDrawColor(232, 82, 46);
+  // ── 1. Top Header Box & Title ──
+  // Outer header box
+  doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.8);
-  doc.line(pageWidth / 2 - 25, 28, pageWidth / 2 + 25, 28);
+  doc.rect(margin, 10, pageWidth - margin * 2, 22);
 
-  cursorY = 36;
+  // Logo Icon Simulation (Orange/Yellow Box on Left)
+  doc.setFillColor(238, 108, 43);
+  doc.rect(margin + 2, 12, 18, 18, 'F');
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(0.6);
+  doc.circle(margin + 11, 21, 5);
 
-  // ── Exam Info Lines ──
-  doc.setTextColor(30, 30, 30);
+  // Title Text inside box
+  doc.setTextColor(15, 83, 62); // Institutional Dark Teal/Green
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('VIGNANA BHARATHI', margin + 24, 18);
+  doc.setFontSize(14);
+  doc.text('Institute of Technology', margin + 24, 26);
+
+  // SEATING PLAN Header
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('SEATING PLAN', pageWidth / 2, 38, { align: 'center' });
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth / 2 - 20, 39, pageWidth / 2 + 20, 39);
+
+  // Examination Subtitle
   doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
-  doc.text(sessionInfo.examTitle || 'Examination', pageWidth / 2, cursorY, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  const examSub = sessionInfo.examTitle || 'B.Tech IV YEAR I SEMESTER (R22) Descriptive1 Examinations';
+  doc.text(examSub, pageWidth / 2, 45, { align: 'center' });
+
+  // ── 2. Two-Column Metadata Section ──
+  let cursorY = 52;
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+
+  // Subjects label
+  const subjectList = sessionInfo.subjects && sessionInfo.subjects.length > 0
+    ? sessionInfo.subjects.map(s => `${s.name} (${s.code})`).join(', ')
+    : (branches && branches.length > 0 ? `${branches.join(', ')}` : 'ALL');
+
+  const subjectStr = `Subject : ${subjectList}`;
+  const dateStr = `Date : ${formatDateDDMMYYYYSlash(sessionInfo.date)}`;
+
+  // Room string
+  const blockName = (room.block || 'AVISHKAR').toUpperCase();
+  const floorName = room.floor === 0 ? 'GROUND FLOOR' : room.floor === 1 ? 'FIRST FLOOR' : room.floor === 2 ? 'SECOND FLOOR' : `FLOOR-${room.floor}`;
+  const roomStr = `Room : ${blockName} BLOCK-B-${floorName}-${room.roomNumber || '001'}`;
+
+  const sessionTimeStr = sessionInfo.session === 'FN'
+    ? 'Session : 10:00 AM - 01:00 PM'
+    : 'Session : 02:00 PM - 04:30 PM';
+
+  // Left Column
+  doc.text(subjectStr, margin, cursorY);
+  doc.text(dateStr, margin + 65, cursorY);
+
+  // Right Column
+  doc.text(roomStr, pageWidth - margin, cursorY, { align: 'right' });
   cursorY += 5;
+  doc.text(sessionTimeStr, pageWidth - margin, cursorY, { align: 'right' });
 
-  // Subject line
-  if (sessionInfo.subjects && sessionInfo.subjects.length > 0) {
-    doc.setFontSize(7.5);
-    doc.setFont(undefined, 'normal');
-    const subjectText = sessionInfo.subjects
-      .map(s => `${s.code} - ${s.name} (${s.branches?.join(', ') || 'ALL'})`)
-      .join(' | ');
-    const lines = doc.splitTextToSize(subjectText, pageWidth - margin * 2);
-    doc.text(lines, pageWidth / 2, cursorY, { align: 'center' });
-    cursorY += lines.length * 3.5 + 2;
-  }
+  cursorY += 6;
 
-  // Meta info row
-  doc.setFontSize(8);
-  const dateStr = sessionInfo.date || 'N/A';
-  const sessionStr = sessionInfo.session === 'FN'
-    ? 'FN (10:00 AM - 01:00 PM)'
-    : 'AN (01:30 PM - 04:30 PM)';
-
-  const metaLeft = `Date: ${dateStr}      Session: ${sessionStr}`;
-  const metaRight = `Room: ${room.roomNumber}      Block: ${room.block}      Floor: ${room.floor ?? 'N/A'}`;
-
-  doc.setFont(undefined, 'bold');
-  doc.text(metaLeft, margin, cursorY);
-  doc.text(metaRight, pageWidth - margin, cursorY, { align: 'right' });
-  cursorY += 3;
-
-  // Separator
-  doc.setDrawColor(200, 200, 210);
-  doc.setLineWidth(0.3);
-  doc.line(margin, cursorY, pageWidth - margin, cursorY);
-  cursorY += 4;
-
-  // ── Branch Color Legend ──
-  const branchColors = {};
-  const colorPalette = [
-    [219, 234, 254], // Blue
-    [220, 252, 231], // Green
-    [237, 233, 254], // Purple
-    [254, 243, 199], // Amber
-    [254, 226, 226], // Red
-    [207, 250, 254], // Cyan
-  ];
-  branches.forEach((b, i) => {
-    branchColors[b] = colorPalette[i % colorPalette.length];
-  });
-
-  // Column header labels
+  // ── 3. 24 Seat Box Grid (4 Columns × 6 Rows) ──
   const cols = room.cols || 4;
   const rows = room.rows || 6;
-  const colLabels = [];
-  for (let c = 0; c < cols; c++) {
-    // Determine which branch occupies this column
-    let colBranch = '—';
-    for (let r = 0; r < rows; r++) {
-      if (grid[r] && grid[r][c] && grid[r][c].branch) {
-        colBranch = grid[r][c].branch;
-        break;
-      }
-    }
-    colLabels.push(`Col ${c + 1}\n(${colBranch})`);
-  }
+  const gridWidth = pageWidth - margin * 2;
+  const boxGapX = 6;
+  const boxGapY = 4;
+  const boxWidth = (gridWidth - (cols - 1) * boxGapX) / cols;
+  const boxHeight = 15;
 
-  // ── Build Seating Grid Table ──
-  const tableHead = [['S.No', ...colLabels]];
-  const tableBody = [];
+  const startY = cursorY;
 
   for (let r = 0; r < rows; r++) {
-    const row = [String(r + 1)];
     for (let c = 0; c < cols; c++) {
+      const x = margin + c * (boxWidth + boxGapX);
+      const y = startY + r * (boxHeight + boxGapY);
+
+      // Draw Box Outer Border
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.6);
+      doc.rect(x, y, boxWidth, boxHeight);
+
       const cell = grid[r] && grid[r][c];
       if (cell) {
-        row.push(`${cell.hallTicketNo}\n${cell.yearSem || cell.branch}`);
-      } else {
-        row.push('—');
+        // Line 1: Hall Ticket Number (Bold)
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(cell.hallTicketNo || ''), x + boxWidth / 2, y + 6, { align: 'center' });
+
+        // Line 2: Branch & Year-Sem
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        const branchLabel = cell.yearSem || `${cell.branch || 'CSE'} - Sem`;
+        doc.text(branchLabel, x + boxWidth / 2, y + 11.5, { align: 'center' });
       }
     }
-    tableBody.push(row);
   }
+
+  cursorY = startY + rows * (boxHeight + boxGapY) + 6;
+
+  // ── 4. Footer Note & Attendance Summary Table ──
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  doc.setTextColor(40, 40, 40);
+  doc.text('Note : Cross the box containing the Hall Ticket number when the candidate absent', margin, cursorY);
+
+  cursorY += 4;
+
+  // Summary Table (3 Columns)
+  const regCount = String(studentCount || 24);
+  const head = [['Total No.of Students Registered', 'Total No.of Students Absent', 'Total No.of Students Present']];
+  const body = [[regCount, '', '']];
 
   autoTable(doc, {
     startY: cursorY,
-    head: tableHead,
-    body: tableBody,
+    head: head,
+    body: body,
     theme: 'grid',
     styles: {
-      fontSize: 7.5,
-      cellPadding: 3,
+      fontSize: 8,
+      fontStyle: 'bold',
       halign: 'center',
       valign: 'middle',
-      lineColor: [180, 180, 190],
-      lineWidth: 0.3,
-      minCellHeight: 12,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.5,
+      textColor: [0, 0, 0],
+      minCellHeight: 8,
     },
     headStyles: {
-      fillColor: [26, 32, 64],
-      textColor: [255, 255, 255],
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
       fontStyle: 'bold',
-      fontSize: 7,
     },
-    columnStyles: {
-      0: { cellWidth: 12, fontStyle: 'bold', fillColor: [241, 245, 249] },
-    },
-    didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index > 0) {
-        const r = data.row.index;
-        const c = data.column.index - 1;
-        const cell = grid[r] && grid[r][c];
-        if (cell && cell.branch && branchColors[cell.branch]) {
-          data.cell.styles.fillColor = branchColors[cell.branch];
-        }
-        if (!cell || data.cell.text[0] === '—') {
-          data.cell.styles.fillColor = [245, 245, 248];
-          data.cell.styles.textColor = [160, 160, 170];
-        }
-      }
+    bodyStyles: {
+      fillColor: [255, 255, 255],
     },
     margin: { left: margin, right: margin },
   });
 
-  cursorY = doc.lastAutoTable.finalY + 6;
+  cursorY = doc.lastAutoTable.finalY + 16;
 
-  // ── Footer Section ──
-  // Absentee note
-  doc.setFontSize(7);
-  doc.setFont(undefined, 'italic');
-  doc.setTextColor(100, 100, 100);
-  doc.text('Note: Mark absent candidates with \'×\' and enter attendance details below.', margin, cursorY);
-  cursorY += 6;
+  // ── 5. Signatures Row ──
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(0, 0, 0);
 
-  // Counters
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(30, 30, 30);
-  const counterY = cursorY;
-  doc.text(`Total Registered: ${studentCount}`, margin, counterY);
-  doc.text('Absent: __________', margin + 55, counterY);
-  doc.text('Present: __________', margin + 105, counterY);
-  cursorY += 12;
-
-  // ── Invigilator Signatures ──
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'bold');
-  doc.text('Invigilator(s):', margin, cursorY);
-  cursorY += 6;
-
-  doc.setFont(undefined, 'normal');
-  const invCount = assignedInvigilators?.length || 0;
-
-  if (invCount >= 2) {
-    // Two invigilator signature slots
-    const leftX = margin + 10;
-    const rightX = pageWidth / 2 + 10;
-
-    // Invigilator 1
-    doc.text(`1. ${assignedInvigilators[0]?.name || ''}`, leftX, cursorY);
-    doc.setDrawColor(120, 120, 130);
-    doc.line(leftX, cursorY + 12, leftX + 55, cursorY + 12);
-    doc.setFontSize(6.5);
-    doc.text('Signature', leftX + 15, cursorY + 16);
-
-    // Invigilator 2
-    doc.setFontSize(8);
-    doc.text(`2. ${assignedInvigilators[1]?.name || ''}`, rightX, cursorY);
-    doc.line(rightX, cursorY + 12, rightX + 55, cursorY + 12);
-    doc.setFontSize(6.5);
-    doc.text('Signature', rightX + 15, cursorY + 16);
-
-    cursorY += 22;
-  } else if (invCount === 1) {
-    // Single invigilator
-    doc.text(`1. ${assignedInvigilators[0]?.name || ''}`, margin + 10, cursorY);
-    doc.setDrawColor(120, 120, 130);
-    doc.line(margin + 10, cursorY + 12, margin + 75, cursorY + 12);
-    doc.setFontSize(6.5);
-    doc.text('Signature', margin + 30, cursorY + 16);
-    cursorY += 22;
-  } else {
-    doc.text('1. ________________________________', margin + 10, cursorY);
-    cursorY += 22;
+  // Invigilator signature
+  const invName = assignedInvigilators && assignedInvigilators.length > 0 ? assignedInvigilators[0].name : '';
+  doc.text('Signature of the Invigilator', margin, cursorY);
+  if (invName) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.text(`(${invName})`, margin, cursorY + 4);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
   }
 
-  // ── Controller of Examinations ──
-  if (cursorY + 20 < pageHeight) {
-    doc.setFontSize(8);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(30, 30, 30);
-    const coeX = pageWidth - margin - 50;
-    doc.setDrawColor(120, 120, 130);
-    doc.line(coeX, cursorY, coeX + 50, cursorY);
-    doc.text('Controller of Examinations', coeX - 5, cursorY + 5);
-  }
+  // Controller of Examinations signature
+  doc.text('Signature of the Controller of Examinations', pageWidth - margin, cursorY, { align: 'right' });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -264,49 +220,73 @@ function renderRoomPage(doc, roomPlan, sessionInfo, addPage = false) {
 // ═══════════════════════════════════════════════════════════
 
 /**
- * Export a single room's seating plan as PDF.
+ * Generate official filename matching: [DD-MM-YYYY] [FN/AN] ([BRANCH_LIST]) SEETING PLAN.pdf
  */
-export function exportSingleRoomPDF(roomPlan, sessionInfo, filename) {
-  const doc = new jsPDF('portrait', 'mm', 'a4');
-  renderRoomPage(doc, roomPlan, sessionInfo, false);
-  doc.save(filename || `SeatingPlan_${roomPlan.room.block}_${roomPlan.room.roomNumber}.pdf`);
+export function buildOfficialFilename(sessionInfo, roomPlans = []) {
+  const dateStr = formatDateDDMMYYYY(sessionInfo?.date);
+  const slotStr = sessionInfo?.session || 'FN';
+
+  // Gather unique branches
+  const branchSet = new Set();
+  if (sessionInfo?.subjects) {
+    sessionInfo.subjects.forEach(s => {
+      if (Array.isArray(s.branches)) s.branches.forEach(b => branchSet.add(b));
+    });
+  }
+  if (branchSet.size === 0 && roomPlans) {
+    roomPlans.forEach(p => {
+      if (Array.isArray(p.branches)) p.branches.forEach(b => branchSet.add(b));
+    });
+  }
+  if (branchSet.size === 0) branchSet.add('CSE-DS');
+
+  const branchList = Array.from(branchSet).join(',');
+  return `${dateStr} ${slotStr} (${branchList}) SEETING PLAN.pdf`;
 }
 
 /**
- * Export all room seating plans as a multi-page PDF batch.
+ * Export single room PDF matching official VBIT layout.
  */
-export function exportBatchPDF(roomPlans, sessionInfo, filename) {
+export function exportSingleRoomPDF(roomPlan, sessionInfo, customFilename) {
+  const doc = new jsPDF('portrait', 'mm', 'a4');
+  renderRoomPage(doc, roomPlan, sessionInfo, false);
+  const filename = customFilename || `Room_${roomPlan.room.roomNumber}_${buildOfficialFilename(sessionInfo, [roomPlan])}`;
+  doc.save(filename);
+}
+
+/**
+ * Export batch PDF containing all room seating plans matching official VBIT layout.
+ */
+export function exportBatchPDF(roomPlans, sessionInfo, customFilename) {
   const doc = new jsPDF('portrait', 'mm', 'a4');
   roomPlans.forEach((plan, idx) => {
     renderRoomPage(doc, plan, sessionInfo, idx > 0);
   });
-  const dateStr = sessionInfo.date ? sessionInfo.date.replace(/\//g, '-') : 'Exam';
-  doc.save(filename || `SeatingPlan_${dateStr}_${sessionInfo.session || 'ALL'}.pdf`);
+  const filename = customFilename || buildOfficialFilename(sessionInfo, roomPlans);
+  doc.save(filename);
 }
 
 /**
  * Export invigilator duty roster as PDF.
  */
-export function exportInvigilatorDutySheet(invigilatorSummary, sessionInfo, filename) {
+export function exportInvigilatorDutySheet(invigilatorSummary, sessionInfo, customFilename) {
   const doc = new jsPDF('portrait', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // Header
-  doc.setFillColor(26, 32, 64);
+  doc.setFillColor(15, 83, 62);
   doc.rect(0, 0, pageWidth, 24, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text('VIGNANA BHARATHI INSTITUTE OF TECHNOLOGY', pageWidth / 2, 9, { align: 'center' });
   doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text('INVIGILATION DUTY ROSTER', pageWidth / 2, 16, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('EXAMINATION INVIGILATION DUTY ROSTER', pageWidth / 2, 16, { align: 'center' });
   doc.setFontSize(7);
-  doc.text(`${sessionInfo.date || 'N/A'} — ${sessionInfo.session === 'FN' ? 'Forenoon' : 'Afternoon'}`, pageWidth / 2, 21, { align: 'center' });
+  doc.text(`${formatDateDDMMYYYYSlash(sessionInfo.date)} — ${sessionInfo.session === 'FN' ? 'Forenoon (10:00 AM - 01:00 PM)' : 'Afternoon (02:00 PM - 04:30 PM)'}`, pageWidth / 2, 21, { align: 'center' });
 
-  // Table
-  const head = [['#', 'Faculty Name', 'Department', 'Designation', 'Room', 'Block']];
-  const body = invigilatorSummary.map((inv, i) => [
+  const head = [['#', 'Faculty Name', 'Department', 'Designation', 'Assigned Room', 'Block']];
+  const body = (invigilatorSummary || []).map((inv, i) => [
     String(i + 1),
     inv.name,
     inv.department || '',
@@ -316,37 +296,32 @@ export function exportInvigilatorDutySheet(invigilatorSummary, sessionInfo, file
   ]);
 
   autoTable(doc, {
-    startY: 30,
+    startY: 28,
     head,
     body,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 3, halign: 'center', valign: 'middle' },
-    headStyles: { fillColor: [26, 32, 64], textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 3, halign: 'center', valign: 'middle', lineColor: [0, 0, 0], lineWidth: 0.3 },
+    headStyles: { fillColor: [15, 83, 62], textColor: [255, 255, 255], fontStyle: 'bold' },
     columnStyles: { 0: { cellWidth: 10 }, 1: { halign: 'left', cellWidth: 50 } },
     margin: { left: 12, right: 12 },
   });
 
-  // Signature blocks
   const sigY = doc.lastAutoTable.finalY + 20;
   doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.setFont(undefined, 'normal');
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
 
-  const positions = [
-    { label: 'HOD', x: pageWidth * 0.25 },
-    { label: 'Controller of Examinations', x: pageWidth * 0.75 },
-  ];
-  positions.forEach(({ label, x }) => {
-    doc.setDrawColor(150, 150, 150);
-    doc.line(x - 30, sigY, x + 30, sigY);
-    doc.text(label, x, sigY + 5, { align: 'center' });
-  });
+  doc.text('Signature of HOD', 30, sigY);
+  doc.text('Signature of Controller of Examinations', pageWidth - 30, sigY, { align: 'right' });
 
-  doc.save(filename || `InvigilationDuty_${sessionInfo.date || 'Exam'}_${sessionInfo.session || 'ALL'}.pdf`);
+  const dateStr = formatDateDDMMYYYY(sessionInfo?.date);
+  const filename = customFilename || `DutyRoster_${dateStr}_${sessionInfo?.session || 'FN'}.pdf`;
+  doc.save(filename);
 }
 
 export default {
   exportSingleRoomPDF,
   exportBatchPDF,
   exportInvigilatorDutySheet,
+  buildOfficialFilename,
 };

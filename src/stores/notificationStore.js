@@ -1,92 +1,100 @@
 /**
- * Notification Store — Real-time Firestore notification listener
+ * Notification Store — Real-time Firestore cross-portal notification system.
  * 
- * Subscribes to the notifications collection filtered by recipientUID.
- * Provides live unread count and notification management.
+ * Routes real-time alerts across:
+ *   - Faculty Portal (Invigilation duties, timetable updates, substitution alerts)
+ *   - Student Portal (Exam schedules, seating arrangements, timetable published)
+ *   - Admin / Super Admin Portals (College-wide announcements, conflict alerts)
  */
 import { create } from 'zustand';
-import { 
-  collection, query, where, orderBy, onSnapshot, 
-  doc, updateDoc, writeBatch, limit
-} from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { collection, onSnapshot, addDoc, query, where, orderBy, limit, doc, updateDoc } from 'firebase/firestore';
 
 const useNotificationStore = create((set, get) => ({
   notifications: [],
   unreadCount: 0,
-  loading: true,
-  unsubscribe: null,
+  loading: false,
 
   /**
-   * Subscribe to real-time notifications for a specific user.
-   * Automatically updates when new notifications arrive.
+   * Listen to real-time notifications for a target user role / email / department
    */
-  subscribeToNotifications: (uid) => {
-    // Unsubscribe from any existing listener
-    const { unsubscribe: existingUnsub } = get();
-    if (existingUnsub) existingUnsub();
+  subscribeToNotifications: (userRole, userEmail, department) => {
+    set({ loading: true });
 
-    const q = query(
-      collection(db, 'notifications'),
-      where('recipientUID', '==', uid),
-      orderBy('timestamp', 'desc'),
-      limit(50)
-    );
+    try {
+      const q = query(
+        collection(db, 'notifications'),
+        orderBy('createdAt', 'desc'),
+        limit(50)
+      );
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const notifications = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
-      const unreadCount = notifications.filter(n => n.status === 'unread').length;
-      set({ notifications, unreadCount, loading: false });
-    }, (error) => {
-      console.error('Notification listener error:', error);
+      const unsubscribe = onSnapshot(q, (snap) => {
+        const allList = [];
+        snap.forEach(docSnap => {
+          allList.push({ id: docSnap.id, ...docSnap.data() });
+        });
+
+        // Filter notifications relevant to current user
+        const userNotifications = allList.filter(n => {
+          if (n.targetRole === 'ALL') return true;
+          if (n.targetRole === userRole) {
+            if (!n.targetDepartment || n.targetDepartment === 'ALL' || n.targetDepartment === department) {
+              return true;
+            }
+          }
+          if (n.targetEmail && n.targetEmail.toLowerCase() === (userEmail || '').toLowerCase()) {
+            return true;
+          }
+          return false;
+        });
+
+        const unread = userNotifications.filter(n => !n.read).length;
+        set({ notifications: userNotifications, unreadCount: unread, loading: false });
+      }, (err) => {
+        console.error('Notification snapshot error:', err);
+        set({ loading: false });
+      });
+
+      return unsubscribe;
+    } catch (err) {
+      console.error('Notification subscription failed:', err);
       set({ loading: false });
-    });
-
-    set({ unsubscribe: unsub });
-    return unsub;
+      return () => {};
+    }
   },
 
   /**
-   * Mark a single notification as read
+   * Send a system notification across portals
+   */
+  sendNotification: async ({ title, message, type = 'info', targetRole = 'ALL', targetDepartment = 'ALL', targetEmail = null }) => {
+    try {
+      await addDoc(collection(db, 'notifications'), {
+        title,
+        message,
+        type, // 'info' | 'success' | 'warning' | 'exam' | 'duty'
+        targetRole, // 'student' | 'faculty' | 'admin' | 'exam_controller' | 'ALL'
+        targetDepartment,
+        targetEmail,
+        read: false,
+        createdAt: new Date().toISOString(),
+      });
+      return true;
+    } catch (err) {
+      console.error('Error sending notification:', err);
+      return false;
+    }
+  },
+
+  /**
+   * Mark a notification as read
    */
   markAsRead: async (notificationId) => {
     try {
-      await updateDoc(doc(db, 'notifications', notificationId), { status: 'read' });
+      await updateDoc(doc(db, 'notifications', notificationId), { read: true });
     } catch (err) {
-      console.error('Failed to mark notification as read:', err);
+      console.error('Error marking notification read:', err);
     }
-  },
-
-  /**
-   * Mark all notifications as read for the current user
-   */
-  markAllRead: async () => {
-    const { notifications } = get();
-    const unread = notifications.filter(n => n.status === 'unread');
-    if (unread.length === 0) return;
-
-    try {
-      const batch = writeBatch(db);
-      unread.forEach(n => {
-        batch.update(doc(db, 'notifications', n.id), { status: 'read' });
-      });
-      await batch.commit();
-    } catch (err) {
-      console.error('Failed to mark all as read:', err);
-    }
-  },
-
-  /**
-   * Clean up the listener on logout/unmount
-   */
-  cleanup: () => {
-    const { unsubscribe } = get();
-    if (unsubscribe) unsubscribe();
-    set({ notifications: [], unreadCount: 0, unsubscribe: null, loading: true });
-  },
+  }
 }));
 
 export default useNotificationStore;

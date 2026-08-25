@@ -1,13 +1,5 @@
 /**
  * App — Root component with React Router route definitions.
- * 
- * Route structure:
- * /                → LandingPage (triple-portal auth gateway)
- * /admin           → DashboardLayout > AdminDashboard
- * /admin/generate  → DashboardLayout > TimetableGenerator
- * /admin/exam-scheduler → DashboardLayout > ExamSchedulerPage
- * /faculty         → DashboardLayout > FacultyDashboard
- * /student         → DashboardLayout > StudentDashboard
  */
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -33,6 +25,12 @@ const ReportsAnalytics = lazy(() => import('./pages/admin/ReportsAnalytics'));
 
 const SubstitutionEnginePage = lazy(() => import('./pages/admin/SubstitutionEnginePage'));
 const SubstitutionListPage = lazy(() => import('./pages/faculty/SubstitutionListPage'));
+const FacultySchedulePage = lazy(() => import('./pages/faculty/FacultySchedulePage'));
+const FacultySubjectsPage = lazy(() => import('./pages/faculty/FacultySubjectsPage'));
+const FacultySettingsPage = lazy(() => import('./pages/faculty/FacultySettingsPage'));
+
+const StudentSettingsPage = lazy(() => import('./pages/student/StudentSettingsPage'));
+const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'));
 
 // Examination Branch Seating Plan
 const ExamSeatingController = lazy(() => import('./pages/admin/ExamSeatingController'));
@@ -115,7 +113,7 @@ export default function App() {
                 <Route path="reports" element={<ReportsAnalytics />} />
                 <Route path="exam-seating" element={<ExamSeatingController />} />
                 <Route path="exam-rooms" element={<ExamRoomManagement />} />
-                <Route path="settings" element={<PlaceholderPage title="Admin Settings" description="System configuration and user management." />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
               </Route>
 
               {/* Faculty Panel */}
@@ -126,9 +124,9 @@ export default function App() {
               }>
                 <Route index element={<FacultyDashboard />} />
                 <Route path="substitutions" element={<SubstitutionListPage />} />
-                <Route path="schedule" element={<PlaceholderPage title="My Schedule" description="Your full weekly timetable." />} />
-                <Route path="subjects" element={<PlaceholderPage title="My Subjects" description="Subjects assigned to you across all sections." />} />
-                <Route path="settings" element={<PlaceholderPage title="Faculty Settings" description="Update your profile and preferences." />} />
+                <Route path="schedule" element={<FacultySchedulePage />} />
+                <Route path="subjects" element={<FacultySubjectsPage />} />
+                <Route path="settings" element={<FacultySettingsPage />} />
               </Route>
 
               {/* Student Panel */}
@@ -138,9 +136,9 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<StudentDashboard />} />
-                <Route path="timetable" element={<PlaceholderPage title="Class Timetable" description="Your section's full timetable with export options." />} />
-                <Route path="exams" element={<PlaceholderPage title="Exam Schedule" description="Upcoming examination schedule with room assignments." />} />
-                <Route path="settings" element={<PlaceholderPage title="Student Settings" description="Update your profile." />} />
+                <Route path="timetable" element={<StudentDashboard />} />
+                <Route path="exams" element={<StudentDashboard />} />
+                <Route path="settings" element={<StudentSettingsPage />} />
               </Route>
 
               {/* Hidden Super Admin Gateway */}
@@ -160,27 +158,5 @@ export default function App() {
         </BrowserRouter>
       </ToastProvider>
     </ErrorBoundary>
-  );
-}
-
-// Temporary placeholder for routes not yet fully built
-function PlaceholderPage({ title, description }) {
-  return (
-    <div style={{ 
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      minHeight: '400px', textAlign: 'center', padding: '40px',
-    }}>
-      <div style={{
-        width: '64px', height: '64px', borderRadius: '16px',
-        background: 'var(--accent-blue-subtle)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: '20px',
-      }}>
-        <span style={{ fontSize: '28px' }}>🚧</span>
-      </div>
-      <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px' }}>{title}</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '400px' }}>{description}</p>
-      <span className="badge badge-amber" style={{ marginTop: '16px' }}>Coming Soon</span>
-    </div>
   );
 }

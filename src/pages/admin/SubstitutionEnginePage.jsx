@@ -48,12 +48,23 @@ export default function SubstitutionEnginePage() {
     }
     setIsSearching(true);
 
+    const absentFaculty = facultyList.find(f => (f.uid || f.id) === selectedAbsentId);
+
     // Find affected slots for absent faculty on the selected day
     const affected = [];
     schedules.forEach(sched => {
       if (!sched.grid || !sched.grid[selectedDay]) return;
       sched.grid[selectedDay].forEach((slot, idx) => {
-        if (slot && slot.facultyId === selectedAbsentId) {
+        if (!slot) return;
+        const isMatch =
+          slot.facultyId === selectedAbsentId ||
+          (Array.isArray(slot.facultyIds) && slot.facultyIds.includes(selectedAbsentId)) ||
+          (absentFaculty && slot.facultyName && (
+            slot.facultyName.toLowerCase().includes(absentFaculty.name.toLowerCase()) ||
+            absentFaculty.name.toLowerCase().includes(slot.facultyName.toLowerCase())
+          ));
+
+        if (isMatch) {
           affected.push({
             scheduleId: sched.id,
             department: sched.department,

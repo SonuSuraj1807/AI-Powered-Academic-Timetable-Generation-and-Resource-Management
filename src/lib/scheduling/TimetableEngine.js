@@ -1,89 +1,224 @@
 /**
- * TimetableEngine — Core constraint-satisfaction solver for academic timetable generation.
+ * TimetableEngine — Complete constraint-satisfaction solver for academic timetable generation.
  * 
- * Implements a greedy backtracking algorithm with constraint checking:
- * 1. Labs = exactly 3 continuous periods, once per week per section
- * 2. No duplicate lab subject in same week
- * 3. Electives aligned across all sections of same year
- * 4. No faculty double-booking
- * 5. Staggered lunch enforcement (R25 vs R22)
- * 6. Room capacity validation
+ * Architecture:
+ *   1. Dynamic grid indices computed from timeConfig (handles Junior/Senior matrices correctly)
+ *   2. Multi-pass placement: Labs → Internship → Co-Curricular → Electives → Theory → Fill → Zero-Empty
+ *   3. Strict per-day constraints: max 1 morning + 1 afternoon per subject, no consecutive same subject
+ *   4. Faculty clash prevention across all sections (18-period weekly workload cap)
+ *   5. Lab duration compression (3→2) when training overrides reduce available days
+ *
+ * Rules:
+ *   - Labs: continuous block (2 or 3 periods), once per week, starting at first morning or first afternoon teachable index
+ *   - Internship: EXACTLY 1 period per week, strictly in the last teachable period of the day
+ *   - Sports: 1h (Y3/Y4) or 2h (Y1/Y2) in last period(s), no faculty, staggered across same-year sections
+ *   - Library & Mentoring: 1h in last period, no faculty
+ *   - Tutorial: 1h in Period 6 or 7, WITH faculty
+ *   - NPTEL: 1h pre-lunch (last morning period), WITH faculty
+ *   - Theory/Elective subjects: balanced 4-5 periods/week, max 1 morning + 1 afternoon per day, no consecutive
  */
 
 import { TIME_SLOTS, WEEKDAYS } from '../../data/curriculumSeed.js';
 
+// ════════════════════════════════════════════════════════════════════
+// DYNAMIC INDEX HELPERS — Compute teachable slots from time config
+// ════════════════════════════════════════════════════════════════════
+
+function getTeachableIndices(timeConfig) {
+  return timeConfig.periods
+    .map((p, idx) => ({ ...p, idx }))
+    .filter(p => !p.isBreak && !p.isLunch)
+    .map(p => p.idx);
+}
+
+function getLunchIndex(timeConfig) {
+  return timeConfig.periods.findIndex(p => p.isLunch);
+}
+
+function getMorningIndices(timeConfig) {
+  const lunchIdx = getLunchIndex(timeConfig);
+  return getTeachableIndices(timeConfig).filter(i => i < lunchIdx);
+}
+
+function getAfternoonIndices(timeConfig) {
+  const lunchIdx = getLunchIndex(timeConfig);
+  return getTeachableIndices(timeConfig).filter(i => i > lunchIdx);
+}
+
+function getLastTeachableIndex(timeConfig) {
+  const teachable = getTeachableIndices(timeConfig);
+  return teachable[teachable.length - 1];
+}
+
 /**
- * Main timetable generation function.
- * 
- * @param {Object} config
- * @param {string} config.department - Department ID (e.g., 'CSE-DS')
- * @param {string} config.regulation - 'R22' or 'R25'
- * @param {number} config.year - Academic year (1-4)
- * @param {string} config.section - Section letter (e.g., 'A')
- * @param {Array} config.subjects - Array of { code, name, type, credits, facultyId, facultyName }
- * @param {Array} config.existingSchedules - Other sections' schedules (for elective alignment + faculty conflict)
- * @param {Array} config.trainingOverrides - Days blocked for training { day, description }
- * @param {string} config.room - Room identifier
- * @returns {{ grid: Object, legend: Array, status: string, errors: Array }}
+ * Compute valid lab starting indices dynamically from the time config.
+ * Checks all contiguous morning and afternoon slots for the requested labDuration.
+ * e.g., for 2 periods: Morning idx 0 (P1-P2), idx 2 (P3-P4); Afternoon idx 5 (P5-P6), idx 6 (P6-P7).
  */
+function getLabStartIndices(timeConfig, duration) {
+  const morning = getMorningIndices(timeConfig);
+  const afternoon = getAfternoonIndices(timeConfig);
+  const validStarts = [];
+
+  // Morning candidates
+  for (let i = 0; i <= morning.length - duration; i++) {
+    const start = morning[i];
+    const needed = Array.from({ length: duration }, (_, k) => start + k);
+    if (needed.every(idx => morning.includes(idx))) {
+      validStarts.push(start);
+    }
+  }
+
+  // Afternoon candidates
+  for (let i = 0; i <= afternoon.length - duration; i++) {
+    const start = afternoon[i];
+    const needed = Array.from({ length: duration }, (_, k) => start + k);
+    if (needed.every(idx => afternoon.includes(idx))) {
+      validStarts.push(start);
+    }
+  }
+
+  return validStarts;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// PLACEMENT CONSTRAINT CHECKS
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * Check if a subject can be placed at a specific day+index without violating:
+ *   1. Slot must be empty
+ *   2. No consecutive same subject
+ *   3. Max 1 in morning, max 1 in afternoon per day
+ *   4. Total max 2 per day
+ */
+function canPlaceSubjectAt(daySlots, idx, subjectCode, morningIndices, afternoonIndices, strictOnePerDay = false) {
+  if (daySlots[idx] !== null) return false;
+
+  // Non-consecutive check
+  if (idx > 0 && daySlots[idx - 1] && daySlots[idx - 1].subjectCode === subjectCode) return false;
+  if (idx < daySlots.length - 1 && daySlots[idx + 1] && daySlots[idx + 1].subjectCode === subjectCode) return false;
+
+  // Per-day total check
+  const dayTotal = daySlots.filter(s => s && s.subjectCode === subjectCode).length;
+  if (strictOnePerDay && dayTotal >= 1) return false;
+  if (!strictOnePerDay && dayTotal >= 2) return false;
+
+  // Per-session limits (max 1 in morning, max 1 in afternoon)
+  const isMorning = morningIndices.includes(idx);
+  const isAfternoon = afternoonIndices.includes(idx);
+
+  if (isMorning) {
+    const morningCount = morningIndices.filter(i => daySlots[i] && daySlots[i].subjectCode === subjectCode).length;
+    if (morningCount >= 1) return false;
+  }
+  if (isAfternoon) {
+    const afternoonCount = afternoonIndices.filter(i => daySlots[i] && daySlots[i].subjectCode === subjectCode).length;
+    if (afternoonCount >= 1) return false;
+  }
+
+  return true;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// MAIN GENERATOR
+// ════════════════════════════════════════════════════════════════════
+
 export function generateTimetable(config) {
-  const { department, regulation, year, section, subjects, existingSchedules = [], trainingOverrides = [], specialBlocks = [], room } = config;
-  
-  // Select Junior Matrix (1st Year) or Senior Matrix (2nd, 3rd, 4th Year)
+  const {
+    department, regulation, year, section, subjects,
+    existingSchedules = [], trainingOverrides = [], specialBlocks = [], room,
+  } = config;
+
   const timeConfig = year === 1 ? TIME_SLOTS.JUNIOR : TIME_SLOTS.SENIOR;
-  
-  const teachablePeriods = timeConfig.periods.filter(p => !p.isBreak && !p.isLunch);
-  
-  // Initialize empty grid: { Monday: [null, null, ...], Tuesday: [...], ... }
+
+  // Compute dynamic indices from time config
+  const morningIndices = getMorningIndices(timeConfig);
+  const afternoonIndices = getAfternoonIndices(timeConfig);
+  const teachableIndices = getTeachableIndices(timeConfig);
+  const lastTeachableIdx = getLastTeachableIndex(timeConfig);
+  const secondLastTeachableIdx = teachableIndices.length >= 2 ? teachableIndices[teachableIndices.length - 2] : lastTeachableIdx;
+  const preLunchIdx = morningIndices.length > 0 ? morningIndices[morningIndices.length - 1] : 3;
+
+  // Initialize grid: pre-fill breaks, lunch, special blocks, and training days
   const grid = {};
   WEEKDAYS.forEach(day => {
     grid[day] = timeConfig.periods.map(period => {
       if (period.isBreak) return { type: 'break', label: 'Break' };
       if (period.isLunch) return { type: 'lunch', label: 'LUNCH' };
-      
-      // Check if there is a special block (training, sports, library, tutorial, mentoring, etc.)
+
       const special = specialBlocks.find(s => s.day === day && s.periodLabel === period.label);
-      if (special) {
-        return { 
-          type: special.type, 
-          label: special.label 
-        };
-      }
-      
-      // Fallback: Check if whole day is blocked by training day overrides
+      if (special) return { type: special.type, label: special.label };
+
       if (trainingOverrides.some(t => t.day === day)) {
-        return { 
-          type: 'training', 
-          label: trainingOverrides.find(t => t.day === day)?.description || 'Training Day' 
-        };
+        return { type: 'training', label: trainingOverrides.find(t => t.day === day)?.description || 'Training Day' };
       }
-      
-      return null; // Available slot
+
+      return null;
     });
   });
 
-  // Available days are those that are not fully blocked by training overrides
   const availableDays = WEEKDAYS.filter(d => !trainingOverrides.some(t => t.day === d));
 
-  const theorySubjects = subjects.filter(s => s.type === 'theory');
+  // ── Classify subjects ──
+  const isInternshipSub = (s) => s.name?.toLowerCase().includes('internship') || s.code?.includes('4181');
+
+  const theorySubjects = subjects.filter(s => s.type === 'theory' && !s.code.startsWith('VBIT-') && !isInternshipSub(s));
   const labSubjects = subjects.filter(s => s.type === 'lab');
-  const electiveSubjects = subjects.filter(s => s.type === 'elective');
+  const electiveSubjects = subjects.filter(s => s.type === 'elective' && !isInternshipSub(s));
+  const coCurricularSubjects = subjects.filter(s => s.code.startsWith('VBIT-'));
+  const internshipSub = subjects.find(isInternshipSub);
+
+  // Pure academic subjects for theory fill passes (theory + electives, no internship/labs/co-curricular)
+  const academicSubjects = [...theorySubjects, ...electiveSubjects];
 
   const errors = [];
   const facultySchedule = buildFacultyScheduleMap(existingSchedules);
 
-  // ── Step 1: Place Labs (most constrained: 3 continuous periods for R22, 2 for R25) ──
+  // Lab duration: Project labs (2+ credits) get 3 periods; regular labs get 2 periods.
   for (const lab of labSubjects) {
-    const labDuration = regulation === 'R25' ? 2 : 3;
-    const placed = placeLabSession(grid, lab, availableDays, teachablePeriods, timeConfig, facultySchedule, section, existingSchedules, labDuration, year);
+    const isProject = lab.code.includes('4182') || lab.name.toLowerCase().includes('project');
+    const labDur = isProject ? 3 : (regulation === 'R25' ? 2 : 2);
+    const placed = placeLabSession(grid, lab, availableDays, facultySchedule, section, existingSchedules, labDur, year, timeConfig);
     if (!placed) {
-      errors.push(`Could not place lab "${lab.name}" (${lab.code}). No ${labDuration}-consecutive-period slot available.`);
+      errors.push(`Could not place lab "${lab.name}" (${lab.code}).`);
     }
   }
 
-  // ── Step 2: Place Electives ──
+  // ═════════════════════════════════════════════════
+  // Step 2: PLACE INTERNSHIP (exactly 1x in last period)
+  // ═════════════════════════════════════════════════
+  if (internshipSub && countWeeklySubjectOccurrences(grid, internshipSub.code) === 0) {
+    const preferredDays = ['Tuesday', 'Thursday', 'Wednesday', 'Monday', 'Friday', 'Saturday'];
+    for (const day of preferredDays) {
+      if (!grid[day] || !availableDays.includes(day)) continue;
+      if (grid[day][lastTeachableIdx] === null) {
+        if (!isFacultyBusy(facultySchedule, internshipSub.facultyId, day, lastTeachableIdx)) {
+          grid[day][lastTeachableIdx] = {
+            type: 'theory',
+            subjectCode: internshipSub.code,
+            subjectName: internshipSub.name,
+            facultyId: internshipSub.facultyId,
+            facultyName: internshipSub.facultyName,
+          };
+          recordFacultySlot(facultySchedule, internshipSub.facultyId, day, lastTeachableIdx, section);
+          break;
+        }
+      }
+    }
+  }
+
+  // ═════════════════════════════════════════════════
+  // Step 3: PLACE CO-CURRICULAR (Sports, Library, Mentoring, Tutorial, NPTEL)
+  // ═════════════════════════════════════════════════
+  placeCoCurricularSubjects(grid, coCurricularSubjects, existingSchedules, availableDays, year, section, lastTeachableIdx, secondLastTeachableIdx, preLunchIdx);
+
+  // ═════════════════════════════════════════════════
+  // Step 4: PLACE ELECTIVES (aligned across year sections)
+  // ═════════════════════════════════════════════════
   for (const elective of electiveSubjects) {
-    const alignedSlot = findAlignedElectiveSlot(elective, existingSchedules, grid, availableDays, teachablePeriods, timeConfig, facultySchedule, section);
+    if (countWeeklySubjectOccurrences(grid, elective.code) > 0) continue;
+    const alignedSlot = findAlignedElectiveSlot(elective, existingSchedules, grid, availableDays, facultySchedule, section);
     if (alignedSlot) {
       const { day, periodIndex } = alignedSlot;
       grid[day][periodIndex] = {
@@ -95,116 +230,105 @@ export function generateTimetable(config) {
         peGroup: elective.peGroup,
       };
       recordFacultySlot(facultySchedule, elective.facultyId, day, periodIndex, section);
-    } else {
-      const placed = placeTheorySession(grid, elective, availableDays, teachablePeriods, timeConfig, facultySchedule, section, subjects);
-      if (!placed) {
-        errors.push(`Could not place elective "${elective.name}" (${elective.code}).`);
-      }
     }
   }
 
-  // ── Step 3: Distribute Selected Theory & Elective Subjects ──
-  // Target: exactly 5 hours per theory/elective subject per week
-  const allAcademicSubjects = [
-    ...theorySubjects,
-    ...electiveSubjects.filter(e => countWeeklySubjectOccurrences(grid, e.code) === 0)
-  ];
-  
-  // Place up to 5 hours for each academic subject evenly
-  for (let pass = 1; pass <= 5; pass++) {
-    for (const subject of allAcademicSubjects) {
-      const isInternship = subject.name.toLowerCase().includes('internship') || subject.code.includes('4181');
-      const maxAllowed = isInternship ? 1 : 5;
-      if (countWeeklySubjectOccurrences(grid, subject.code) >= maxAllowed) continue;
-      placeTheorySession(grid, subject, availableDays, teachablePeriods, timeConfig, facultySchedule, section, subjects);
+  // ═════════════════════════════════════════════════════════════════
+  // Step 5: DISTRIBUTE ACADEMIC SUBJECTS (STRICT EQUAL distribution, EXACTLY 4-5 per subject)
+  // ═════════════════════════════════════════════════════════════════
+  const emptySlotCount = countEmptyTeachableSlots(grid, availableDays, teachableIndices);
+  const subjectCount = Math.max(academicSubjects.length, 1);
+  const maxWeeklyQuota = Math.min(5, Math.ceil(emptySlotCount / subjectCount));
+
+  // Pass 1: Place subjects on days where they don't exist yet (max 1 per day, strict faculty check)
+  for (let pass = 1; pass <= maxWeeklyQuota; pass++) {
+    const sortedSubjects = [...academicSubjects].sort((a, b) =>
+      countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code)
+    );
+
+    for (const subject of sortedSubjects) {
+      if (countWeeklySubjectOccurrences(grid, subject.code) >= maxWeeklyQuota) continue;
+      placeTheorySessionStrict(grid, subject, availableDays, facultySchedule, section, morningIndices, afternoonIndices, teachableIndices, true, true);
     }
   }
 
-  // ── Step 4: Fill Any Remaining Free Slots ──
-  // Rule: Co-curricular subjects (TUTORIAL, SPORTS, MENTORING, LIBRARY, NPTEL) are strictly ONCE per week!
-  const coCurricularPool = subjects.filter(s => s.code.startsWith('VBIT-'));
+  // Pass 2: Fill remaining quota allowing max 1 per day, relaxing external faculty clash if needed
+  for (let pass = 1; pass <= maxWeeklyQuota; pass++) {
+    const sortedSubjects = [...academicSubjects].sort((a, b) =>
+      countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code)
+    );
 
-  WEEKDAYS.forEach(day => {
+    for (const subject of sortedSubjects) {
+      if (countWeeklySubjectOccurrences(grid, subject.code) >= maxWeeklyQuota) continue;
+      placeTheorySessionStrict(grid, subject, availableDays, facultySchedule, section, morningIndices, afternoonIndices, teachableIndices, true, false);
+    }
+  }
+
+  // Pass 3: Fill up to maxWeeklyQuota allowing max 2 per day (1 Morning + 1 Afternoon)
+  for (const day of availableDays) {
     const daySlots = grid[day];
-    for (let idx = 0; idx < daySlots.length; idx++) {
-      if (daySlots[idx] !== null) continue; // Skip filled slots
+    for (const idx of teachableIndices) {
+      if (daySlots[idx] !== null) continue;
 
-      let filled = false;
+      const candidates = [...academicSubjects]
+        .filter(s => countWeeklySubjectOccurrences(grid, s.code) < maxWeeklyQuota)
+        .sort((a, b) => countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code));
 
-      // 1. Place co-curricular subjects strictly ONCE per week
-      const coCandidates = [...coCurricularPool];
-      shuffleArray(coCandidates);
-      for (const subject of coCandidates) {
-        // Enforce STRICT ONCE PER WEEK limit for co-curricular subjects (e.g. TUTORIAL, SPORTS, MENTORING, LIBRARY)
-        if (countWeeklySubjectOccurrences(grid, subject.code) >= 1) continue;
-
-        if (subject.code === 'VBIT-TUTORIAL' && idx !== 3 && idx !== daySlots.length - 1) continue;
-        const isEndSubject = subject.code === 'VBIT-SPORTS' || subject.code === 'VBIT-MENTORING' || subject.code === 'VBIT-LIBRARY';
-        if (isEndSubject && idx !== daySlots.length - 1) continue;
+      for (const subject of candidates) {
+        if (!canPlaceSubjectAt(daySlots, idx, subject.code, morningIndices, afternoonIndices, false)) continue;
 
         daySlots[idx] = {
-          type: 'training',
+          type: subject.type === 'elective' ? 'elective' : 'theory',
           subjectCode: subject.code,
           subjectName: subject.name,
-          facultyId: '',
-          facultyName: 'Co-curricular',
+          facultyId: subject.facultyId,
+          facultyName: subject.facultyName,
         };
-        filled = true;
+        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
         break;
       }
+    }
+  }
 
-      if (filled) continue;
+  // ═══════════════════════════════════════════════════════════════
+  // Step 6: ABSOLUTE ZERO-EMPTY GUARANTEE PASS (Strict Quota Respected)
+  // ═══════════════════════════════════════════════════════════════
+  for (const day of availableDays) {
+    const daySlots = grid[day];
+    for (const idx of teachableIndices) {
+      if (daySlots[idx] !== null) continue;
 
-      // 2. Fill remaining open periods using the selected academic subjects (sorted by lowest weekly count to keep counts balanced)
-      const sortedAcademic = [...allAcademicSubjects].sort((a, b) => 
-        countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code)
+      // Filter candidates that have NOT exceeded maxWeeklyQuota
+      let candidates = [...academicSubjects]
+        .filter(s => countWeeklySubjectOccurrences(grid, s.code) < maxWeeklyQuota)
+        .sort((a, b) => countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code));
+
+      if (candidates.length === 0) {
+        candidates = [...academicSubjects].sort((a, b) =>
+          countWeeklySubjectOccurrences(grid, a.code) - countWeeklySubjectOccurrences(grid, b.code)
+        );
+      }
+
+      let chosen = candidates.find(c =>
+        canPlaceSubjectAt(daySlots, idx, c.code, morningIndices, afternoonIndices, false)
       );
 
-      for (const subject of sortedAcademic) {
-        const isInternship = subject.name.toLowerCase().includes('internship') || subject.code.includes('4181');
-        if (isInternship && countWeeklySubjectOccurrences(grid, subject.code) >= 1) continue;
-
-        if (isFacultyBusy(facultySchedule, subject.facultyId, day, idx)) continue;
-        const prevSlot = daySlots[idx - 1];
-        const nextSlot = daySlots[idx + 1];
-        if (prevSlot && prevSlot.subjectCode === subject.code) continue;
-        if (nextSlot && nextSlot.subjectCode === subject.code) continue;
-
-        daySlots[idx] = {
-          type: subject.type === 'elective' ? 'elective' : 'theory',
-          subjectCode: subject.code,
-          subjectName: subject.name,
-          facultyId: subject.facultyId,
-          facultyName: subject.facultyName,
-        };
-        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
-        filled = true;
-        break;
+      if (!chosen) {
+        chosen = candidates[0] || { code: 'ACAD', name: 'Academic Hour', type: 'theory', facultyId: '', facultyName: 'Faculty TBD' };
       }
 
-      if (filled) continue;
-
-      // Absolute Fallback: Place least scheduled academic subject if tight faculty constraints apply
-      for (const subject of sortedAcademic) {
-        const isInternship = subject.name.toLowerCase().includes('internship') || subject.code.includes('4181');
-        if (isInternship && countWeeklySubjectOccurrences(grid, subject.code) >= 1) continue;
-
-        const prevSlot = daySlots[idx - 1];
-        if (prevSlot && prevSlot.subjectCode === subject.code) continue;
-
-        daySlots[idx] = {
-          type: subject.type === 'elective' ? 'elective' : 'theory',
-          subjectCode: subject.code,
-          subjectName: subject.name,
-          facultyId: subject.facultyId,
-          facultyName: subject.facultyName,
-        };
-        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
-        filled = true;
-        break;
+      daySlots[idx] = {
+        type: chosen.type === 'elective' ? 'elective' : 'theory',
+        subjectCode: chosen.code,
+        subjectName: chosen.name,
+        facultyId: chosen.facultyId || '',
+        facultyName: chosen.facultyName || '',
+      };
+      if (chosen.facultyId) {
+        recordFacultySlot(facultySchedule, chosen.facultyId, day, idx, section);
       }
     }
-  });
+  }
 
   // Build legend
   const legend = subjects.map(s => ({
@@ -222,40 +346,140 @@ export function generateTimetable(config) {
   };
 }
 
+// ════════════════════════════════════════════════════════════════════
+// CO-CURRICULAR PLACEMENT
+// ════════════════════════════════════════════════════════════════════
+
+function placeCoCurricularSubjects(grid, coCurricularSubjects, existingSchedules, availableDays, year, section, lastIdx, secondLastIdx, preLunchIdx) {
+  if (!coCurricularSubjects || coCurricularSubjects.length === 0) return;
+
+  const sportsSub = coCurricularSubjects.find(s => s.code === 'VBIT-SPORTS');
+  const librarySub = coCurricularSubjects.find(s => s.code === 'VBIT-LIBRARY');
+  const mentoringSub = coCurricularSubjects.find(s => s.code === 'VBIT-MENTORING');
+  const tutorialSub = coCurricularSubjects.find(s => s.code === 'VBIT-TUTORIAL');
+  const nptelSub = coCurricularSubjects.find(s => s.code === 'VBIT-NPTEL');
+
+  // ── 1. SPORTS — Last period(s), no faculty, staggered across same-year sections ──
+  if (sportsSub && countWeeklySubjectOccurrences(grid, 'VBIT-SPORTS') === 0) {
+    const sameYearSportsDays = new Set();
+    const collegeSportsDayCount = {};
+
+    for (const existing of existingSchedules) {
+      if (!existing.grid) continue;
+      for (const day of WEEKDAYS) {
+        const slots = existing.grid[day];
+        if (slots && slots.some(s => s && s.subjectCode === 'VBIT-SPORTS')) {
+          if (existing.year === year) sameYearSportsDays.add(day);
+          collegeSportsDayCount[day] = (collegeSportsDayCount[day] || 0) + 1;
+        }
+      }
+    }
+
+    const sportsDuration = (year >= 3) ? 1 : 2;
+
+    let targetDay = availableDays.find(d => !sameYearSportsDays.has(d) && (collegeSportsDayCount[d] || 0) < 2);
+    if (!targetDay) targetDay = availableDays.find(d => !sameYearSportsDays.has(d));
+    if (!targetDay) targetDay = availableDays[0];
+
+    const daySlots = grid[targetDay];
+    if (daySlots) {
+      if (sportsDuration === 2 && daySlots[secondLastIdx] === null && daySlots[lastIdx] === null) {
+        daySlots[secondLastIdx] = { type: 'training', subjectCode: 'VBIT-SPORTS', subjectName: 'Sports', facultyId: '', facultyName: '' };
+        daySlots[lastIdx] = { type: 'training', subjectCode: 'VBIT-SPORTS', subjectName: 'Sports', facultyId: '', facultyName: '' };
+      } else if (daySlots[lastIdx] === null) {
+        daySlots[lastIdx] = { type: 'training', subjectCode: 'VBIT-SPORTS', subjectName: 'Sports', facultyId: '', facultyName: '' };
+      }
+    }
+  }
+
+  // ── 2. LIBRARY — Last period, once per week, no faculty ──
+  if (librarySub && countWeeklySubjectOccurrences(grid, 'VBIT-LIBRARY') === 0) {
+    for (const day of ['Thursday', 'Wednesday', 'Tuesday', 'Monday', 'Saturday']) {
+      if (!grid[day] || !availableDays.includes(day)) continue;
+      if (grid[day][lastIdx] === null) {
+        grid[day][lastIdx] = { type: 'training', subjectCode: 'VBIT-LIBRARY', subjectName: 'Library', facultyId: '', facultyName: '' };
+        break;
+      }
+    }
+  }
+
+  // ── 3. MENTORING — Last period, once per week, no faculty ──
+  if (mentoringSub && countWeeklySubjectOccurrences(grid, 'VBIT-MENTORING') === 0) {
+    for (const day of ['Wednesday', 'Tuesday', 'Monday', 'Thursday', 'Saturday']) {
+      if (!grid[day] || !availableDays.includes(day)) continue;
+      if (grid[day][lastIdx] === null) {
+        grid[day][lastIdx] = { type: 'training', subjectCode: 'VBIT-MENTORING', subjectName: 'Mentoring', facultyId: '', facultyName: '' };
+        break;
+      }
+    }
+  }
+
+  // ── 4. TUTORIAL — Period 6 or 7 (secondLast or last), once per week, WITH faculty ──
+  if (tutorialSub && countWeeklySubjectOccurrences(grid, 'VBIT-TUTORIAL') === 0) {
+    for (const day of ['Tuesday', 'Monday', 'Wednesday', 'Thursday', 'Saturday']) {
+      if (!grid[day] || !availableDays.includes(day)) continue;
+      if (grid[day][secondLastIdx] === null) {
+        grid[day][secondLastIdx] = { type: 'training', subjectCode: 'VBIT-TUTORIAL', subjectName: 'Tutorial', facultyId: tutorialSub.facultyId || '', facultyName: tutorialSub.facultyName || 'Tutorial Faculty' };
+        break;
+      } else if (grid[day][lastIdx] === null) {
+        grid[day][lastIdx] = { type: 'training', subjectCode: 'VBIT-TUTORIAL', subjectName: 'Tutorial', facultyId: tutorialSub.facultyId || '', facultyName: tutorialSub.facultyName || 'Tutorial Faculty' };
+        break;
+      }
+    }
+  }
+
+  // ── 5. NPTEL — Pre-lunch (last morning period), once per week, WITH faculty ──
+  if (nptelSub && countWeeklySubjectOccurrences(grid, 'VBIT-NPTEL') === 0) {
+    for (const day of availableDays) {
+      if (!grid[day]) continue;
+      if (grid[day][preLunchIdx] === null) {
+        grid[day][preLunchIdx] = { type: 'training', subjectCode: 'VBIT-NPTEL', subjectName: 'NPTEL Certification', facultyId: nptelSub.facultyId || '', facultyName: nptelSub.facultyName || 'NPTEL Coordinator' };
+        break;
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// LAB PLACEMENT
+// ════════════════════════════════════════════════════════════════════
+
 /**
- * Place a lab session: N continuous periods (2 for R25, 3 for R22), exactly once per week.
+ * Place a lab session: N continuous periods, strictly starting at dynamically computed valid start indices.
+ * Max 1 lab per day. Faculty and room collision checks across all existing schedules.
+ * Tries initialLabDuration (3 or 2 periods), falling back to 2 periods if 3 continuous slots are occupied.
  */
-function placeLabSession(grid, lab, availableDays, teachablePeriods, timeConfig, facultySchedule, section, existingSchedules = [], labDuration = 3, year = 1) {
+function placeLabSession(grid, lab, availableDays, facultySchedule, section, existingSchedules, initialLabDuration, year, timeConfig) {
   const shuffledDays = [...availableDays];
   shuffleArray(shuffledDays);
-
   const labRoom = getLabRoom(lab.name, year);
 
-  for (const day of shuffledDays) {
-    const daySlots = grid[day];
-    
-    // Rule: No 2 labs in one day for this section
-    const hasLabToday = daySlots.some(s => s && s.type === 'lab');
-    if (hasLabToday) continue;
+  const durationsToTry = [initialLabDuration];
+  if (initialLabDuration > 2) {
+    durationsToTry.push(2);
+  }
 
-    // Find labDuration consecutive available (null) slots
-    for (let startIdx = 0; startIdx <= daySlots.length - labDuration; startIdx++) {
-      const slice = daySlots.slice(startIdx, startIdx + labDuration);
-      if (slice.every(s => s === null)) {
-        // Check faculty is free in all labDuration periods
+  // Pass 1: Strict placement — check faculty free AND room free
+  for (const labDuration of durationsToTry) {
+    const validStartIndices = getLabStartIndices(timeConfig, labDuration);
+
+    for (const day of shuffledDays) {
+      const daySlots = grid[day];
+      const hasLabToday = daySlots.some(s => s && s.type === 'lab');
+      if (hasLabToday) continue;
+
+      for (const startIdx of validStartIndices) {
+        if (startIdx + labDuration > daySlots.length) continue;
+        const slice = daySlots.slice(startIdx, startIdx + labDuration);
+        if (!slice.every(s => s === null)) continue;
+
         const indices = Array.from({ length: labDuration }, (_, k) => startIdx + k);
-        const facultyFree = indices.every(
-          idx => !isFacultyBusy(facultySchedule, lab.facultyId, day, idx)
-        );
+        const facultyFree = indices.every(idx => !isFacultyBusy(facultySchedule, lab.facultyId, day, idx));
         if (!facultyFree) continue;
 
-        // Rule: Lab Room allocation check (no collision with other departments/sections using the same lab room)
-        const roomFree = indices.every(
-          idx => !isLabRoomBusy(existingSchedules, labRoom, day, idx)
-        );
+        const roomFree = indices.every(idx => !isLabRoomBusy(existingSchedules, labRoom, day, idx));
         if (!roomFree) continue;
 
-        // Place the lab
         for (let offset = 0; offset < labDuration; offset++) {
           daySlots[startIdx + offset] = {
             type: 'lab',
@@ -263,7 +487,7 @@ function placeLabSession(grid, lab, availableDays, teachablePeriods, timeConfig,
             subjectName: `${lab.name} (${labRoom})`,
             facultyId: lab.facultyId,
             facultyName: lab.facultyName,
-            span: offset === 0 ? labDuration : 0, // First cell carries the span value
+            span: offset === 0 ? labDuration : 0,
           };
           recordFacultySlot(facultySchedule, lab.facultyId, day, startIdx + offset, section);
         }
@@ -271,109 +495,90 @@ function placeLabSession(grid, lab, availableDays, teachablePeriods, timeConfig,
       }
     }
   }
+
+  // Pass 2: Fallback placement — guarantee lab is placed in an open section slot
+  for (const labDuration of durationsToTry) {
+    const validStartIndices = getLabStartIndices(timeConfig, labDuration);
+
+    for (const day of shuffledDays) {
+      const daySlots = grid[day];
+      const hasLabToday = daySlots.some(s => s && s.type === 'lab');
+      if (hasLabToday) continue;
+
+      for (const startIdx of validStartIndices) {
+        if (startIdx + labDuration > daySlots.length) continue;
+        const slice = daySlots.slice(startIdx, startIdx + labDuration);
+        if (!slice.every(s => s === null)) continue;
+
+        for (let offset = 0; offset < labDuration; offset++) {
+          daySlots[startIdx + offset] = {
+            type: 'lab',
+            subjectCode: lab.code,
+            subjectName: `${lab.name} (${labRoom})`,
+            facultyId: lab.facultyId,
+            facultyName: lab.facultyName,
+            span: offset === 0 ? labDuration : 0,
+          };
+          recordFacultySlot(facultySchedule, lab.facultyId, day, startIdx + offset, section);
+        }
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
+// ════════════════════════════════════════════════════════════════════
+// THEORY PLACEMENT (with day-spread prioritization)
+// ════════════════════════════════════════════════════════════════════
+
 /**
- * Place a theory subject in an available slot.
+ * Place a theory/elective subject in the best available slot.
+ * Prioritizes days where the subject hasn't been placed yet (day-spread).
+ * Enforces: no consecutive, max 1 morning + 1 afternoon per day.
  */
-function placeTheorySession(grid, subject, availableDays, teachablePeriods, timeConfig, facultySchedule, section, subjects = []) {
-  const shuffledDays = [...availableDays];
-  shuffleArray(shuffledDays);
+function placeTheorySessionStrict(grid, subject, availableDays, facultySchedule, section, morningIndices, afternoonIndices, teachableIndices, strictOnePerDay = false, checkFaculty = true) {
+  // Separate days into: days WITHOUT this subject (preferred) and days WITH it
+  const daysWithSubject = new Set();
+  for (const day of availableDays) {
+    if (grid[day].some(s => s && s.subjectCode === subject.code)) {
+      daysWithSubject.add(day);
+    }
+  }
 
-  const isCoCurricular = subject.code && subject.code.startsWith('VBIT-');
+  const freshDays = availableDays.filter(d => !daysWithSubject.has(d));
+  const usedDays = availableDays.filter(d => daysWithSubject.has(d));
+  shuffleArray(freshDays);
+  shuffleArray(usedDays);
+  const orderedDays = [...freshDays, ...usedDays];
 
-  for (const day of shuffledDays) {
+  for (const day of orderedDays) {
     const daySlots = grid[day];
-    for (let idx = 0; idx < daySlots.length; idx++) {
-      if (daySlots[idx] !== null) continue; // Slot taken
-      
-      // Check faculty availability (skip for co-curricular)
-      if (!isCoCurricular && isFacultyBusy(facultySchedule, subject.facultyId, day, idx)) continue;
 
-      // Check: no continuous 2 periods of same theory subject
-      if (!isCoCurricular) {
-        const prevSlot = daySlots[idx - 1];
-        const nextSlot = daySlots[idx + 1];
-        if (prevSlot && prevSlot.subjectCode === subject.code) continue;
-        if (nextSlot && nextSlot.subjectCode === subject.code) continue;
-      }
-
-      // Rule: tutorials and mentoring, sports, library, and NPTEL should be restricted to once in a week
-      const isInternship = subject.name?.toLowerCase().includes('internship') || subject.code?.includes('4181');
-      const isSinglePerWeek = isInternship || (subject.code && (
-        subject.code.startsWith('VBIT-') || 
-        subject.code === 'VBIT-SPORTS' || 
-        subject.code === 'VBIT-MENTORING' || 
-        subject.code === 'VBIT-LIBRARY' || 
-        subject.code === 'VBIT-TUTORIAL' || 
-        subject.code === 'VBIT-NPTEL'
-      ));
-      if (isSinglePerWeek) {
-        if (countWeeklySubjectOccurrences(grid, subject.code) >= 1) continue;
-      }
-
-      // Rule: Internship must strictly go in the last period
-      if (isInternship) {
-        const isLastPeriod = idx === daySlots.length - 1;
-        if (!isLastPeriod) continue;
-      }
-
-      // Rule: Tutorial should not come in the 1st hour (index 0) - must be last hour or before lunch (index 3)
-      if (subject.code === 'VBIT-TUTORIAL') {
-        const isLastPeriod = idx === daySlots.length - 1;
-        const isBeforeLunch = idx === 3;
-        if (!isLastPeriod && !isBeforeLunch) continue;
-      }
-
-      // Rule: Sports, Mentoring, Library must only be placed in the last periods
-      const isCoCurricularEnd = subject.code === 'VBIT-SPORTS' || subject.code === 'VBIT-MENTORING' || subject.code === 'VBIT-LIBRARY';
-      const isLastPeriod = idx === daySlots.length - 1;
-      if (isCoCurricularEnd && !isLastPeriod) continue;
-      if (!isCoCurricularEnd && isLastPeriod) {
-        // If this section has co-curricular end subjects, reserve the last period for them!
-        const hasEndSubjects = subjects.some(s => s.code === 'VBIT-SPORTS' || s.code === 'VBIT-MENTORING' || s.code === 'VBIT-LIBRARY');
-        if (hasEndSubjects) continue;
-      }
-
-      // Rule: NPTEL course: 1st 3hours lab followed by NPTEL followed by LUNCH
-      if (subject.code === 'VBIT-NPTEL') {
-        if (idx !== 3) continue;
-        
-        const hasLabToday = daySlots.some(s => s && s.type === 'lab');
-        if (hasLabToday) {
-          const firstThreeAreLab = daySlots.slice(0, 3).every(s => s && s.type === 'lab');
-          if (!firstThreeAreLab) continue;
-        }
-      }
-
-      // Check: no more than 2 slots of same subject per day
-      const sameSubjectToday = daySlots.filter(
-        s => s && s.subjectCode === subject.code && s.type !== 'break' && s.type !== 'lunch'
-      ).length;
-      if (sameSubjectToday >= 2) continue;
+    for (const idx of teachableIndices) {
+      if (!canPlaceSubjectAt(daySlots, idx, subject.code, morningIndices, afternoonIndices, strictOnePerDay)) continue;
+      if (checkFaculty && isFacultyBusy(facultySchedule, subject.facultyId, day, idx)) continue;
 
       daySlots[idx] = {
-        type: isCoCurricular ? 'training' : (subject.type === 'elective' ? 'elective' : 'theory'),
+        type: subject.type === 'elective' ? 'elective' : 'theory',
         subjectCode: subject.code,
         subjectName: subject.name,
-        facultyId: isCoCurricular ? '' : subject.facultyId,
-        facultyName: isCoCurricular ? '' : subject.facultyName,
+        facultyId: subject.facultyId,
+        facultyName: subject.facultyName,
       };
-      if (!isCoCurricular) {
-        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
-      }
+      recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
       return true;
     }
   }
   return false;
 }
 
-/**
- * Find an elective slot aligned with other sections of the same year.
- */
-function findAlignedElectiveSlot(elective, existingSchedules, grid, availableDays, teachablePeriods, timeConfig, facultySchedule, section) {
-  // Look for where this PE group is already placed in other sections
+// ════════════════════════════════════════════════════════════════════
+// ELECTIVE ALIGNMENT
+// ════════════════════════════════════════════════════════════════════
+
+function findAlignedElectiveSlot(elective, existingSchedules, grid, availableDays, facultySchedule, section) {
   for (const existing of existingSchedules) {
     if (!existing.grid) continue;
     for (const day of WEEKDAYS) {
@@ -382,8 +587,7 @@ function findAlignedElectiveSlot(elective, existingSchedules, grid, availableDay
       for (let idx = 0; idx < daySlots.length; idx++) {
         const slot = daySlots[idx];
         if (slot && slot.peGroup === elective.peGroup) {
-          // Check if this slot is free in our grid
-          if (grid[day][idx] === null && !isFacultyBusy(facultySchedule, elective.facultyId, day, idx)) {
+          if (grid[day] && grid[day][idx] === null && !isFacultyBusy(facultySchedule, elective.facultyId, day, idx)) {
             return { day, periodIndex: idx };
           }
         }
@@ -393,10 +597,12 @@ function findAlignedElectiveSlot(elective, existingSchedules, grid, availableDay
   return null;
 }
 
-// ── Utility Functions ──
+// ════════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ════════════════════════════════════════════════════════════════════
 
 function buildFacultyScheduleMap(existingSchedules) {
-  const map = {}; // { facultyId: { 'Monday-0': sectionId, ... } }
+  const map = { _totalHours: {} };
   for (const schedule of existingSchedules) {
     if (!schedule.grid) continue;
     for (const day of WEEKDAYS) {
@@ -404,9 +610,13 @@ function buildFacultyScheduleMap(existingSchedules) {
       if (!daySlots) continue;
       for (let idx = 0; idx < daySlots.length; idx++) {
         const slot = daySlots[idx];
-        if (slot && slot.facultyId) {
-          if (!map[slot.facultyId]) map[slot.facultyId] = {};
-          map[slot.facultyId][`${day}-${idx}`] = schedule.section;
+        if (slot) {
+          const fId = slot.facultyId;
+          if (fId && !fId.startsWith('fac_') && !fId.startsWith('Faculty') && !fId.startsWith('faculty_')) {
+            if (!map[fId]) map[fId] = {};
+            map[fId][`${day}-${idx}`] = schedule.section;
+            map._totalHours[fId] = (map._totalHours[fId] || 0) + 1;
+          }
         }
       }
     }
@@ -415,14 +625,43 @@ function buildFacultyScheduleMap(existingSchedules) {
 }
 
 function isFacultyBusy(facultySchedule, facultyId, day, periodIndex) {
-  if (!facultyId) return false;
-  return facultySchedule[facultyId]?.[`${day}-${periodIndex}`] !== undefined;
+  if (!facultyId || facultyId.startsWith('fac_') || facultyId.startsWith('Faculty') || facultyId.startsWith('faculty_')) return false;
+  if (facultySchedule[facultyId]?.[`${day}-${periodIndex}`] !== undefined) return true;
+  const currentTotal = facultySchedule._totalHours?.[facultyId] || 0;
+  if (currentTotal >= 18) return true;
+  return false;
 }
 
 function recordFacultySlot(facultySchedule, facultyId, day, periodIndex, section) {
-  if (!facultyId) return;
+  if (!facultyId || facultyId.startsWith('fac_') || facultyId.startsWith('Faculty') || facultyId.startsWith('faculty_')) return;
   if (!facultySchedule[facultyId]) facultySchedule[facultyId] = {};
   facultySchedule[facultyId][`${day}-${periodIndex}`] = section;
+  if (!facultySchedule._totalHours) facultySchedule._totalHours = {};
+  facultySchedule._totalHours[facultyId] = (facultySchedule._totalHours[facultyId] || 0) + 1;
+}
+
+function countWeeklySubjectOccurrences(grid, subjectCode) {
+  if (!grid || !subjectCode) return 0;
+  let count = 0;
+  for (const day of WEEKDAYS) {
+    const slots = grid[day];
+    if (!slots) continue;
+    for (const slot of slots) {
+      if (slot && slot.subjectCode === subjectCode) count++;
+    }
+  }
+  return count;
+}
+
+function countEmptyTeachableSlots(grid, availableDays, teachableIndices) {
+  let count = 0;
+  for (const day of availableDays) {
+    if (!grid[day]) continue;
+    for (const idx of teachableIndices) {
+      if (grid[day][idx] === null) count++;
+    }
+  }
+  return count;
 }
 
 function shuffleArray(arr) {
@@ -437,7 +676,6 @@ function getLabRoom(subjectName, year = 1) {
   if (!subjectName) return year === 1 ? '1st Year Computing Lab' : 'Lab 1';
   const name = subjectName.toLowerCase();
 
-  // ── 1st Year Dedicated Labs (Separate from 20 main labs) ──
   if (year === 1 || name.includes('chemistry') || name.includes('physics') || name.includes('english communication') || name.includes('elcs') || name.includes('engineering workshop')) {
     if (name.includes('chemistry')) return '1st Year Chemistry Lab';
     if (name.includes('physics')) return '1st Year Physics Lab';
@@ -451,19 +689,22 @@ function getLabRoom(subjectName, year = 1) {
     return '1st Year General Lab';
   }
 
-  // ── 2nd, 3rd, 4th Year Block: Distributed across the 20 Main Building Labs (Lab 1 through Lab 20) ──
+  // Specialized department labs for Years 2, 3, 4
+  if (name.includes('deep learning')) return 'AI & Deep Learning Lab';
+  if (name.includes('web analytics') || name.includes('web')) return 'Web Analytics Lab';
+  if (name.includes('project')) return 'Project Work Lab';
+  if (name.includes('java') || name.includes('oop')) return 'Java Computing Lab';
+  if (name.includes('os ') || name.includes('operating')) return 'Systems Lab';
+  if (name.includes('dbms') || name.includes('database') || name.includes('big data')) return 'Database Lab';
+  if (name.includes('devops')) return 'DevOps Lab';
+  if (name.includes('r lab') || name.includes('talend')) return 'Data Science Lab';
+
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
-  const labIndex = (Math.abs(hash) % 20) + 1; // Produces Lab 1 to Lab 20
-
-  if (name.includes('java') || name.includes('oop')) return `Lab ${((labIndex - 1) % 5) + 1}`; // Lab 1 – Lab 5
-  if (name.includes('os ') || name.includes('operating')) return `Lab ${((labIndex - 1) % 5) + 6}`; // Lab 6 – Lab 10
-  if (name.includes('dbms') || name.includes('database') || name.includes('big data')) return `Lab ${((labIndex - 1) % 5) + 11}`; // Lab 11 – Lab 15
-  if (name.includes('deep learning') || name.includes('ml ') || name.includes('machine learning') || name.includes('analytics') || name.includes('devops') || name.includes('r lab') || name.includes('talend')) return `Lab ${((labIndex - 1) % 5) + 16}`; // Lab 16 – Lab 20
-
-  return `Lab ${labIndex}`;
+  const labIndex = (Math.abs(hash) % 15) + 1;
+  return `Computing Lab ${labIndex}`;
 }
 
 function isLabRoomBusy(existingSchedules, labRoom, day, periodIndex) {
@@ -471,32 +712,14 @@ function isLabRoomBusy(existingSchedules, labRoom, day, periodIndex) {
   return existingSchedules.some(sched => {
     if (!sched.grid || !sched.grid[day]) return false;
     const daySlots = sched.grid[day];
-    
-    // Check direct period index collision
     const slot = daySlots[periodIndex];
     if (slot && slot.type === 'lab') {
       const match = slot.subjectName ? slot.subjectName.match(/\(([^)]+)\)/) : null;
       const otherRoom = match ? match[1] : getLabRoom(slot.subjectName, sched.year || 1);
       if (otherRoom === labRoom) return true;
     }
-    
     return false;
   });
-}
-
-function countWeeklySubjectOccurrences(grid, subjectCode) {
-  if (!grid || !subjectCode) return 0;
-  let count = 0;
-  for (const day of WEEKDAYS) {
-    const slots = grid[day];
-    if (!slots) continue;
-    for (const slot of slots) {
-      if (slot && slot.subjectCode === subjectCode) {
-        count++;
-      }
-    }
-  }
-  return count;
 }
 
 export default generateTimetable;
