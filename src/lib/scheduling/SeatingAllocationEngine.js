@@ -89,198 +89,147 @@ function groupByBranch(students) {
  * @returns {Array} roomPlans – [{ room, grid[][], branches[], branchCount, studentCount }]
  */
 function interleaveIntoRooms(branchGroups, rooms) {
-  const branchNames = Object.keys(branchGroups);
   const roomPlans = [];
   let roomIdx = 0;
 
-  // Track consumed counts per branch
-  const consumed = {};
-  branchNames.forEach(b => { consumed[b] = 0; });
+  // Track remaining student queues per branch key
+  const queues = {};
+  for (const [b, list] of Object.entries(branchGroups)) {
+    queues[b] = [...list];
+  }
 
-  /**
-   * Fill a single room with students from two branch arrays.
-   * branchA → columns 0, 2;  branchB → columns 1, 3
-   */
-  /**
-   * Fill a single room with students from two branch arrays.
-   * On each bench (Row r, Column c):
-   * - Seat 1 (Left): Branch A (e.g. CSE)
-   * - Seat 2 (Right): Branch B (e.g. CSE-DS)
-   * This ensures Column 1, 2, 3, 4 ALL have CSE and CSE-DS seated side-by-side!
-   */
-  function fillRoom(room, branchAName, branchBName) {
+  const getActiveBranches = () => Object.keys(queues).filter(b => queues[b].length > 0);
+
+  while (getActiveBranches().length > 0 && roomIdx < rooms.length) {
+    const active = getActiveBranches();
+    const room = rooms[roomIdx];
     const rows = room.rows || 6;
     const cols = room.cols || 4;
-    const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
 
-    const branchA = branchGroups[branchAName] || [];
-    const branchB = branchGroups[branchBName] || [];
-    let aIdx = consumed[branchAName] || 0;
-    let bIdx = consumed[branchBName] || 0;
+    let branch1 = null;
+    let branch2 = null;
 
-    let seatedCount = 0;
-    const seatedBranches = new Set();
+    if (active.length >= 2) {
+      // Sort active branches by remaining student count descending
+      active.sort((a, b) => queues[b].length - queues[a].length);
 
-    // Fill Column by Column (c = 0..3), Row by Row (r = 0..5)
-    for (let c = 0; c < cols; c++) {
-      for (let r = 0; r < rows; r++) {
-        if (aIdx >= branchA.length && bIdx >= branchB.length) break;
+      // Branch 1 is the largest remaining queue
+      branch1 = active[0];
 
-        const student1 = aIdx < branchA.length ? {
-          hallTicketNo: branchA[aIdx].hallTicketNo,
-          branch: branchA[aIdx].branch,
-          yearSem: branchA[aIdx].yearSem || branchAName,
-          name: branchA[aIdx].name || '',
-          regulation: branchA[aIdx].regulation || '',
-        } : null;
-        if (student1) { aIdx++; seatedCount++; seatedBranches.add(branchAName); }
+      // Branch 2: Find the branch with the MAXIMUM structural department difference
+      // (e.g. if Branch 1 is CSE, prefer ECE, IT, EEE, CIVIL over CSE-DS)
+      let bestPartnerIdx = 1;
+      const b1Dept = branch1.split('-')[0].toUpperCase();
 
-        const student2 = bIdx < branchB.length ? {
-          hallTicketNo: branchB[bIdx].hallTicketNo,
-          branch: branchB[bIdx].branch,
-          yearSem: branchB[bIdx].yearSem || branchBName,
-          name: branchB[bIdx].name || '',
-          regulation: branchB[bIdx].regulation || '',
-        } : null;
-        if (student2) { bIdx++; seatedCount++; seatedBranches.add(branchBName); }
-
-        if (student1 || student2) {
-          grid[r][c] = {
-            seat1: student1,
-            seat2: student2,
-            // Backward-compatible properties for single-cell readers
-            hallTicketNo: student1 ? (student2 ? `${student1.hallTicketNo} / ${student2.hallTicketNo}` : student1.hallTicketNo) : (student2 ? student2.hallTicketNo : ''),
-            branch: student1 ? (student2 ? `${student1.branch} & ${student2.branch}` : student1.branch) : (student2 ? student2.branch : ''),
-          };
+      for (let i = 1; i < active.length; i++) {
+        const candidateDept = active[i].split('-')[0].toUpperCase();
+        if (b1Dept !== candidateDept) {
+          bestPartnerIdx = i;
+          break;
         }
       }
+      branch2 = active[bestPartnerIdx];
+    } else {
+      branch1 = active[0];
     }
 
-    consumed[branchAName] = aIdx;
-    consumed[branchBName] = bIdx;
+    if (branch1 && branch2) {
+      // Dual-branch room allocation across dual seats per bench
+      const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+      let seatedCount = 0;
+      const seatedBranches = new Set();
 
-    if (seatedCount === 0) return null;
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          if (queues[branch1].length === 0 && queues[branch2].length === 0) break;
 
-    return {
-      room,
-      grid,
-      branches: [...seatedBranches],
-      branchCount: seatedBranches.size,
-      studentCount: seatedCount,
-      totalRegistered: seatedCount,
-    };
-  }
+          const s1 = queues[branch1].length > 0 ? queues[branch1].shift() : null;
+          if (s1) { seatedCount++; seatedBranches.add(branch1); }
 
-  // ── Phase 1: Pair branches for interleaving ──
-  // Sort branches by student count descending to pair large groups together
-  const sortedBranches = [...branchNames].sort(
-    (a, b) => branchGroups[b].length - branchGroups[a].length
-  );
+          const s2 = queues[branch2].length > 0 ? queues[branch2].shift() : null;
+          if (s2) { seatedCount++; seatedBranches.add(branch2); }
 
-  // Create pairs of branches for interleaving
-  const pairs = [];
-  const pairedSet = new Set();
-
-  for (let i = 0; i < sortedBranches.length; i++) {
-    if (pairedSet.has(sortedBranches[i])) continue;
-    const branchA = sortedBranches[i];
-    pairedSet.add(branchA);
-
-    // Find the best unpaired partner
-    let partner = null;
-    for (let j = i + 1; j < sortedBranches.length; j++) {
-      if (!pairedSet.has(sortedBranches[j])) {
-        partner = sortedBranches[j];
-        pairedSet.add(partner);
-        break;
+          if (s1 || s2) {
+            grid[r][c] = {
+              seat1: s1 ? {
+                hallTicketNo: s1.hallTicketNo,
+                branch: s1.branch || branch1,
+                yearSem: s1.yearSem || branch1,
+                name: s1.name || '',
+                regulation: s1.regulation || '',
+              } : null,
+              seat2: s2 ? {
+                hallTicketNo: s2.hallTicketNo,
+                branch: s2.branch || branch2,
+                yearSem: s2.yearSem || branch2,
+                name: s2.name || '',
+                regulation: s2.regulation || '',
+              } : null,
+              hallTicketNo: s1 ? (s2 ? `${s1.hallTicketNo} / ${s2.hallTicketNo}` : s1.hallTicketNo) : (s2 ? s2.hallTicketNo : ''),
+              branch: s1 ? (s2 ? `${s1.branch} & ${s2.branch}` : s1.branch) : (s2 ? s2.branch : ''),
+            };
+          }
+        }
       }
-    }
 
-    pairs.push({ branchA, branchB: partner });
-  }
+      if (seatedCount > 0) {
+        roomPlans.push({
+          room,
+          grid,
+          branches: [...seatedBranches],
+          branchCount: seatedBranches.size,
+          studentCount: seatedCount,
+          totalRegistered: seatedCount,
+        });
+      }
+      roomIdx++;
+    } else if (branch1) {
+      // Single branch remaining -> Split into two halves (Lower Roll Nos vs Upper Roll Nos) for bench interleaving
+      const students = queues[branch1];
+      queues[branch1] = []; // Consume remaining
 
-  // ── Phase 2: Fill rooms for each pair ──
-  for (const pair of pairs) {
-    const { branchA, branchB } = pair;
-
-    if (!branchB) {
-      // Single branch – split roll numbers into two halves for column interleaving (Col 0, 2 vs Col 1, 3)
-      // to ensure adjacent bench seats NEVER have contiguous roll numbers
-      const students = branchGroups[branchA];
-      const remainingStudents = students.slice(consumed[branchA]);
-      const half = Math.ceil(remainingStudents.length / 2);
-      const halfA = remainingStudents.slice(0, half);
-      const halfB = remainingStudents.slice(half);
-
+      const half = Math.ceil(students.length / 2);
+      const halfA = students.slice(0, half);
+      const halfB = students.slice(half);
       let aPtr = 0;
       let bPtr = 0;
 
-      while (aPtr < halfA.length || bPtr < halfB.length) {
-        if (roomIdx >= rooms.length) break;
-        const room = rooms[roomIdx];
-        const rows = room.rows || 6;
-        const cols = room.cols || 4;
+      while ((aPtr < halfA.length || bPtr < halfB.length) && roomIdx < rooms.length) {
+        const curRoom = rooms[roomIdx];
         const grid = Array.from({ length: rows }, () => Array(cols).fill(null));
-        let seated = 0;
+        let seatedCount = 0;
 
         for (let c = 0; c < cols; c++) {
-          const isColA = c % 2 === 0; // Col 0, 2 -> Group A (Lower Roll Nos); Col 1, 3 -> Group B (Upper Roll Nos)
           for (let r = 0; r < rows; r++) {
-            if (isColA) {
-              if (aPtr < halfA.length) {
-                grid[r][c] = {
-                  hallTicketNo: halfA[aPtr].hallTicketNo,
-                  branch: halfA[aPtr].branch,
-                  yearSem: halfA[aPtr].yearSem || `${branchA}`,
-                  name: halfA[aPtr].name || '',
-                  regulation: halfA[aPtr].regulation || '',
-                };
-                aPtr++;
-                seated++;
-              }
-            } else {
-              if (bPtr < halfB.length) {
-                grid[r][c] = {
-                  hallTicketNo: halfB[bPtr].hallTicketNo,
-                  branch: halfB[bPtr].branch,
-                  yearSem: halfB[bPtr].yearSem || `${branchA}`,
-                  name: halfB[bPtr].name || '',
-                  regulation: halfB[bPtr].regulation || '',
-                };
-                bPtr++;
-                seated++;
-              }
+            const s1 = aPtr < halfA.length ? halfA[aPtr++] : null;
+            if (s1) seatedCount++;
+
+            const s2 = bPtr < halfB.length ? halfB[bPtr++] : null;
+            if (s2) seatedCount++;
+
+            if (s1 || s2) {
+              grid[r][c] = {
+                seat1: s1 ? { hallTicketNo: s1.hallTicketNo, branch: s1.branch || branch1, yearSem: s1.yearSem || branch1, name: s1.name || '' } : null,
+                seat2: s2 ? { hallTicketNo: s2.hallTicketNo, branch: s2.branch || branch1, yearSem: s2.yearSem || branch1, name: s2.name || '' } : null,
+                hallTicketNo: s1 ? (s2 ? `${s1.hallTicketNo} / ${s2.hallTicketNo}` : s1.hallTicketNo) : (s2 ? s2.hallTicketNo : ''),
+                branch: branch1,
+              };
             }
           }
         }
 
-        if (seated > 0) {
+        if (seatedCount > 0) {
           roomPlans.push({
-            room,
+            room: curRoom,
             grid,
-            branches: [branchA],
+            branches: [branch1],
             branchCount: 1,
-            studentCount: seated,
-            totalRegistered: seated,
+            studentCount: seatedCount,
+            totalRegistered: seatedCount,
           });
         }
         roomIdx++;
       }
-      consumed[branchA] = students.length;
-      continue;
-    }
-
-    // Paired interleaving – fill rooms until both branches are exhausted
-    while (
-      (consumed[branchA] < branchGroups[branchA].length ||
-       consumed[branchB] < branchGroups[branchB].length)
-    ) {
-      if (roomIdx >= rooms.length) break;
-      const plan = fillRoom(rooms[roomIdx], branchA, branchB);
-      if (plan) {
-        roomPlans.push(plan);
-      }
-      roomIdx++;
     }
   }
 
@@ -327,11 +276,19 @@ function assignInvigilators(roomPlans, availableFaculty, existingAssignments = {
   const usedInSession = new Set(); // Track assigned faculty in this session
   let facultyPointer = 0;
 
-  function getNextAvailableFaculty() {
-    // Find next faculty not yet used in this session, with lowest workload
+  function getNextAvailableFaculty(preferredDept) {
     const remaining = sortedFaculty.filter(f => !usedInSession.has(f.id));
     if (remaining.length === 0) return null;
-    // Pick the one with lowest workload
+
+    if (preferredDept) {
+      const cleanDept = preferredDept.split('-')[0].trim().toLowerCase();
+      const match = remaining.find(f => 
+        f.department && f.department.toLowerCase().includes(cleanDept)
+      );
+      if (match) return match;
+    }
+
+    // Fallback: pick faculty with lowest workload
     remaining.sort((a, b) => (workload[a.id] || 0) - (workload[b.id] || 0));
     return remaining[0];
   }
@@ -341,7 +298,8 @@ function assignInvigilators(roomPlans, availableFaculty, existingAssignments = {
     plan.assignedInvigilators = [];
 
     for (let i = 0; i < needed; i++) {
-      const faculty = getNextAvailableFaculty();
+      const preferredDept = plan.branches[i] || plan.branches[0];
+      const faculty = getNextAvailableFaculty(preferredDept);
       if (faculty) {
         plan.assignedInvigilators.push({
           facultyId: faculty.id,
