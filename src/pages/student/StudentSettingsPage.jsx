@@ -1,48 +1,38 @@
 /**
- * StudentSettingsPage — Profile, academic info, and password settings for Student.
+ * StudentSettingsPage — Profile (Read-Only) and Password settings for Student.
+ * Student academic profile details are locked by Administration.
  */
 import { useState } from 'react';
-import { Settings, User, Lock, Save, GraduationCap } from 'lucide-react';
+import { Settings, Lock, Save, GraduationCap, ShieldAlert } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
-import { db, auth } from '../../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { auth } from '../../lib/firebase';
 import { updatePassword } from 'firebase/auth';
 
 export default function StudentSettingsPage() {
-  const { profile, user } = useAuthStore();
-  const [name, setName] = useState(profile?.name || profile?.displayName || '');
-  const [hallTicketNo, setHallTicketNo] = useState(profile?.hallTicketNo || '23P61A6701');
-  const [section, setSection] = useState(profile?.section || 'CSE-DS A');
-  const [regulation, setRegulation] = useState(profile?.regulation || 'R22');
-
+  const { profile } = useAuthStore();
   const [newPassword, setNewPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const handleSaveProfile = async (e) => {
+  const handleSavePassword = async (e) => {
     e.preventDefault();
+    if (!newPassword.trim()) {
+      setMsg('Please enter a new password to update.');
+      return;
+    }
     setSaving(true);
     setMsg('');
     try {
-      if (user?.uid) {
-        await updateDoc(doc(db, 'users', user.uid), {
-          name,
-          hallTicketNo,
-          section,
-          regulation,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-
-      if (newPassword.trim() && auth.currentUser) {
+      if (auth.currentUser) {
         await updatePassword(auth.currentUser, newPassword.trim());
+        setMsg('✅ Password updated successfully! Use your new password on your next login.');
+        setNewPassword('');
+      } else {
+        setMsg('Error: User session not found. Please log in again.');
       }
-
-      setMsg('Student settings saved successfully in Firestore database!');
-      setNewPassword('');
     } catch (err) {
       console.error(err);
-      setMsg('Error saving settings: ' + err.message);
+      setMsg('Error updating password: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -53,10 +43,10 @@ export default function StudentSettingsPage() {
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Settings size={24} style={{ color: 'var(--accent-green)' }} />
-          Student Account Settings
+          Student Account & Security Settings
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
-          Update your student profile and academic details.
+          View institutional profile details and manage your account password.
         </p>
       </div>
 
@@ -71,45 +61,58 @@ export default function StudentSettingsPage() {
         </div>
       )}
 
-      <form onSubmit={handleSaveProfile} className="solid-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Institutional Read-Only Lock Banner */}
+      <div style={{
+        padding: '14px 18px', borderRadius: '12px', marginBottom: '20px',
+        background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)',
+        display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-secondary)', fontSize: '0.813rem',
+      }}>
+        <ShieldAlert size={20} style={{ color: 'var(--accent-blue)', flexShrink: 0 }} />
+        <div>
+          <strong style={{ color: 'var(--text-primary)' }}>Official Academic Profile Locked:</strong> Student personal & academic credentials (Name, Roll Number, Branch, Section) are officially managed by the Institution Administration. Students cannot modify academic records. To request updates, contact the Exam Branch or Department Admin.
+        </div>
+      </div>
+
+      <form onSubmit={handleSavePassword} className="solid-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
-          <GraduationCap size={18} style={{ color: 'var(--accent-green)' }} /> Academic Profile
+          <GraduationCap size={18} style={{ color: 'var(--accent-green)' }} /> Official Institutional Profile (Read-Only)
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Full Name</label>
-            <input className="input-field" value={name} onChange={e => setName(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Full Name 🔒</label>
+            <input className="input-field" value={profile?.name || profile?.displayName || 'SURAJ'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Hall Ticket Number</label>
-            <input className="input-field" value={hallTicketNo} onChange={e => setHallTicketNo(e.target.value)} required />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Hall Ticket / Roll Number 🔒</label>
+            <input className="input-field" value={profile?.hallTicketNo || '23P61A6794'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Registered Email</label>
-            <input className="input-field" value={profile?.email || ''} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)' }} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Institutional Email 🔒</label>
+            <input className="input-field" value={profile?.email || '23p61a6794@vbit.ac.in'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Section & Branch</label>
-            <input className="input-field" value={section} onChange={e => setSection(e.target.value)} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Department / Branch 🔒</label>
+            <input className="input-field" value={profile?.department || 'CSE-DS'} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Regulation</label>
-            <input className="input-field" value={regulation} onChange={e => setRegulation(e.target.value)} />
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Section & Regulation 🔒</label>
+            <input className="input-field" value={`${profile?.section || 'Sec A'} (${profile?.regulation || 'R22'})`} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
         </div>
 
         <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px', marginTop: '12px' }}>
-          <Lock size={18} style={{ color: 'var(--accent-amber)' }} /> Password Security
+          <Lock size={18} style={{ color: 'var(--accent-amber)' }} /> Change Account Password
         </h3>
 
         <div>
-          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>New Password (Leave blank to keep current)</label>
-          <input type="password" className="input-field" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 6 characters" minLength={6} />
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>New Password</label>
+          <input type="password" className="input-field" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Enter new password (min. 6 characters)" minLength={6} />
+          <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '4px', display: 'block' }}>Default password is vbit1234. Change it to secure your student portal.</span>
         </div>
 
-        <button type="submit" disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start', padding: '10px 20px', marginTop: '8px' }}>
-          <Save size={16} /> {saving ? 'Saving...' : 'Save Settings'}
+        <button type="submit" disabled={saving || !newPassword.trim()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start', padding: '10px 20px', marginTop: '8px' }}>
+          <Save size={16} /> {saving ? 'Updating Password...' : 'Update Password'}
         </button>
       </form>
     </div>

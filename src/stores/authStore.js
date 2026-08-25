@@ -15,20 +15,20 @@ import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase
 import { auth, db } from '../lib/firebase';
 
 function getDeptFromEmail(email = '') {
-  const lower = email.toLowerCase();
-  if (lower.includes('cseds') || lower.includes('cse-ds')) return 'CSE-DS';
-  if (lower.includes('cseaiml') || lower.includes('cse-aiml')) return 'CSE-AIML';
-  if (lower.includes('csecs') || lower.includes('cse-cs')) return 'CSE-CS';
-  if (lower.includes('csbs') || lower.includes('cse-bs')) return 'CSE-BS';
-  if (lower.includes('cse')) return 'CSE';
-  if (lower.includes('ece')) return 'ECE';
-  if (lower.includes('eee')) return 'EEE';
-  if (lower.includes('mech')) return 'MECH';
-  if (lower.includes('civil')) return 'CIVIL';
-  if (lower.includes('freshman') || lower.includes('hs')) return 'FRESHMAN_ENG';
-  if (lower.includes('mba')) return 'MBA';
-  if (lower.includes('mtech')) return 'MTECH';
-  if (lower.includes('it')) return 'IT';
+  const handle = (email.split('@')[0] || '').toLowerCase();
+  if (handle.includes('cseds') || handle.includes('cse-ds') || handle.includes('a67') || handle.includes('67')) return 'CSE-DS';
+  if (handle.includes('cseaiml') || handle.includes('cse-aiml') || handle.includes('a66') || handle.includes('66')) return 'CSE-AIML';
+  if (handle.includes('csecs') || handle.includes('cse-cs') || handle.includes('a62') || handle.includes('62')) return 'CSE-CS';
+  if (handle.includes('csbs') || handle.includes('cse-bs')) return 'CSE-BS';
+  if (handle.includes('cse') || handle.includes('a05')) return 'CSE';
+  if (handle.includes('ece') || handle.includes('a04')) return 'ECE';
+  if (handle.includes('eee') || handle.includes('a02')) return 'EEE';
+  if (handle.includes('mech') || handle.includes('a03')) return 'MECH';
+  if (handle.includes('civil') || handle.includes('a01')) return 'CIVIL';
+  if (handle.includes('freshman') || handle.includes('hs')) return 'FRESHMAN_ENG';
+  if (handle.includes('mba')) return 'MBA';
+  if (handle.includes('mtech')) return 'MTECH';
+  if (handle.includes('dept-it') || handle.includes('a12') || handle.startsWith('it')) return 'IT';
   return 'CSE-DS';
 }
 

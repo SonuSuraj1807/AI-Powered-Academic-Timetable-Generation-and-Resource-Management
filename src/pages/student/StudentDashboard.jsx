@@ -23,7 +23,7 @@ function getCellClass(rawSubject) {
 
 export default function StudentDashboard() {
   const { profile } = useAuthStore();
-  const { notifications, subscribeToNotifications, dismissNotification } = useNotificationStore();
+  const { notifications, subscribeToNotifications, markAsRead } = useNotificationStore();
   const [searchHTNo, setSearchHTNo] = useState(profile?.hallTicketNo || '23P61A6701');
   const [publishedPlans, setPublishedPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -177,9 +177,9 @@ export default function StudentDashboard() {
       </div>
 
       {/* Real-time Notifications Banner with Cross Dismissal Button */}
-      {notifications.length > 0 && (
+      {notifications.filter(n => !n.isRead).length > 0 && (
         <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {notifications.slice(0, 3).map(n => (
+          {notifications.filter(n => !n.isRead).slice(0, 3).map(n => (
             <div key={n.id} style={{
               padding: '12px 16px', borderRadius: '12px',
               background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.1))',
@@ -193,13 +193,13 @@ export default function StudentDashboard() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 <button
-                  onClick={() => dismissNotification(n.id)}
+                  onClick={() => markAsRead(n.id)}
                   style={{
                     background: 'rgba(255, 255, 255, 0.1)', border: 'none', borderRadius: '50%',
                     width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: 'var(--text-secondary)', cursor: 'pointer', transition: 'all 150ms ease'
                   }}
-                  title="Dismiss notification"
+                  title="Dismiss from banner (Mark as Read)"
                 >
                   <X size={14} />
                 </button>
