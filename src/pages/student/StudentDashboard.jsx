@@ -45,24 +45,47 @@ export function getStudentYear(rollNo) {
   }
 }
 
+export function parseJntuhRank(rollNo) {
+  if (!rollNo) return 1;
+  const clean = String(rollNo).toUpperCase().trim();
+  const last2 = clean.slice(-2);
+
+  const charMap = {
+    'A': 100, 'B': 110, 'C': 120, 'D': 130, 'E': 140,
+    'F': 150, 'G': 160, 'H': 170, 'J': 180, 'K': 190
+  };
+
+  const letter = last2[0];
+  const digit = parseInt(last2[1], 10);
+
+  if (charMap[letter] !== undefined && !isNaN(digit)) {
+    return charMap[letter] + digit;
+  }
+
+  const numericVal = parseInt(last2, 10);
+  if (!isNaN(numericVal)) return numericVal;
+
+  const match = clean.match(/(\d{2})$/);
+  return match ? parseInt(match[1], 10) : 1;
+}
+
 export function getStudentSection(rollNo) {
   if (!rollNo) return 'A';
   const clean = String(rollNo).toUpperCase().trim();
   const isLateral = clean.includes('5A') || clean.includes('65A');
-
-  // Extract last numeric digits (e.g. 6794 -> 6794, 6701 -> 6701)
-  const numMatch = clean.match(/(\d{4}|\d{3}|\d{2})$/);
-  const num = numMatch ? parseInt(numMatch[1], 10) : NaN;
+  const rank = parseJntuhRank(clean);
 
   if (isLateral) {
-    // 24P65A6701 to 6708 -> Sec A; 6709+ -> Sec B
-    if (!isNaN(num) && num >= 6701 && num <= 6708) return 'A';
-    if (!isNaN(num) && num > 6708) return 'B';
+    // Lateral Entries: 6701 to 6708 -> Sec A; 6709 to 6714 -> Sec B; 6715 to 6720 -> Sec C
+    if (rank >= 1 && rank <= 8) return 'A';
+    if (rank >= 9 && rank <= 14) return 'B';
+    if (rank >= 15) return 'C';
     return 'A';
   } else {
-    // Regular: 6701 to 6764 -> Sec A; 6765+ -> Sec B
-    if (!isNaN(num) && num >= 6701 && num <= 6764) return 'A';
-    if (!isNaN(num) && num >= 6765) return 'B';
+    // Regular: 6701 to 6764 -> Sec A; 6765 to 67C8 (rank 128) -> Sec B; 67C9 to 67J2 (rank 129+) -> Sec C
+    if (rank >= 1 && rank <= 64) return 'A';
+    if (rank >= 65 && rank <= 128) return 'B';
+    if (rank >= 129) return 'C';
     return 'A';
   }
 }
