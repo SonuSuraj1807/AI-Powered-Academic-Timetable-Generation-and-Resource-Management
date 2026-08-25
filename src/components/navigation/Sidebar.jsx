@@ -4,6 +4,7 @@
  * Collapsible sidebar with animated menu items, role-specific sections,
  * and active state highlighting.
  */
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, BookOpen, Users, Bell, Settings,
@@ -79,7 +80,13 @@ export default function Sidebar({ collapsed, onToggle }) {
   const { role, profile, logout } = useAuthStore();
   const location = useLocation();
   const navigate = useNavigate();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const config = MENU_CONFIG[role] || MENU_CONFIG.admin;
+
+  const handleConfirmLogout = async () => {
+    setShowLogoutModal(false);
+    await logout(true);
+  };
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} id="main-sidebar">
@@ -213,7 +220,7 @@ export default function Sidebar({ collapsed, onToggle }) {
         )}
 
         <button
-          onClick={logout}
+          onClick={() => setShowLogoutModal(true)}
           id="logout-button"
           style={{
             width: '100%',
@@ -224,6 +231,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             color: 'var(--danger)',
             justifyContent: collapsed ? 'center' : 'flex-start',
             transition: 'all 150ms ease',
+            cursor: 'pointer',
           }}
           onMouseEnter={(e) => e.target.style.background = 'var(--danger-subtle)'}
           onMouseLeave={(e) => e.target.style.background = 'transparent'}
@@ -232,6 +240,48 @@ export default function Sidebar({ collapsed, onToggle }) {
           {!collapsed && 'Sign Out'}
         </button>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px'
+        }}>
+          <div className="solid-card" style={{ maxWidth: '420px', width: '100%', padding: '28px', borderRadius: '18px', textAlign: 'center' }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '18px',
+              background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 16px',
+              boxShadow: '0 8px 20px rgba(239, 68, 68, 0.2)'
+            }}>
+              <LogOut size={26} />
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-primary)' }}>
+              Confirm Sign Out
+            </h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
+              Are you sure you want to log out? Any unsaved timetable draft, schedule changes, or active work in progress will be lost.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                onClick={() => setShowLogoutModal(false)}
+                className="btn btn-secondary" 
+                style={{ flex: 1, padding: '10px 16px', fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleConfirmLogout}
+                className="btn btn-danger" 
+                style={{ flex: 1, padding: '10px 16px', background: 'var(--danger)', color: 'white', fontWeight: 700 }}
+              >
+                Yes, Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

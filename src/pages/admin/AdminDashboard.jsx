@@ -40,24 +40,41 @@ export default function AdminDashboard() {
   const [sectionsCount, setSectionsCount] = useState(0);
 
   useEffect(() => {
+    const isSuperAdmin = profile?.role === 'superadmin';
+    const dept = profile?.department;
+
     const unsubSchedules = onSnapshot(collection(db, 'schedules'), (snap) => {
-      setSchedulesCount(snap.size);
+      let list = [];
+      snap.forEach(doc => list.push(doc.data()));
+      if (!isSuperAdmin && dept) {
+        list = list.filter(d => d.department === dept);
+      }
+      setSchedulesCount(list.length);
       const activeSecs = new Set();
-      snap.forEach(doc => {
-        const data = doc.data();
+      list.forEach(data => {
         if (data.section && data.department) {
           activeSecs.add(`${data.department}_${data.year}_${data.section}`);
         }
       });
-      setSectionsCount(activeSecs.size || 12);
+      setSectionsCount(activeSecs.size);
     });
 
     const unsubFaculty = onSnapshot(collection(db, 'faculty'), (snap) => {
-      setFacultyCount(snap.size);
+      let list = [];
+      snap.forEach(doc => list.push(doc.data()));
+      if (!isSuperAdmin && dept) {
+        list = list.filter(f => f.department === dept);
+      }
+      setFacultyCount(list.length);
     });
 
     const unsubCurriculum = onSnapshot(collection(db, 'curriculum_registry'), (snap) => {
-      setCurriculumCount(snap.size);
+      let list = [];
+      snap.forEach(doc => list.push(doc.data()));
+      if (!isSuperAdmin && dept) {
+        list = list.filter(c => c.department === dept);
+      }
+      setCurriculumCount(list.length);
     });
 
     return () => {
@@ -65,13 +82,13 @@ export default function AdminDashboard() {
       unsubFaculty();
       unsubCurriculum();
     };
-  }, []);
+  }, [profile]);
 
   const STAT_CARDS = [
-    { label: 'Active Schedules', value: String(schedulesCount), change: '+3 this week', icon: Calendar, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-    { label: 'Faculty Members', value: String(facultyCount), change: '12 departments', icon: Users, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
-    { label: 'Subjects Registered', value: String(curriculumCount), change: 'R22 + R25', icon: BookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
-    { label: 'Active Sections', value: String(sectionsCount), change: 'Across all years', icon: Building2, color: '#E8522E', bg: 'rgba(232,82,46,0.1)' },
+    { label: 'Active Schedules', value: String(schedulesCount), change: `${profile?.department || 'Dept'} Scope`, icon: Calendar, color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+    { label: 'Faculty Members', value: String(facultyCount), change: `${profile?.department || 'Dept'} Staff`, icon: Users, color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
+    { label: 'Subjects Registered', value: String(curriculumCount), change: `${profile?.department || 'Dept'} Courses`, icon: BookOpen, color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)' },
+    { label: 'Active Sections', value: String(sectionsCount), change: 'Department Sections', icon: Building2, color: '#E8522E', bg: 'rgba(232,82,46,0.1)' },
   ];
 
   return (

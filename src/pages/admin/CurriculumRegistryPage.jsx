@@ -96,10 +96,18 @@ export default function CurriculumRegistryPage() {
       }
 
       unsubscribe = onSnapshot(collection(db, 'curriculum_registry'), (snapshot) => {
-        const list = [];
-        snapshot.forEach(doc => {
-          list.push({ id: doc.id, ...doc.data() });
+        let list = [];
+        snapshot.forEach(docSnap => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
         });
+
+        // Department scoping for Department Administrators
+        const isSuperAdmin = profile?.role === 'superadmin';
+        const userDept = profile?.department || 'CSE-DS';
+        if (!isSuperAdmin && userDept) {
+          list = list.filter(sub => sub.department === userDept);
+        }
+
         // Sort by Year (1 to 4) -> Semester (1 to 2) -> Subject Code alphabetically
         list.sort((a, b) => {
           const yearA = Number(a.year) || 0;
@@ -119,7 +127,7 @@ export default function CurriculumRegistryPage() {
 
     checkAndSeedThenSync();
     return () => unsubscribe();
-  }, []);
+  }, [profile]);
 
   const handleAdd = async (e) => {
     e.preventDefault();

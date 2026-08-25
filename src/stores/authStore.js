@@ -143,15 +143,20 @@ const useAuthStore = create((set, get) => ({
   },
 
   /**
-   * Sign out and clear all state
+   * Sign out and clear all state with optional confirmation check
    */
-  logout: async () => {
+  logout: async (skipConfirmation = false) => {
+    if (!skipConfirmation) {
+      const confirmed = window.confirm('Are you sure you want to log out? Any unsaved progress will be lost.');
+      if (!confirmed) return false;
+    }
     try {
       await signOut(auth);
     } catch (err) {
       console.error('Logout error:', err);
     }
     set({ user: null, role: null, profile: null, error: null });
+    return true;
   },
 
   /**

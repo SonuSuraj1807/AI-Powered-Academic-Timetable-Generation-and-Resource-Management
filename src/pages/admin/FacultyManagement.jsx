@@ -76,36 +76,58 @@ export default function FacultyManagement() {
   const [editDepartment, setEditDepartment] = useState('CSE-DS');
   const [editDesignation, setEditDesignation] = useState('Assistant Professor');
 
-  // Real-time syncing with Firestore
+  // Real-time syncing with Firestore — strictly scoped to logged-in user department
   useEffect(() => {
+    const isSuperAdmin = profile?.role === 'superadmin';
+    const userDept = profile?.department || 'CSE-DS';
+
     const unsubscribe = onSnapshot(collection(db, 'faculty'), (snapshot) => {
-      const list = [];
-      snapshot.forEach(doc => {
-        list.push({ id: doc.id, ...doc.data() });
+      let list = [];
+      snapshot.forEach(docSnap => {
+        list.push({ id: docSnap.id, ...docSnap.data() });
       });
+
+      // Strict Department Scoping for Department Administrators
+      if (!isSuperAdmin && userDept) {
+        list = list.filter(f => f.department === userDept);
+      }
+
       // Sort alphabetically by name
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setFacultyList(list);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [profile]);
 
   const handleSeedFaculty = async () => {
-    if (!confirm('This will seed the 29 VBIT CSE-DS faculty members and auto-create secure accounts in Firebase Auth. Proceed?')) return;
+    const targetDept = profile?.department || 'CSE-DS';
+    if (!confirm(`This will seed 10 official ${targetDept} faculty members and provision accounts in Firebase Auth. Proceed?`)) return;
     setSeeding(true);
     let count = 0;
+
+    const deptSeedList = targetDept === 'CSE-DS' ? SEED_FACULTY : [
+      { name: `Dr. HOD ${targetDept}`, designation: 'Professor & HoD', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.hod@vbit.ac.in`, department: targetDept },
+      { name: `Dr. Senior ${targetDept} Professor`, designation: 'Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.prof1@vbit.ac.in`, department: targetDept },
+      { name: `Dr. Assoc ${targetDept} Professor`, designation: 'Associate Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.assoc1@vbit.ac.in`, department: targetDept },
+      { name: `Mrs. ${targetDept} Faculty A`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.facA@vbit.ac.in`, department: targetDept },
+      { name: `Mr. ${targetDept} Faculty B`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.facB@vbit.ac.in`, department: targetDept },
+      { name: `Ms. ${targetDept} Faculty C`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.facC@vbit.ac.in`, department: targetDept },
+      { name: `Dr. ${targetDept} Lab Incharge`, designation: 'Associate Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.lab@vbit.ac.in`, department: targetDept },
+      { name: `Mrs. ${targetDept} Coordinator`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.coord@vbit.ac.in`, department: targetDept },
+      { name: `Mr. ${targetDept} Project Guide`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.project@vbit.ac.in`, department: targetDept },
+      { name: `Dr. ${targetDept} Seminar Lead`, designation: 'Assistant Professor', email: `${targetDept.toLowerCase().replace(/[^a-z0-9]/g, '')}.lead@vbit.ac.in`, department: targetDept },
+    ];
+
     try {
       const secAuth = getSecondaryAuth();
-      for (const f of SEED_FACULTY) {
+      for (const f of deptSeedList) {
         const exists = facultyList.some(fac => fac.email.toLowerCase() === f.email.toLowerCase());
         if (!exists) {
           try {
-            // Create Firebase Auth user
             const userCredential = await createUserWithEmailAndPassword(secAuth, f.email, 'Password@123');
             const uid = userCredential.user.uid;
 
-            // Write details to faculty registry
             await setDoc(doc(db, 'faculty', uid), {
               name: f.name,
               email: f.email,
@@ -115,45 +137,23 @@ export default function FacultyManagement() {
               uid: uid,
             });
 
-            // Save role to users collection
             await setDoc(doc(db, 'users', uid), {
               name: f.name,
               email: f.email,
               role: 'faculty',
               department: f.department,
               designation: f.designation,
+              createdAt: new Date().toISOString(),
             });
-
             count++;
-          } catch (authErr) {
-            console.error(`Auth creation failed for ${f.name}:`, authErr);
-            if (authErr.code === 'auth/email-already-in-use') {
-              const tempUid = `fac_${f.name.replace(/[^a-zA-Z]/g, '').toLowerCase()}`;
-              await setDoc(doc(db, 'faculty', tempUid), {
-                name: f.name,
-                email: f.email,
-                department: f.department,
-                designation: f.designation,
-                workloadHours: 0,
-                uid: tempUid,
-              });
-              await setDoc(doc(db, 'users', tempUid), {
-                name: f.name,
-                email: f.email,
-                role: 'faculty',
-                department: f.department,
-                designation: f.designation,
-              });
-              count++;
-            }
+          } catch (e) {
+            console.warn(`Could not provision ${f.email}:`, e);
           }
         }
       }
-      await secAuth.signOut();
-      alert(`Seeder complete! Successfully registered ${count} faculty profiles. Default Login Password: Password@123`);
+      alert(`Seeding completed for ${targetDept}! Added ${count} new faculty accounts.`);
     } catch (err) {
-      console.error('Seeding error:', err);
-      alert('Error seeding faculty pool: ' + err.message);
+      console.error(err);
     } finally {
       setSeeding(false);
     }
