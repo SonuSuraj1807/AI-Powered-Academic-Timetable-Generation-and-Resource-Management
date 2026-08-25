@@ -48,7 +48,7 @@ export default function TimetableGenerator() {
   const [semester, setSemester] = useState(1);
   const [section, setSection] = useState('A');
   const [room, setRoom] = useState('301');
-  const [bulkYears, setBulkYears] = useState([2, 3, 4]);
+  const [bulkYears, setBulkYears] = useState([1, 2, 3, 4]);
 
   useEffect(() => {
     if (profile?.department) {
@@ -316,8 +316,8 @@ export default function TimetableGenerator() {
     });
 
     for (const y of years) {
-      // Year 2 is R25, Years 3 and 4 are R22
-      const reg = y === 2 ? 'R25' : 'R22';
+      // Years 1 and 2 are R25, Years 3 and 4 are R22
+      const reg = (y === 1 || y === 2) ? 'R25' : 'R22';
       
       for (const sec of sections) {
         // Fetch curriculum for this year / sem / department / regulation
@@ -556,6 +556,7 @@ export default function TimetableGenerator() {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', paddingTop: '4px' }}>
                   <span style={{ fontSize: '0.813rem', fontWeight: 700, color: 'var(--text-secondary)', marginRight: '4px' }}>Target Batches:</span>
                   {[
+                    { y: 1, label: '1st Year (R25)' },
                     { y: 2, label: '2nd Year (R25)' },
                     { y: 3, label: '3rd Year (R22)' },
                     { y: 4, label: '4th Year (R22)' },
