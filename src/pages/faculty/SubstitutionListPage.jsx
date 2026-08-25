@@ -47,7 +47,7 @@ export default function SubstitutionListPage() {
 
   // Real-time synchronization with Cloud Firestore /substitutions
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'substitutions'), (snapshot) => {
+    const unsubscribe = onSnapshot(collection(db, 'substitutions'), async (snapshot) => {
       const list = [];
       snapshot.forEach(docSnap => {
         list.push({ id: docSnap.id, ...docSnap.data() });
@@ -55,9 +55,26 @@ export default function SubstitutionListPage() {
       list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setSubstitutions(list);
       setLoading(false);
+
+      // Auto-sync notification records for open substitution requests
+      for (const sub of list) {
+        if (sub.status === 'OPEN' && !sub.notified) {
+          try {
+            await sendNotification({
+              title: `Substitution Request 🔄 (${sub.targetType === 'SPECIFIC_FACULTY' ? 'Direct Request' : 'Open Coverage'})`,
+              message: `${sub.requesterName || 'A colleague'} requested coverage for ${sub.subject} (${sub.section}) on ${sub.date}.`,
+              type: 'warning',
+              targetRole: 'faculty',
+              targetDepartment: sub.requesterDept || profile?.department || 'CSE-DS',
+              targetEmail: sub.targetFacultyEmail || null,
+            });
+            await updateDoc(doc(db, 'substitutions', sub.id), { notified: true });
+          } catch (e) {}
+        }
+      }
     });
     return () => unsubscribe();
-  }, []);
+  }, [profile, sendNotification]);
 
   const handleCreateRequest = async (e) => {
     e.preventDefault();

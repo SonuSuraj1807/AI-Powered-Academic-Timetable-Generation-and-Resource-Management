@@ -55,7 +55,7 @@ const useNotificationStore = create((set, get) => ({
               if (n.targetDepartment && n.targetDepartment !== 'ALL' && n.targetDepartment !== department) {
                 return false;
               }
-              if (n.targetSection && n.targetSection !== 'ALL' && !String(userSection || 'A').includes(n.targetSection)) {
+              if (userRole === 'student' && n.targetSection && n.targetSection !== 'ALL' && !String(userSection || 'A').includes(n.targetSection)) {
                 return false;
               }
               return true;
