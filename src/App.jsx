@@ -73,10 +73,12 @@ function ProtectedRoute({ children, requiredRole }) {
   if (!user) return <Navigate to="/" replace />;
   if (requiredRole && role !== requiredRole) {
     if (role === 'superadmin') return children;
-    if (role === 'exam_controller' && requiredRole === 'admin') return children;
+    if ((role === 'hod' || role === 'dept_admin' || role === 'exam_controller') && requiredRole === 'admin') return children;
 
     const roleRoutes = { 
       admin: '/admin', 
+      hod: '/admin',
+      dept_admin: '/admin',
       faculty: '/faculty', 
       student: '/student', 
       superadmin: '/superadmin', 

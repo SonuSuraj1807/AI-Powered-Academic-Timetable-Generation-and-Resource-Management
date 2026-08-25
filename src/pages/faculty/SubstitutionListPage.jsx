@@ -1,11 +1,9 @@
-/**
- * SubstitutionListPage — Real-Time Faculty Substitution Exchange supporting Single Period & Full-Day Leave Coverage.
- */
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
-import { collection, addDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import useAuthStore from '../../stores/authStore';
-import { UserCheck, Calendar, Clock, Plus, CheckCircle2, AlertCircle, Send, Sparkles, Layers } from 'lucide-react';
+import useNotificationStore from '../../stores/notificationStore';
+import { UserCheck, Calendar, Clock, Plus, CheckCircle2, AlertCircle, Send, Sparkles, Layers, User, Users } from 'lucide-react';
 import { TIME_SLOTS } from '../../data/curriculumSeed';
 
 const VBIT_PERIODS = [
@@ -20,18 +18,32 @@ const VBIT_PERIODS = [
 
 export default function SubstitutionListPage() {
   const { profile } = useAuthStore();
+  const sendNotification = useNotificationStore(state => state.sendNotification);
   const [substitutions, setSubstitutions] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Form states
   const [requestMode, setRequestMode] = useState('FULL_DAY'); // 'FULL_DAY' or 'SINGLE_PERIOD'
+  const [targetType, setTargetType] = useState('ALL_FACULTY'); // 'ALL_FACULTY' or 'SPECIFIC_FACULTY'
+  const [selectedFacultyEmail, setSelectedFacultyEmail] = useState('');
   const [requestDate, setRequestDate] = useState(new Date().toISOString().split('T')[0]);
   const [periodSlot, setPeriodSlot] = useState(VBIT_PERIODS[0]);
-  const [section, setSection] = useState('CSE-DS A');
+  const [section, setSection] = useState('CSE-DS Sec A');
   const [subject, setSubject] = useState('Data Structures');
   const [reason, setReason] = useState('Casual Leave / Official Duty');
+
+  // Fetch faculty members in the department
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'faculty'), (snap) => {
+      const list = [];
+      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      setFacultyList(list);
+    });
+    return () => unsub();
+  }, []);
 
   // Real-time synchronization with Cloud Firestore /substitutions
   useEffect(() => {
@@ -50,43 +62,45 @@ export default function SubstitutionListPage() {
   const handleCreateRequest = async (e) => {
     e.preventDefault();
     setSubmitting(true);
+
+    const isSpecific = targetType === 'SPECIFIC_FACULTY' && selectedFacultyEmail;
+    const targetFac = facultyList.find(f => f.email === selectedFacultyEmail);
+
     try {
-      if (requestMode === 'FULL_DAY') {
-        // Create full day coverage requests for all scheduled slots
-        await addDoc(collection(db, 'substitutions'), {
-          requesterName: profile?.name || profile?.displayName || 'Faculty Member',
-          requesterEmail: profile?.email || '',
-          requesterUid: profile?.uid || '',
-          date: requestDate,
-          periodSlot: 'Full Day Absence (All Scheduled Classes)',
-          isFullDay: true,
-          section,
-          subject: `${subject} & Scheduled Classes`,
-          reason,
-          status: 'OPEN',
-          claimedBy: null,
-          createdAt: new Date().toISOString(),
-        });
-      } else {
-        await addDoc(collection(db, 'substitutions'), {
-          requesterName: profile?.name || profile?.displayName || 'Faculty Member',
-          requesterEmail: profile?.email || '',
-          requesterUid: profile?.uid || '',
-          date: requestDate,
-          periodSlot,
-          isFullDay: false,
-          section,
-          subject,
-          reason,
-          status: 'OPEN',
-          claimedBy: null,
-          createdAt: new Date().toISOString(),
-        });
-      }
+      const docData = {
+        requesterName: profile?.name || profile?.displayName || 'Faculty Member',
+        requesterEmail: profile?.email || '',
+        requesterUid: profile?.uid || '',
+        requesterDept: profile?.department || 'CSE-DS',
+        date: requestDate,
+        periodSlot: requestMode === 'FULL_DAY' ? 'Full Day Absence (All Scheduled Classes)' : periodSlot,
+        isFullDay: requestMode === 'FULL_DAY',
+        section,
+        subject: requestMode === 'FULL_DAY' ? `${subject} & Scheduled Classes` : subject,
+        reason,
+        targetType,
+        targetFacultyEmail: isSpecific ? selectedFacultyEmail : null,
+        targetFacultyName: isSpecific ? (targetFac?.name || selectedFacultyEmail) : 'All Department Faculty',
+        status: 'OPEN',
+        claimedBy: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addDoc(collection(db, 'substitutions'), docData);
+
+      // Send real-time notification to target faculty/department
+      await sendNotification({
+        title: `Substitution Request 🔄 (${isSpecific ? 'Direct Request' : 'Open Coverage'})`,
+        message: `${profile?.name || 'A colleague'} requested coverage for ${subject} (${section}) on ${requestDate}.`,
+        type: 'warning',
+        targetRole: 'faculty',
+        targetDepartment: profile?.department || 'CSE-DS',
+        targetEmail: isSpecific ? selectedFacultyEmail : null,
+      });
 
       setShowRequestForm(false);
       setReason('');
-      alert('Substitution request published in real time! Available colleagues can now claim to cover your classes.');
+      alert(`Substitution request published successfully! ${isSpecific ? `Direct request sent to ${targetFac?.name || selectedFacultyEmail}.` : 'Broadcasted to all department colleagues.'}`);
     } catch (err) {
       console.error(err);
       alert('Failed to submit substitution request: ' + err.message);
@@ -95,17 +109,42 @@ export default function SubstitutionListPage() {
     }
   };
 
-  const handleClaimSubstitution = async (subId) => {
-    if (!confirm('Would you like to volunteer as substitute instructor for this request?')) return;
+  const handleClaimSubstitution = async (sub) => {
+    if (!confirm(`Would you like to volunteer as substitute instructor for ${sub.requesterName}'s class (${sub.subject})?`)) return;
     try {
-      await updateDoc(doc(db, 'substitutions', subId), {
+      const claimerName = profile?.name || profile?.displayName || 'Substitute Instructor';
+
+      await updateDoc(doc(db, 'substitutions', sub.id), {
         status: 'CLAIMED',
-        claimedByName: profile?.name || profile?.displayName || 'Substitute Instructor',
+        claimedByName: claimerName,
         claimedByEmail: profile?.email || '',
         claimedByUid: profile?.uid || '',
         claimedAt: new Date().toISOString(),
       });
-      alert('Thank you! You have been assigned as the substitute instructor.');
+
+      // 1. Notify the requester faculty
+      await sendNotification({
+        title: `Substitution Accepted! ✅`,
+        message: `${claimerName} has agreed to cover your class for ${sub.subject} (${sub.section}) on ${sub.date}.`,
+        type: 'success',
+        targetRole: 'faculty',
+        targetEmail: sub.requesterEmail,
+      });
+
+      // 2. Notify ONLY the students of the affected class section
+      const parsedDept = sub.requesterDept || profile?.department || 'CSE-DS';
+      const parsedSec = sub.section?.includes('Sec') ? sub.section.split('Sec')[1].trim() : (sub.section || 'A');
+
+      await sendNotification({
+        title: `Class Instructor Substitution Notice 📚`,
+        message: `Attention ${sub.section} Students: Your ${sub.subject} class on ${sub.date} (${sub.periodSlot}) will be taken by substitute instructor ${claimerName}.`,
+        type: 'info',
+        targetRole: 'student',
+        targetDepartment: parsedDept,
+        targetSection: parsedSec,
+      });
+
+      alert('Thank you! You have been assigned as the substitute instructor. Notification sent to requester & affected class students.');
     } catch (err) {
       console.error(err);
       alert('Error claiming substitution: ' + err.message);
@@ -142,7 +181,7 @@ export default function SubstitutionListPage() {
           </h3>
 
           {/* Mode Switcher */}
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setRequestMode('FULL_DAY')}
@@ -159,6 +198,50 @@ export default function SubstitutionListPage() {
             >
               ⏰ Specific Period Coverage
             </button>
+          </div>
+
+          {/* Target Recipient Selector (2 Options) */}
+          <div style={{ marginBottom: '16px', padding: '14px', borderRadius: '10px', background: 'var(--bg-secondary)', border: '1px solid var(--border-secondary)' }}>
+            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+              🎯 Target Recipient (Request Scope)
+            </label>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setTargetType('ALL_FACULTY')}
+                className={`btn ${targetType === 'ALL_FACULTY' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.813rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Users size={14} /> Open to All Department Faculty
+              </button>
+              <button
+                type="button"
+                onClick={() => setTargetType('SPECIFIC_FACULTY')}
+                className={`btn ${targetType === 'SPECIFIC_FACULTY' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.813rem', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <User size={14} /> Direct Specific Faculty Request
+              </button>
+            </div>
+
+            {targetType === 'SPECIFIC_FACULTY' && (
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                  Select Faculty Member to Request
+                </label>
+                <select
+                  className="input-field"
+                  value={selectedFacultyEmail}
+                  onChange={e => setSelectedFacultyEmail(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Faculty Member --</option>
+                  {facultyList.map(f => (
+                    <option key={f.id} value={f.email}>{f.name} ({f.department || 'CSE-DS'} • {f.email})</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleCreateRequest} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
@@ -180,7 +263,7 @@ export default function SubstitutionListPage() {
 
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Department & Section</label>
-              <input type="text" className="input-field" value={section} onChange={e => setSection(e.target.value)} placeholder="e.g. CSE-DS A" required />
+              <input type="text" className="input-field" value={section} onChange={e => setSection(e.target.value)} placeholder="e.g. CSE-DS Sec A" required />
             </div>
 
             <div>
@@ -248,6 +331,9 @@ export default function SubstitutionListPage() {
                       Requested by: <strong>{sub.requesterName}</strong>
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Target: {sub.targetFacultyName || 'All Department Faculty'}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       Reason: {sub.reason}
                     </div>
 
@@ -260,7 +346,7 @@ export default function SubstitutionListPage() {
 
                   {sub.status === 'OPEN' && !isMine && (
                     <button
-                      onClick={() => handleClaimSubstitution(sub.id)}
+                      onClick={() => handleClaimSubstitution(sub)}
                       className="btn btn-primary btn-sm"
                       style={{ marginTop: '14px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >

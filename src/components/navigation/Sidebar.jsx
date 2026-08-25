@@ -81,7 +81,8 @@ export default function Sidebar({ collapsed, onToggle }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const config = MENU_CONFIG[role] || MENU_CONFIG.admin;
+  const activeRole = (role === 'hod' || role === 'dept_admin') ? 'admin' : role;
+  const config = MENU_CONFIG[activeRole] || MENU_CONFIG.admin;
 
   const handleConfirmLogout = async () => {
     setShowLogoutModal(false);

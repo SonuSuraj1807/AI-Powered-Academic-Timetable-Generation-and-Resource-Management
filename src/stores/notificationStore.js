@@ -17,9 +17,9 @@ const useNotificationStore = create((set, get) => ({
   currentUserKey: 'guest',
 
   /**
-   * Listen to real-time notifications for a target user role / email / department
+   * Listen to real-time notifications for a target user role / email / department / section
    */
-  subscribeToNotifications: (userRole, userEmail, department) => {
+  subscribeToNotifications: (userRole, userEmail, department, userSection = 'A') => {
     const userKey = (userEmail || userRole || 'guest').toLowerCase();
     set({ loading: true, currentUserKey: userKey });
 
@@ -46,13 +46,18 @@ const useNotificationStore = create((set, get) => ({
         const userNotifications = allList
           .filter(n => !dismissedIds.has(n.id))
           .filter(n => {
+            // Direct email target
+            if (n.targetEmail) {
+              return n.targetEmail.toLowerCase() === (userEmail || '').toLowerCase();
+            }
             if (n.targetRole === 'ALL') return true;
             if (n.targetRole === userRole) {
-              if (!n.targetDepartment || n.targetDepartment === 'ALL' || n.targetDepartment === department) {
-                return true;
+              if (n.targetDepartment && n.targetDepartment !== 'ALL' && n.targetDepartment !== department) {
+                return false;
               }
-            }
-            if (n.targetEmail && n.targetEmail.toLowerCase() === (userEmail || '').toLowerCase()) {
+              if (n.targetSection && n.targetSection !== 'ALL' && !String(userSection || 'A').includes(n.targetSection)) {
+                return false;
+              }
               return true;
             }
             return false;
@@ -80,7 +85,7 @@ const useNotificationStore = create((set, get) => ({
   /**
    * Send a system notification across portals
    */
-  sendNotification: async ({ title, message, type = 'info', targetRole = 'ALL', targetDepartment = 'ALL', targetEmail = null }) => {
+  sendNotification: async ({ title, message, type = 'info', targetRole = 'ALL', targetDepartment = 'ALL', targetSection = 'ALL', targetEmail = null }) => {
     try {
       await addDoc(collection(db, 'notifications'), {
         title,
@@ -88,6 +93,7 @@ const useNotificationStore = create((set, get) => ({
         type, // 'info' | 'success' | 'warning' | 'exam' | 'duty'
         targetRole, // 'student' | 'faculty' | 'admin' | 'exam_controller' | 'ALL'
         targetDepartment,
+        targetSection,
         targetEmail,
         createdAt: new Date().toISOString(),
       });
