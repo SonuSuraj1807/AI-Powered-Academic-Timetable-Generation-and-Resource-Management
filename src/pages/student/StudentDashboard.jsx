@@ -8,6 +8,7 @@ import useNotificationStore from '../../stores/notificationStore';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { TIME_SLOTS } from '../../data/curriculumSeed';
+import TimetableGrid from '../../components/timetable/TimetableGrid';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
 import { exportSingleRoomPDF, exportBatchPDF } from '../../lib/export/examSeatingPdfExporter';
@@ -382,53 +383,7 @@ export default function StudentDashboard() {
             No class timetable has been published by the admin yet in Firestore database. Timetables published by admin will appear here in real time.
           </div>
         ) : (
-          <div className="timetable-container">
-            <table className="timetable-grid">
-              <thead>
-                <tr>
-                  <th style={{ minWidth: '100px' }}>Day / Period</th>
-                  {periodsList.map((p, i) => (
-                    <th key={i} style={{ fontSize: '0.75rem' }}>{p.label}<br/><span style={{ fontSize: '0.65rem', fontWeight: 400, opacity: 0.7 }}>{p.time}</span></th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {daysList.map((day) => {
-                  const slots = activeSchedule.grid?.[day] || [];
-                  const cells = [];
-                  let i = 0;
-                  while (i < periodsList.length) {
-                    const rawSub = slots[i] || 'Free';
-                    const subDisplay = typeof rawSub === 'string' ? rawSub : (rawSub?.name || rawSub?.subject || rawSub?.code || 'Free');
-                    let span = 1;
-                    if (subDisplay !== 'LUNCH' && subDisplay !== 'Break' && subDisplay !== 'Free') {
-                      while (i + span < periodsList.length && (typeof slots[i + span] === 'string' ? slots[i + span] : (slots[i + span]?.name || slots[i + span]?.subject || '')) === subDisplay) span++;
-                    }
-                    cells.push(
-                      <td
-                        key={i}
-                        colSpan={span}
-                        className={getCellClass(subDisplay)}
-                        style={{
-                          fontWeight: span > 1 ? 600 : 400,
-                          fontSize: span > 1 ? '0.813rem' : '0.75rem',
-                        }}
-                      >
-                        {subDisplay}
-                      </td>
-                    );
-                    i += span;
-                  }
-                  return (
-                    <tr key={day}>
-                      <td style={{ fontWeight: 600, background: 'var(--bg-elevated)' }}>{day}</td>
-                      {cells}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <TimetableGrid schedule={activeSchedule} timeConfig={timeConfig} />
         )}
       </div>
     </div>
