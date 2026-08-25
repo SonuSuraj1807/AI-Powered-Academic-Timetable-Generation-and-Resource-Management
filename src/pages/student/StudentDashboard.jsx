@@ -91,21 +91,32 @@ export default function StudentDashboard() {
       for (let r = 0; r < grid.length; r++) {
         for (let c = 0; c < (grid[r]?.length || 0); c++) {
           const cell = grid[r][c];
-          if (cell && cell.hallTicketNo && cell.hallTicketNo.trim().toUpperCase() === queryHT) {
-            foundMatch = {
-              hallTicketNo: cell.hallTicketNo,
-              branch: cell.branch,
-              yearSem: cell.yearSem,
-              roomNumber: planDoc.roomNumber,
-              block: planDoc.block,
-              floor: planDoc.floor,
-              examTitle: planDoc.examTitle,
-              sessionDate: planDoc.sessionDate,
-              sessionSlot: planDoc.sessionSlot,
-              colNum: c + 1,
-              rowNum: r + 1,
-            };
-            break;
+          if (cell) {
+            let studentSeat = null;
+            if (cell.seat1 && cell.seat1.hallTicketNo?.trim().toUpperCase() === queryHT) {
+              studentSeat = cell.seat1;
+            } else if (cell.seat2 && cell.seat2.hallTicketNo?.trim().toUpperCase() === queryHT) {
+              studentSeat = cell.seat2;
+            } else if (cell.hallTicketNo && cell.hallTicketNo.trim().toUpperCase() === queryHT) {
+              studentSeat = cell;
+            }
+
+            if (studentSeat) {
+              foundMatch = {
+                hallTicketNo: studentSeat.hallTicketNo,
+                branch: studentSeat.branch,
+                yearSem: studentSeat.yearSem || planDoc.examTitle,
+                roomNumber: planDoc.roomNumber,
+                block: planDoc.block,
+                floor: planDoc.floor,
+                examTitle: planDoc.examTitle,
+                sessionDate: planDoc.sessionDate,
+                sessionSlot: planDoc.sessionSlot,
+                colNum: c + 1,
+                rowNum: r + 1,
+              };
+              break;
+            }
           }
         }
         if (foundMatch) break;
@@ -131,7 +142,8 @@ export default function StudentDashboard() {
   };
 
   const daysList = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const periodsList = activeSchedule?.year === 1 ? TIME_SLOTS.JUNIOR : TIME_SLOTS.SENIOR;
+  const timeConfig = activeSchedule?.year === 1 ? TIME_SLOTS.JUNIOR : TIME_SLOTS.SENIOR;
+  const periodsList = Array.isArray(timeConfig) ? timeConfig : (timeConfig?.periods || []);
 
   return (
     <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
