@@ -16,7 +16,7 @@ import {
   ClipboardList, ChevronRight, ChevronLeft, Calendar, Building2,
   Users, Upload, Sparkles, FileSpreadsheet, Download, Check,
   AlertTriangle, Loader2, Plus, Trash2, X, User, Search,
-  Printer, CheckCircle, BookOpen, Eye, EyeOff, Folder, FolderOpen, ChevronDown
+  Printer, CheckCircle, BookOpen, Eye, EyeOff, Folder, FolderOpen, ChevronDown, RotateCw
 } from 'lucide-react';
 import {
   generateSeatingPlan,
@@ -1312,15 +1312,35 @@ export default function ExamSeatingController() {
       {currentStep === 2 && (
         <div className="animate-fade-in-up">
           {/* Generation Controls */}
-          <div className="solid-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div className="solid-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <button
               onClick={handleGenerate}
               disabled={isGenerating || studentData.length === 0}
               className="btn btn-primary"
               id="generate-seating-btn"
+              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
             >
-              {isGenerating ? <><Loader2 size={16} className="animate-spin" /> Generating...</> : <><Sparkles size={16} /> Generate Seating Plan</>}
+              {isGenerating ? (
+                <><Loader2 size={16} className="animate-spin" /> Generating...</>
+              ) : result ? (
+                <><RotateCw size={16} /> Regenerate Seating Plan</>
+              ) : (
+                <><Sparkles size={16} /> Generate Seating Plan</>
+              )}
             </button>
+
+            {result && (
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="btn btn-ghost"
+                id="regenerate-seating-btn"
+                style={{ color: 'var(--accent-blue)', border: '1px solid var(--border-primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                title="Shuffle and re-allocate seating with fresh dynamic branch pairings"
+              >
+                <RotateCw size={14} /> Re-Shuffle Pairings
+              </button>
+            )}
 
             <button
               onClick={() => setShowFacultyPanel(!showFacultyPanel)}
