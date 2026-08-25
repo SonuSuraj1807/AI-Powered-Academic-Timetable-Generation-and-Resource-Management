@@ -72,7 +72,16 @@ function ProtectedRoute({ children, requiredRole }) {
   if (!initialized || loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/" replace />;
   if (requiredRole && role !== requiredRole) {
-    const roleRoutes = { admin: '/admin', faculty: '/faculty', student: '/student' };
+    if (role === 'superadmin') return children;
+    if (role === 'exam_controller' && requiredRole === 'admin') return children;
+
+    const roleRoutes = { 
+      admin: '/admin', 
+      faculty: '/faculty', 
+      student: '/student', 
+      superadmin: '/superadmin', 
+      exam_controller: '/admin/exam-scheduler' 
+    };
     return <Navigate to={roleRoutes[role] || '/'} replace />;
   }
 
