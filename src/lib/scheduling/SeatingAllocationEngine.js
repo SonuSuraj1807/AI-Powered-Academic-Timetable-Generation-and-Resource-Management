@@ -358,17 +358,27 @@ function validatePlan(roomPlans) {
     const { room, grid, branchCount, assignedInvigilators } = plan;
     const roomLabel = `${room.block} ${room.roomNumber}`;
 
-    // ── Check 1: Adjacent columns must have different branches ──
+    // ── Check 1: Adjacent bench seats must have different branches ──
     if (branchCount >= 2) {
       for (let r = 0; r < grid.length; r++) {
-        for (let c = 0; c < grid[r].length - 1; c++) {
-          const current = grid[r][c];
-          const next = grid[r][c + 1];
-          if (current && next && current.branch === next.branch) {
-            errors.push(
-              `[${roomLabel}] Row ${r + 1}, Col ${c + 1}-${c + 2}: ` +
-              `Adjacent seats have same branch (${current.branch}). Anti-malpractice violated.`
-            );
+        for (let c = 0; c < grid[r].length; c++) {
+          const cell = grid[r][c];
+          if (cell) {
+            // Check same bench (Seat 1 vs Seat 2)
+            if (cell.seat1 && cell.seat2 && cell.seat1.branch === cell.seat2.branch) {
+              errors.push(
+                `[${roomLabel}] Row ${r + 1}, Col ${c + 1}: ` +
+                `Same bench seats have identical branch (${cell.seat1.branch}). Anti-malpractice violated.`
+              );
+            }
+            // Check adjacent aisle seats (Seat 2 of Col c vs Seat 1 of Col c+1)
+            const nextCell = grid[r][c + 1];
+            if (nextCell && cell.seat2 && nextCell.seat1 && cell.seat2.branch === nextCell.seat1.branch) {
+              errors.push(
+                `[${roomLabel}] Row ${r + 1}, Col ${c + 1}-${c + 2}: ` +
+                `Adjacent aisle seats have identical branch (${cell.seat2.branch}). Anti-malpractice violated.`
+              );
+            }
           }
         }
       }
