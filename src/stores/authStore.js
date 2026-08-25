@@ -116,13 +116,16 @@ const useAuthStore = create((set, get) => ({
         }
 
         const profile = userDoc.data();
+        const computedDept = getDeptFromEmail(email);
+        const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
+
         const updatedProfile = {
           ...profile,
           role: actualRole,
-          department: profile?.department || getDeptFromEmail(email)
+          department: resolvedDept,
         };
 
-        if (profile?.role !== actualRole || !profile?.department) {
+        if (profile?.role !== actualRole || profile?.department !== resolvedDept) {
           await setDoc(doc(db, 'users', uid), updatedProfile, { merge: true });
         }
 
@@ -149,11 +152,14 @@ const useAuthStore = create((set, get) => ({
         }
       } catch (e) {}
 
+      const computedDept = getDeptFromEmail(email);
+      const resolvedDept = (existingProfile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (existingProfile?.department || computedDept);
+
       const profileData = {
         name: existingProfile?.name || (email.startsWith('examcontroller') ? 'Examination Controller' : email.split('@')[0].toUpperCase()),
         email: email,
         role: actualRole,
-        department: existingProfile?.department || getDeptFromEmail(email),
+        department: resolvedDept,
         createdAt: existingProfile?.createdAt || new Date().toISOString(),
       };
 
@@ -202,10 +208,20 @@ const useAuthStore = create((set, get) => ({
           let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
             const profile = userDoc.data();
+            const email = firebaseUser.email || profile.email || '';
+            const computedDept = getDeptFromEmail(email);
+            const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
+
+            const updatedProfile = { uid: firebaseUser.uid, ...profile, department: resolvedDept };
+
+            if (profile.department !== resolvedDept) {
+              setDoc(doc(db, 'users', firebaseUser.uid), { department: resolvedDept }, { merge: true }).catch(() => {});
+            }
+
             set({
               user: firebaseUser,
               role: profile.role,
-              profile: { uid: firebaseUser.uid, ...profile },
+              profile: updatedProfile,
               loading: false,
               initialized: true,
             });
@@ -213,11 +229,12 @@ const useAuthStore = create((set, get) => ({
             // Provision user profile for authenticated user
             const email = firebaseUser.email || '';
             const role = email.includes('student') ? 'student' : email.includes('admin') ? 'admin' : 'faculty';
+            const computedDept = getDeptFromEmail(email);
             const profileData = {
               name: email.split('@')[0],
               email: email,
               role: role,
-              department: 'CSE-DS',
+              department: computedDept,
             };
             await setDoc(doc(db, 'users', firebaseUser.uid), profileData);
             set({
