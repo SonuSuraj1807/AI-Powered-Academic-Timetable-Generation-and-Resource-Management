@@ -94,6 +94,19 @@ const useNotificationStore = create((set, get) => ({
     } catch (err) {
       console.error('Error marking notification read:', err);
     }
+  },
+
+  /**
+   * Mark all unread notifications as read
+   */
+  markAllRead: async () => {
+    const { notifications } = get();
+    const unreadItems = notifications.filter(n => !n.read);
+    try {
+      await Promise.all(unreadItems.map(n => updateDoc(doc(db, 'notifications', n.id), { read: true })));
+    } catch (err) {
+      console.error('Error marking all notifications read:', err);
+    }
   }
 }));
 

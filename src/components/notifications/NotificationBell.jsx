@@ -136,46 +136,77 @@ export default function NotificationBell() {
                 <p style={{ fontSize: '0.875rem' }}>No notifications yet</p>
               </div>
             ) : (
-              notifications.map((notif) => (
-                <div
-                  key={notif.id}
-                  onClick={() => notif.status === 'unread' && markAsRead(notif.id)}
-                  style={{
-                    padding: '12px 16px',
-                    borderBottom: '1px solid var(--border-primary)',
-                    cursor: notif.status === 'unread' ? 'pointer' : 'default',
-                    background: notif.status === 'unread' ? 'var(--accent-blue-subtle)' : 'transparent',
-                    transition: 'background 150ms ease',
-                    display: 'flex', gap: '12px',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-glass-hover)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = notif.status === 'unread' ? 'var(--accent-blue-subtle)' : 'transparent'}
-                >
-                  {/* Status Dot */}
-                  <div style={{
-                    width: '8px', height: '8px', flexShrink: 0,
-                    borderRadius: '50%', marginTop: '6px',
-                    background: notif.status === 'unread' ? 'var(--accent-blue)' : 'var(--text-muted)',
-                    opacity: notif.status === 'unread' ? 1 : 0.3,
-                  }} />
-                  
-                  <div style={{ flex: 1, minWidth: 0 }}>
+              notifications.map((notif) => {
+                const isUnread = !notif.read;
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => isUnread && markAsRead(notif.id)}
+                    style={{
+                      padding: '14px 16px',
+                      borderBottom: '1px solid var(--border-primary)',
+                      cursor: isUnread ? 'pointer' : 'default',
+                      background: isUnread 
+                        ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(139, 92, 246, 0.1) 100%)' 
+                        : 'transparent',
+                      borderLeft: isUnread ? '4px solid #3B82F6' : '4px solid transparent',
+                      transition: 'all 150ms ease',
+                      display: 'flex', gap: '12px',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isUnread) e.currentTarget.style.background = 'var(--surface-glass-hover)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = isUnread 
+                        ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.16) 0%, rgba(139, 92, 246, 0.1) 100%)' 
+                        : 'transparent';
+                    }}
+                  >
+                    {/* Glowing Unread Dot */}
                     <div style={{
-                      fontSize: '0.813rem', fontWeight: notif.status === 'unread' ? 600 : 400,
-                      color: 'var(--text-primary)',
-                      marginBottom: '2px',
-                    }}>
-                      {notif.title}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                      {notif.body}
-                    </div>
-                    <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                      {timeAgo(notif.timestamp)}
+                      width: '10px', height: '10px', flexShrink: 0,
+                      borderRadius: '50%', marginTop: '5px',
+                      background: isUnread ? '#3B82F6' : 'var(--text-muted)',
+                      boxShadow: isUnread ? '0 0 10px rgba(59, 130, 246, 0.9)' : 'none',
+                      opacity: isUnread ? 1 : 0.3,
+                    }} />
+                    
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{
+                          fontSize: '0.813rem', 
+                          fontWeight: isUnread ? 800 : 500,
+                          color: isUnread ? '#ffffff' : 'var(--text-primary)',
+                        }}>
+                          {notif.title || 'System Alert'}
+                        </span>
+                        {isUnread && (
+                          <span style={{
+                            fontSize: '0.625rem', fontWeight: 800, color: '#3B82F6',
+                            background: 'rgba(59, 130, 246, 0.2)', padding: '2px 6px', borderRadius: '4px',
+                            border: '1px solid rgba(59, 130, 246, 0.4)', textTransform: 'uppercase'
+                          }}>
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div style={{ 
+                        fontSize: '0.781rem', 
+                        color: isUnread ? '#e2e8f0' : 'var(--text-secondary)', 
+                        lineHeight: 1.4,
+                        fontWeight: isUnread ? 500 : 400
+                      }}>
+                        {notif.message || notif.body || 'No details provided'}
+                      </div>
+                      
+                      <div style={{ fontSize: '0.688rem', color: isUnread ? '#93c5fd' : 'var(--text-muted)', marginTop: '6px' }}>
+                        {timeAgo(notif.createdAt || notif.timestamp)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
