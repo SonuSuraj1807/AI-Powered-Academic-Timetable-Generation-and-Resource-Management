@@ -90,6 +90,16 @@ export function getStudentSection(rollNo) {
   }
 }
 
+export function normalizeSection(secStr) {
+  if (!secStr) return 'A';
+  const clean = String(secStr).toUpperCase().trim();
+  if (clean.includes('A')) return 'A';
+  if (clean.includes('B')) return 'B';
+  if (clean.includes('C')) return 'C';
+  if (clean.includes('D')) return 'D';
+  return clean.replace(/[^A-Z]/g, '') || 'A';
+}
+
 export default function StudentDashboard() {
   const { profile } = useAuthStore();
   const { notifications, subscribeToNotifications, markAsRead } = useNotificationStore();
@@ -155,14 +165,21 @@ export default function StudentDashboard() {
       
       if (list.length > 0) {
         // Auto-select schedule matching student's actual academic year and section (e.g. Year 4 Sec B for 23P61A6794)
+        const targetDept = profile?.department || 'CSE-DS';
+        const targetYear = Number(studentYear);
+        const targetSec = normalizeSection(studentSec);
+
         const match = list.find(s => 
-          Number(s.year) === Number(studentYear) && 
-          String(s.section).toUpperCase() === String(studentSec).toUpperCase() &&
-          (s.department === (profile?.department || 'CSE-DS'))
+          Number(s.year) === targetYear && 
+          normalizeSection(s.section) === targetSec &&
+          (s.department === targetDept)
         ) || list.find(s => 
-          Number(s.year) === Number(studentYear) && 
-          (s.department === (profile?.department || 'CSE-DS'))
-        ) || list.find(s => Number(s.year) === Number(studentYear)) || list[0];
+          Number(s.year) === targetYear && 
+          normalizeSection(s.section) === targetSec
+        ) || list.find(s => 
+          Number(s.year) === targetYear && 
+          (s.department === targetDept)
+        ) || list.find(s => Number(s.year) === targetYear) || list[0];
 
         setSelectedScheduleId(match.id);
       }
