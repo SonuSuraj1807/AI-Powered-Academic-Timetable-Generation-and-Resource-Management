@@ -8,7 +8,7 @@
  * 4. Student Clubs & Tenure Governance: Club Directory CRUD, Member Registry (Phone, Section, Year, Dept, Role),
  *    Present vs Past Tenure views, and Double-Confirmation Tenure Completion Declaration with auto-revocation of booking credentials.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { fetchFacilities, sacReviewBooking } from '../../lib/facilityBookingEngine';
@@ -136,6 +136,42 @@ export default function SacDirectorDashboard() {
       });
     }
   }, [selectedClub, tenureView]);
+
+  const getMemberHierarchyRank = (designation = '') => {
+    const d = (designation || '').toUpperCase();
+    if (d.includes('PRESIDENT') || d.includes('CHIEF') || d.includes('HEAD') || d.includes('STUDENT LEAD')) return 1;
+    if (d.includes('VICE') || d.includes('CO-LEAD') || d.includes('DEPUTY')) return 2;
+    if (d.includes('SECRETARY') || d.includes('TREASURER')) return 3;
+    if (d.includes('LEAD') || d.includes('COORDINATOR')) return 4;
+    if (d.includes('CORE') || d.includes('COMMITTEE')) return 5;
+    return 6;
+  };
+
+  const getHierarchyBadge = (rank) => {
+    switch (rank) {
+      case 1:
+        return <span className="badge badge-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', fontWeight: 800 }}>🥇 Tier 1 • Chief Lead</span>;
+      case 2:
+        return <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', fontWeight: 800 }}>🥈 Tier 2 • Deputy Lead</span>;
+      case 3:
+        return <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', color: '#fff', fontWeight: 800 }}>🥉 Tier 3 • Executive</span>;
+      case 4:
+        return <span className="badge badge-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(6, 182, 212, 0.15)', color: '#06B6D4', border: '1px solid #06B6D4', fontWeight: 700 }}>🎖️ Domain Lead</span>;
+      case 5:
+        return <span className="badge badge-indigo" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', border: '1px solid #6366F1', fontWeight: 600 }}>⭐ Core Member</span>;
+      default:
+        return <span className="badge badge-gray" style={{ fontWeight: 600 }}>👥 Member</span>;
+    }
+  };
+
+  const sortedClubMembers = useMemo(() => {
+    return [...clubMembers].sort((a, b) => {
+      const rankA = getMemberHierarchyRank(a.designation);
+      const rankB = getMemberHierarchyRank(b.designation);
+      if (rankA !== rankB) return rankA - rankB;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [clubMembers]);
 
   // Review Booking Request
   const handleReviewSubmit = async (e) => {
@@ -593,82 +629,97 @@ export default function SacDirectorDashboard() {
                 {/* Member List Table */}
                 {loadingMembers ? (
                   <p style={{ color: 'var(--text-muted)' }}>Loading member roster...</p>
-                ) : clubMembers.length === 0 ? (
+                ) : sortedClubMembers.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
                     <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
                     <p>No members registered in {tenureView === 'PRESENT_TENURE' ? 'Present Tenure' : 'Past Tenure'}. Click "Add Student Member" to add coordinators and leads.</p>
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table" style={{ width: '100%', fontSize: '0.813rem' }}>
+                    <table className="data-table" style={{ width: '100%', fontSize: '0.813rem', borderCollapse: 'separate', borderSpacing: '0 6px' }}>
                       <thead>
                         <tr>
-                          <th>Student Details</th>
-                          <th>Contact (Phone & Email)</th>
-                          <th>Class / Year / Dept</th>
-                          <th>Club Designation</th>
-                          <th>Booking Privileges</th>
-                          <th>Actions</th>
+                          <th style={{ width: '150px' }}>Hierarchy Level</th>
+                          <th style={{ width: '180px' }}>Student Roll & Name</th>
+                          <th style={{ width: '180px' }}>Club Designation</th>
+                          <th style={{ width: '140px' }}>Class / Dept</th>
+                          <th style={{ width: '200px' }}>Contact Details</th>
+                          <th style={{ width: '170px' }}>Booking Privileges</th>
+                          <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {clubMembers.map(m => (
-                          <tr key={m.id}>
-                            <td>
-                              <strong>{m.name}</strong>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                {m.rollNumber}
-                              </div>
-                            </td>
-                            <td>
-                              <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
-                              <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
-                            </td>
-                            <td>
-                              <span className="badge badge-purple">{m.department}</span>
-                              <div style={{ fontSize: '0.719rem', marginTop: '2px' }}>{m.year} • {m.section}</div>
-                            </td>
-                            <td>
-                              <span className="badge badge-amber">{m.designation}</span>
-                              <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{m.tenureLabel}</div>
-                            </td>
-                            <td>
-                              <span className={`badge badge-${m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'green' : 'red'}`}>
-                                {m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'Authorized Booking Lead' : 'No Booking Rights (403)'}
-                              </span>
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: '6px' }}>
-                                <button
-                                  onClick={() => {
-                                    setEditingMember(m);
-                                    setMemberRoll(m.rollNumber || '');
-                                    setMemberName(m.name || '');
-                                    setMemberEmail(m.email || '');
-                                    setMemberPhone(m.phone || '');
-                                    setMemberYear(m.year || '4th Year');
-                                    setMemberSection(m.section || 'Sec A');
-                                    setMemberDept(m.department || 'CSE-DS');
-                                    setMemberDesignation(m.designation || 'Lead');
-                                    setMemberCanBook(m.canBookVenues !== false);
-                                    setShowMemberModal(true);
-                                  }}
-                                  className="btn btn-ghost btn-sm"
-                                  style={{ padding: '2px 6px' }}
-                                >
-                                  <Edit2 size={13} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteMember(m)}
-                                  className="btn btn-ghost btn-sm"
-                                  style={{ padding: '2px 6px', color: 'var(--danger)' }}
-                                >
-                                  <Trash2 size={13} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                        {sortedClubMembers.map(m => {
+                          const rank = getMemberHierarchyRank(m.designation);
+                          return (
+                            <tr key={m.id}>
+                              <td>{getHierarchyBadge(rank)}</td>
+                              <td>
+                                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                                  {m.studentName || m.name}
+                                </div>
+                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
+                                  {m.rollNumber}
+                                </div>
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: 800, color: 'var(--accent-purple)', fontSize: '0.875rem' }}>
+                                  {m.designation}
+                                </div>
+                                <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                  Tenure: {m.tenureLabel || '2025-2026'}
+                                </div>
+                              </td>
+                              <td>
+                                <span className="badge badge-purple" style={{ fontWeight: 700 }}>{m.department}</span>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                  {m.year} • {m.section}
+                                </div>
+                              </td>
+                              <td>
+                                <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
+                                <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
+                              </td>
+                              <td>
+                                <span className={`badge badge-${m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'green' : 'red'}`} style={{ whiteSpace: 'nowrap' }}>
+                                  {m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? '✓ Authorized Lead' : '🔒 Revoked (403)'}
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                  <button
+                                    onClick={() => {
+                                      setEditingMember(m);
+                                      setMemberRoll(m.rollNumber || '');
+                                      setMemberName(m.name || '');
+                                      setMemberEmail(m.email || '');
+                                      setMemberPhone(m.phone || '');
+                                      setMemberYear(m.year || '4th Year');
+                                      setMemberSection(m.section || 'Sec A');
+                                      setMemberDept(m.department || 'CSE-DS');
+                                      setMemberDesignation(m.designation || 'Lead');
+                                      setMemberCanBook(m.canBookVenues !== false);
+                                      setShowMemberModal(true);
+                                    }}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ padding: '4px 8px' }}
+                                    title="Edit Member"
+                                  >
+                                    <Edit2 size={13} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteMember(m)}
+                                    className="btn btn-ghost btn-sm"
+                                    style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                                    title="Delete Member"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
