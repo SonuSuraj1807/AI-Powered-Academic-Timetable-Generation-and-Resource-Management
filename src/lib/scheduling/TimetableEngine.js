@@ -276,6 +276,7 @@ export function generateTimetable(config) {
 
       for (const subject of candidates) {
         if (!canPlaceSubjectAt(daySlots, idx, subject.code, morningIndices, afternoonIndices, false)) continue;
+        if (isFacultyBusy(facultySchedule, subject.facultyId, day, idx, false, subject.facultyName)) continue;
 
         daySlots[idx] = {
           type: subject.type === 'elective' ? 'elective' : 'theory',
@@ -284,14 +285,14 @@ export function generateTimetable(config) {
           facultyId: subject.facultyId,
           facultyName: subject.facultyName,
         };
-        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
+        recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section, subject.facultyName);
         break;
       }
     }
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // Step 6: ABSOLUTE ZERO-EMPTY GUARANTEE PASS (Strict Quota Respected)
+  // Step 6: ABSOLUTE ZERO-EMPTY GUARANTEE PASS (Strict Quota & Conflict Respected)
   // ═══════════════════════════════════════════════════════════════
   for (const day of availableDays) {
     const daySlots = grid[day];
@@ -310,11 +311,12 @@ export function generateTimetable(config) {
       }
 
       let chosen = candidates.find(c =>
-        canPlaceSubjectAt(daySlots, idx, c.code, morningIndices, afternoonIndices, false)
+        canPlaceSubjectAt(daySlots, idx, c.code, morningIndices, afternoonIndices, false) &&
+        !isFacultyBusy(facultySchedule, c.facultyId, day, idx, false, c.facultyName)
       );
 
       if (!chosen) {
-        chosen = candidates[0] || { code: 'ACAD', name: 'Academic Hour', type: 'theory', facultyId: '', facultyName: 'Faculty TBD' };
+        chosen = candidates.find(c => !isFacultyBusy(facultySchedule, c.facultyId, day, idx, false, c.facultyName)) || { code: 'ACAD', name: 'Academic Hour', type: 'theory', facultyId: '', facultyName: 'Faculty TBD' };
       }
 
       daySlots[idx] = {
@@ -324,8 +326,8 @@ export function generateTimetable(config) {
         facultyId: chosen.facultyId || '',
         facultyName: chosen.facultyName || '',
       };
-      if (chosen.facultyId) {
-        recordFacultySlot(facultySchedule, chosen.facultyId, day, idx, section);
+      if (chosen.facultyId || chosen.facultyName) {
+        recordFacultySlot(facultySchedule, chosen.facultyId, day, idx, section, chosen.facultyName);
       }
     }
   }
@@ -558,7 +560,7 @@ function placeTheorySessionStrict(grid, subject, availableDays, facultySchedule,
 
     for (const idx of teachableIndices) {
       if (!canPlaceSubjectAt(daySlots, idx, subject.code, morningIndices, afternoonIndices, strictOnePerDay)) continue;
-      if (checkFaculty && isFacultyBusy(facultySchedule, subject.facultyId, day, idx)) continue;
+      if (checkFaculty && isFacultyBusy(facultySchedule, subject.facultyId, day, idx, false, subject.facultyName)) continue;
 
       daySlots[idx] = {
         type: subject.type === 'elective' ? 'elective' : 'theory',
@@ -567,7 +569,7 @@ function placeTheorySessionStrict(grid, subject, availableDays, facultySchedule,
         facultyId: subject.facultyId,
         facultyName: subject.facultyName,
       };
-      recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section);
+      recordFacultySlot(facultySchedule, subject.facultyId, day, idx, section, subject.facultyName);
       return true;
     }
   }
@@ -611,11 +613,18 @@ function buildFacultyScheduleMap(existingSchedules) {
       for (let idx = 0; idx < daySlots.length; idx++) {
         const slot = daySlots[idx];
         if (slot) {
-          const fId = slot.facultyId;
-          if (fId && !fId.startsWith('fac_') && !fId.startsWith('Faculty') && !fId.startsWith('faculty_')) {
-            if (!map[fId]) map[fId] = {};
-            map[fId][`${day}-${idx}`] = schedule.section;
-            map._totalHours[fId] = (map._totalHours[fId] || 0) + 1;
+          const keys = new Set();
+          if (slot.facultyId) keys.add(slot.facultyId);
+          if (slot.facultyName && slot.type !== 'break' && slot.type !== 'lunch') {
+            const names = slot.facultyName.split(',').map(n => n.trim()).filter(Boolean);
+            names.forEach(n => keys.add(n));
+          }
+
+          for (const key of keys) {
+            if (!key || key.startsWith('fac_') || key.startsWith('Faculty') || key.startsWith('faculty_')) continue;
+            if (!map[key]) map[key] = {};
+            map[key][`${day}-${idx}`] = schedule.section;
+            map._totalHours[key] = (map._totalHours[key] || 0) + 1;
           }
         }
       }
@@ -624,35 +633,50 @@ function buildFacultyScheduleMap(existingSchedules) {
   return map;
 }
 
-function isFacultyBusy(facultySchedule, facultyId, day, periodIndex, isLabBlock = false) {
-  if (!facultyId || facultyId.startsWith('fac_') || facultyId.startsWith('Faculty') || facultyId.startsWith('faculty_')) return false;
+function isFacultyBusy(facultySchedule, facultyId, day, periodIndex, isLabBlock = false, facultyName = null) {
+  const keys = new Set();
+  if (facultyId) keys.add(facultyId);
+  if (facultyName) {
+    facultyName.split(',').map(n => n.trim()).filter(Boolean).forEach(n => keys.add(n));
+  }
 
-  // 1. HARD WORKLOAD CAP: Maximum 18 hours/week total across all sections & subjects
-  const currentTotal = facultySchedule._totalHours?.[facultyId] || 0;
-  if (currentTotal >= 18) return true;
+  for (const key of keys) {
+    if (!key || key.startsWith('fac_') || key.startsWith('Faculty') || key.startsWith('faculty_')) continue;
 
-  // 2. Direct slot collision: Faculty is already teaching in this day-period slot in another section
-  if (facultySchedule[facultyId]?.[`${day}-${periodIndex}`] !== undefined) return true;
+    // 1. HARD WORKLOAD CAP: Maximum 18 hours/week total across all sections & subjects
+    const currentTotal = facultySchedule._totalHours?.[key] || 0;
+    if (currentTotal >= 18) return true;
 
-  // 3. FACULTY REST PERIOD RULE: No back-to-back theory classes for the same faculty!
-  // If Faculty A has a class in period (periodIndex - 1) or (periodIndex + 1), periodIndex MUST be a free rest period!
-  if (!isLabBlock) {
-    const prevSlot = facultySchedule[facultyId]?.[`${day}-${periodIndex - 1}`];
-    const nextSlot = facultySchedule[facultyId]?.[`${day}-${periodIndex + 1}`];
-    if (prevSlot !== undefined || nextSlot !== undefined) {
-      return true; // Enforces mandatory rest period between theory classes!
+    // 2. Direct slot collision across ANY section / ANY year / ANY department!
+    if (facultySchedule[key]?.[`${day}-${periodIndex}`] !== undefined) return true;
+
+    // 3. FACULTY REST PERIOD RULE: No back-to-back theory classes for the same faculty!
+    if (!isLabBlock) {
+      const prevSlot = facultySchedule[key]?.[`${day}-${periodIndex - 1}`];
+      const nextSlot = facultySchedule[key]?.[`${day}-${periodIndex + 1}`];
+      if (prevSlot !== undefined || nextSlot !== undefined) {
+        return true; // Enforces mandatory rest period between theory classes!
+      }
     }
   }
 
   return false;
 }
 
-function recordFacultySlot(facultySchedule, facultyId, day, periodIndex, section) {
-  if (!facultyId || facultyId.startsWith('fac_') || facultyId.startsWith('Faculty') || facultyId.startsWith('faculty_')) return;
-  if (!facultySchedule[facultyId]) facultySchedule[facultyId] = {};
-  facultySchedule[facultyId][`${day}-${periodIndex}`] = section;
-  if (!facultySchedule._totalHours) facultySchedule._totalHours = {};
-  facultySchedule._totalHours[facultyId] = (facultySchedule._totalHours[facultyId] || 0) + 1;
+function recordFacultySlot(facultySchedule, facultyId, day, periodIndex, section, facultyName = null) {
+  const keys = new Set();
+  if (facultyId) keys.add(facultyId);
+  if (facultyName) {
+    facultyName.split(',').map(n => n.trim()).filter(Boolean).forEach(n => keys.add(n));
+  }
+
+  for (const key of keys) {
+    if (!key || key.startsWith('fac_') || key.startsWith('Faculty') || key.startsWith('faculty_')) continue;
+    if (!facultySchedule[key]) facultySchedule[key] = {};
+    facultySchedule[key][`${day}-${periodIndex}`] = section;
+    if (!facultySchedule._totalHours) facultySchedule._totalHours = {};
+    facultySchedule._totalHours[key] = (facultySchedule._totalHours[key] || 0) + 1;
+  }
 }
 
 function countWeeklySubjectOccurrences(grid, subjectCode) {
