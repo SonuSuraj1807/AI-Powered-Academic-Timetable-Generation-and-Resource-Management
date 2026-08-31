@@ -32,15 +32,49 @@ export default function DepartmentClubRosterView() {
     setLoading(false);
   };
 
-  const filteredMembers = members.filter(m => {
-    const matchesTenure = tenureFilter === 'ALL' || m.tenureType === tenureFilter;
-    const matchesSearch =
-      m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.clubName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.designation?.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesTenure && matchesSearch;
-  });
+  const filteredMembers = useMemo(() => {
+    return members.filter(m => {
+      const matchesTenure = tenureFilter === 'ALL' || m.tenureType === tenureFilter;
+      const matchesSearch =
+        !searchTerm.trim() ||
+        m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.clubName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.designation?.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesTenure && matchesSearch;
+    });
+  }, [members, tenureFilter, searchTerm]);
+
+  // Group members by rollNumber for unified multi-club student view
+  const groupedStudents = useMemo(() => {
+    const map = {};
+    filteredMembers.forEach(m => {
+      const roll = (m.rollNumber || '').trim().toUpperCase();
+      if (!roll) return;
+      if (!map[roll]) {
+        map[roll] = {
+          rollNumber: roll,
+          name: m.studentName || (m.name && m.name !== roll ? m.name : 'Student Representative'),
+          email: m.email || `${roll.toLowerCase()}@vbit.ac.in`,
+          phone: m.phone || '+91 98765 43210',
+          year: m.year || '4th Year',
+          section: m.section || 'Sec A',
+          department: m.department || selectedDept,
+          clubs: [],
+        };
+      }
+      map[roll].clubs.push({
+        id: m.id,
+        clubName: m.clubName,
+        designation: m.designation || 'Club Lead',
+        tenureType: m.tenureType || 'PRESENT_TENURE',
+        tenureLabel: m.tenureLabel || '2025-2026',
+        canBookVenues: m.canBookVenues !== false,
+      });
+    });
+    return Object.values(map);
+  }, [filteredMembers, selectedDept]);
 
   return (
     <div className="solid-card" style={{ padding: '24px', marginTop: '20px' }}>
@@ -109,7 +143,7 @@ export default function DepartmentClubRosterView() {
       {/* Roster Table */}
       {loading ? (
         <p style={{ color: 'var(--text-muted)' }}>Loading department club roster...</p>
-      ) : filteredMembers.length === 0 ? (
+      ) : groupedStudents.length === 0 ? (
         <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
           <Users size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
           <p>No student club records found for department {selectedDept}.</p>
@@ -120,50 +154,53 @@ export default function DepartmentClubRosterView() {
             <thead>
               <tr>
                 <th>Student Roll & Name</th>
-                <th>Club Name</th>
-                <th>Club Designation</th>
+                <th>Clubs & Designations</th>
                 <th>Contact Details</th>
                 <th>Class & Year</th>
-                <th>Tenure Record</th>
                 <th>Booking Credentials</th>
               </tr>
             </thead>
             <tbody>
-              {filteredMembers.map(m => (
-                <tr key={m.id}>
-                  <td>
-                    <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
-                      {m.studentName || (m.name && m.name !== m.rollNumber ? m.name : 'Student Lead')}
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
-                      {m.rollNumber}
-                    </div>
-                  </td>
-                  <td>
-                    <span className="badge badge-purple">{m.clubName}</span>
-                  </td>
-                  <td>
-                    <strong style={{ color: 'var(--text-primary)' }}>{m.designation}</strong>
-                  </td>
-                  <td>
-                    <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
-                    <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
-                  </td>
-                  <td>
-                    {m.year} • {m.section}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${m.tenureType === 'PRESENT_TENURE' ? 'green' : 'amber'}`}>
-                      {m.tenureType === 'PRESENT_TENURE' ? `Active (${m.tenureLabel || '2025-2026'})` : `Past (${m.tenureLabel || '2024-2025'})`}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge badge-${m.canBookVenues !== false && m.tenureType === 'PRESENT_TENURE' ? 'green' : 'red'}`}>
-                      {m.canBookVenues !== false && m.tenureType === 'PRESENT_TENURE' ? 'Authorized Booking Lead' : 'Revoked (403)'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {groupedStudents.map(s => {
+                const activeClubs = s.clubs.filter(c => c.canBookVenues && c.tenureType === 'PRESENT_TENURE');
+                return (
+                  <tr key={s.rollNumber}>
+                    <td>
+                      <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                        {s.name}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
+                        {s.rollNumber}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {s.clubs.map(c => (
+                          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span className="badge badge-purple" style={{ fontWeight: 700 }}>{c.clubName}</span>
+                            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.813rem' }}>{c.designation}</span>
+                            <span className={`badge badge-${c.tenureType === 'PRESENT_TENURE' ? 'green' : 'amber'}`} style={{ fontSize: '0.719rem' }}>
+                              {c.tenureType === 'PRESENT_TENURE' ? 'Active' : 'Past Tenure'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {s.phone || 'N/A'}</div>
+                      <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{s.email}</div>
+                    </td>
+                    <td>
+                      {s.year} • {s.section}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${activeClubs.length > 0 ? 'green' : 'red'}`}>
+                        {activeClubs.length > 0 ? `Authorized (${activeClubs.length} Club${activeClubs.length > 1 ? 's' : ''})` : 'Revoked / Inactive (403)'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
