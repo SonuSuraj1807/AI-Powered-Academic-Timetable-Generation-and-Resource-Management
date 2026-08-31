@@ -222,13 +222,21 @@ const useAuthStore = create((set, get) => ({
  */
 export async function checkStudentClubLead(rollNumber, email) {
   try {
-    if (rollNumber) {
-      const q1 = query(collection(db, 'club_leads'), where('rollNumber', '==', String(rollNumber).toUpperCase()));
+    const derivedRollFromEmail = email ? email.split('@')[0].toUpperCase() : '';
+    const rollsToCheck = Array.from(new Set([
+      rollNumber ? String(rollNumber).toUpperCase() : null,
+      derivedRollFromEmail || null
+    ].filter(Boolean)));
+
+    for (const r of rollsToCheck) {
+      const q1 = query(collection(db, 'club_leads'), where('rollNumber', '==', r));
       const snap1 = await getDocs(q1);
       if (!snap1.empty) {
-        const d = snap1.docs[0].data();
-        if (d.isActive !== false) {
-          return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+        for (const docSnap of snap1.docs) {
+          const d = docSnap.data();
+          if (d.isActive !== false) {
+            return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+          }
         }
       }
     }
@@ -237,9 +245,11 @@ export async function checkStudentClubLead(rollNumber, email) {
       const q2 = query(collection(db, 'club_leads'), where('email', '==', String(email).toLowerCase()));
       const snap2 = await getDocs(q2);
       if (!snap2.empty) {
-        const d = snap2.docs[0].data();
-        if (d.isActive !== false) {
-          return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+        for (const docSnap of snap2.docs) {
+          const d = docSnap.data();
+          if (d.isActive !== false) {
+            return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+          }
         }
       }
     }

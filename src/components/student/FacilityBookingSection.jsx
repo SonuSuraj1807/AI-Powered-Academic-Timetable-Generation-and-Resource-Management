@@ -13,7 +13,8 @@ import useAuthStore from '../../stores/authStore';
 
 export default function FacilityBookingSection() {
   const { profile } = useAuthStore();
-  const studentRoll = profile?.hallTicketNo || (profile?.email ? profile.email.split('@')[0].toUpperCase() : '');
+  const derivedRoll = profile?.email ? profile.email.split('@')[0].toUpperCase() : '';
+  const studentRoll = derivedRoll || profile?.hallTicketNo || '';
   const studentEmail = profile?.email || '';
 
   const [leadPrivilege, setLeadPrivilege] = useState(null); // { isClubLead, clubName, clubDesignation }
