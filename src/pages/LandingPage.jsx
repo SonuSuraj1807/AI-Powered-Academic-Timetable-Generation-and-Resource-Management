@@ -21,12 +21,16 @@ export default function LandingPage() {
   const navigate = useNavigate();
   const { user, role, initialized } = useAuthStore();
 
-  // Redirect authenticated users to their dashboard
+  const { logout } = useAuthStore();
+  const searchParams = new URLSearchParams(window.location.search);
+  const isExplicitLanding = searchParams.get('landing') === 'true' || searchParams.get('switch') === 'true';
+
+  // Redirect authenticated users to their dashboard unless explicitly visiting landing
   useEffect(() => {
-    if (initialized && user && role) {
+    if (initialized && user && role && !isExplicitLanding) {
       navigate(ROLE_ROUTES[role] || '/', { replace: true });
     }
-  }, [initialized, user, role, navigate]);
+  }, [initialized, user, role, navigate, isExplicitLanding]);
 
   return (
     <div style={{ 
@@ -71,6 +75,43 @@ export default function LandingPage() {
         alignItems: 'center',
         justifyContent: 'center',
       }}>
+        {/* Active Session Bar */}
+        {user && role && (
+          <div className="solid-card animate-fade-in-down" style={{
+            marginBottom: '24px',
+            padding: '14px 20px',
+            background: 'rgba(15, 23, 42, 0.9)',
+            border: '1px solid var(--accent-primary)',
+            borderRadius: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            maxWidth: '680px',
+            width: '100%',
+            backdropFilter: 'blur(12px)',
+          }}>
+            <div style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+              <strong>Active Session:</strong> Logged in as <span className="badge badge-purple" style={{ textTransform: 'uppercase' }}>{role}</span> ({user.email})
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => navigate(ROLE_ROUTES[role] || '/')}
+                className="btn btn-primary btn-sm"
+              >
+                Go to Dashboard
+              </button>
+              <button
+                onClick={() => logout(true)}
+                className="btn btn-ghost btn-sm"
+                style={{ color: 'var(--danger)' }}
+              >
+                Switch Account
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Horizontal Card Array wrapping on smaller viewports */}
         <div style={{
           display: 'flex',
