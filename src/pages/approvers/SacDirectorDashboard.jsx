@@ -593,13 +593,17 @@ export default function SacDirectorDashboard() {
               onClick={() => setActiveClubModal(null)}
               style={{
                 position: 'fixed',
-                inset: 0,
-                background: 'rgba(0, 0, 0, 0.75)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 999,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(0, 0, 0, 0.8)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                zIndex: 9999,
                 display: 'flex',
                 alignItems: 'center',
-                justify: 'center',
+                justifyContent: 'center',
                 padding: '24px',
               }}
             >
@@ -615,6 +619,7 @@ export default function SacDirectorDashboard() {
                   borderRadius: '16px',
                   border: '1px solid var(--accent-primary)',
                   boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                  margin: 'auto',
                 }}
               >
                 {/* Modal Header */}
