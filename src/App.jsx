@@ -78,14 +78,28 @@ function ProtectedRoute({ children, requiredRole }) {
 
   if (!initialized || loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/" replace />;
-  if (requiredRole && role !== requiredRole) {
-    if (role === 'superadmin') return children;
-    if ((role === 'hod' || role === 'dept_admin' || role === 'exam_controller') && requiredRole === 'admin') return children;
+
+  const userRole = (role === 'hod' || role === 'dept_admin') ? 'admin' : role;
+
+  // Strict Super Admin Isolation: ONLY superadmin can enter superadmin routes
+  if (requiredRole === 'superadmin' && userRole !== 'superadmin') {
+    const roleRoutes = { 
+      admin: '/admin', 
+      sac_director: '/sac-director',
+      principal: '/principal',
+      faculty: '/faculty', 
+      student: '/student', 
+      exam_controller: '/admin/exam-scheduler' 
+    };
+    return <Navigate to={roleRoutes[userRole] || '/'} replace />;
+  }
+
+  if (requiredRole && userRole !== requiredRole) {
+    if (userRole === 'superadmin') return children;
+    if (userRole === 'exam_controller' && requiredRole === 'admin') return children;
 
     const roleRoutes = { 
       admin: '/admin', 
-      hod: '/admin',
-      dept_admin: '/admin',
       sac_director: '/sac-director',
       principal: '/principal',
       faculty: '/faculty', 
@@ -93,7 +107,7 @@ function ProtectedRoute({ children, requiredRole }) {
       superadmin: '/superadmin', 
       exam_controller: '/admin/exam-scheduler' 
     };
-    return <Navigate to={roleRoutes[role] || '/'} replace />;
+    return <Navigate to={roleRoutes[userRole] || '/'} replace />;
   }
 
   return children;

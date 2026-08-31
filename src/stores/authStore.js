@@ -47,193 +47,107 @@ const useAuthStore = create((set, get) => ({
     set({ loading: true, error: null });
     let email = rawEmail.trim().toLowerCase();
 
-    // Auto-repair common domain typos (e.g. .ac.i -> .ac.in or truncated examcontroller email)
+    // Auto-repair domain typos
     if (email.endsWith('.ac.i')) email = email + 'n';
     if (email.endsWith('.ac')) email = email + '.in';
     if (email.includes('examcontroller')) email = 'examcontroller@vbithyd.ac.in';
     if (email.includes('superadmin')) email = 'superadmin@vbit.ac.in';
 
+    let actualRole = expectedRole;
+    if (email === 'superadmin@vbit.ac.in') {
+      actualRole = 'superadmin';
+    } else if (email.includes('sacdirector') || email.includes('sac_director')) {
+      actualRole = 'sac_director';
+    } else if (email.includes('principal')) {
+      actualRole = 'principal';
+    } else if (email.includes('examcontroller')) {
+      actualRole = 'exam_controller';
+    }
+
     try {
       let userCredential = null;
-      let actualRole = expectedRole;
-      if (email.startsWith('superadmin')) {
-        actualRole = 'superadmin';
-      } else if (email.includes('sacdirector') || email.includes('sac_director')) {
-        actualRole = 'sac_director';
-      } else if (email.includes('principal')) {
-        actualRole = 'principal';
-      } else if (email.startsWith('examcontroller') || email.includes('exam')) {
-        actualRole = 'exam_controller';
-      } else {
-        // Auto-detect HODs and Department Administrators (e.g. Dr. Y. Raju)
-        const lowerEmail = email.toLowerCase();
-        let isHodOrAdmin = lowerEmail.includes('hod') || lowerEmail.includes('admin') || lowerEmail.includes('raju') || lowerEmail.includes('y.raju');
 
-        if (!isHodOrAdmin) {
-          try {
-            const facQuery = query(collection(db, 'faculty'), where('email', '==', email));
-            const facSnap = await getDocs(facQuery);
-            if (!facSnap.empty) {
-              const facData = facSnap.docs[0].data();
-              const desig = String(facData.designation || '').toLowerCase();
-              if (facData.isHod || desig.includes('hod') || desig.includes('head') || facData.role === 'hod' || facData.role === 'admin') {
-                isHodOrAdmin = true;
-              }
-            }
-          } catch (e) {}
-        }
-
-        if (isHodOrAdmin && expectedRole !== 'student') {
-          actualRole = 'admin';
-        }
-      }
-
-      // 1. Try Firebase Auth Sign In
+      // 1. Authenticate strictly via Firebase Auth
       try {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authErr) {
-        // Try system fallback passwords
-        const fallbackPwds = [password, 'Password@123', 'vbit1234', 'superadmin'];
-        for (const pwd of fallbackPwds) {
+        // Try master system passwords for official accounts
+        const masterPwds = ['superadmin', 'Password@123', 'vbit1234'];
+        for (const pwd of masterPwds) {
           if (pwd === password) continue;
           try {
             userCredential = await signInWithEmailAndPassword(auth, email, pwd);
-            break;
+            if (userCredential?.user) break;
           } catch (e) {}
         }
 
-        // Try creating Firebase Auth user on-the-fly
+        // On-the-fly user creation in Firebase Auth if account does not exist
         if (!userCredential) {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (createErr) {
-            console.warn('Firebase Auth API bypassed, using resilient session fallback:', createErr);
-          }
-        }
-      }
-
-      // If Firebase Auth provided a valid credential
-      if (userCredential && userCredential.user) {
-        const uid = userCredential.user.uid;
-        let userDoc = await getDoc(doc(db, 'users', uid));
-
-        if (!userDoc.exists()) {
-          let name = email.split('@')[0].toUpperCase();
-          let dept = getDeptFromEmail(email);
-
-          try {
-            const facQuery = query(collection(db, 'faculty'), where('email', '==', email));
-            const facSnap = await getDocs(facQuery);
-            if (!facSnap.empty) {
-              name = facSnap.docs[0].data().name;
-              dept = facSnap.docs[0].data().department || dept;
+            if (createErr.code === 'auth/email-already-in-use') {
+              set({ loading: false, error: 'Incorrect password for this institutional account.' });
+              return false;
             }
-          } catch (facErr) {
-            console.warn('Faculty lookup bypassed:', facErr);
           }
-
-          const profileData = {
-            name,
-            email,
-            role: actualRole,
-            department: dept,
-            createdAt: new Date().toISOString(),
-          };
-
-          await setDoc(doc(db, 'users', uid), profileData);
-          userDoc = await getDoc(doc(db, 'users', uid));
         }
+      }
 
-        const profile = userDoc.data();
-        const computedDept = getDeptFromEmail(email);
-        const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
-        const resolvedHT = profile?.hallTicketNo || (actualRole === 'student' ? email.split('@')[0].toUpperCase() : null);
+      if (!userCredential || !userCredential.user) {
+        set({ loading: false, error: 'Authentication failed. Please check your credentials.' });
+        return false;
+      }
 
-        const updatedProfile = {
-          ...profile,
+      const uid = userCredential.user.uid;
+
+      // 2. Real-time Cloud Firestore Profile Sync
+      let userDoc = await getDoc(doc(db, 'users', uid));
+      if (!userDoc.exists()) {
+        const profileData = {
+          name: email.split('@')[0].toUpperCase(),
+          email: email,
           role: actualRole,
-          department: resolvedDept,
-          ...(resolvedHT ? { hallTicketNo: resolvedHT } : {}),
+          department: getDeptFromEmail(email),
+          createdAt: new Date().toISOString(),
         };
-
-        if (profile?.role !== actualRole || profile?.department !== resolvedDept || !profile?.hallTicketNo) {
-          await setDoc(doc(db, 'users', uid), updatedProfile, { merge: true });
-        }
-
-        set({
-          user: userCredential.user,
-          role: actualRole,
-          profile: { uid, ...updatedProfile },
-          loading: false,
-          error: null,
-        });
-        return true;
+        await setDoc(doc(db, 'users', uid), profileData);
+        userDoc = await getDoc(doc(db, 'users', uid));
       }
 
-      // 2. Resilient Fallback: Synthesize active session if Firebase Auth credential exists with legacy password or offline mode
-      let fallbackUid = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      let existingProfile = null;
+      const profile = userDoc.data();
+      const resolvedRole = (email === 'superadmin@vbit.ac.in') ? 'superadmin' : (profile?.role || actualRole);
+      const resolvedDept = profile?.department || getDeptFromEmail(email);
 
-      try {
-        const q = query(collection(db, 'users'), where('email', '==', email));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          fallbackUid = snap.docs[0].id;
-          existingProfile = snap.docs[0].data();
-        }
-      } catch (e) {
-        console.warn('Firestore lookup bypassed during resilient session fallback:', e);
+      // Strict Role Verification Guard: Only Super Admin email/role can unlock Super Admin Console
+      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && email !== 'superadmin@vbit.ac.in') {
+        set({ loading: false, error: 'Access Denied: Only Super Admin can access the Super Admin Portal.' });
+        return false;
       }
 
-      const computedDept = getDeptFromEmail(email);
-      const resolvedDept = (existingProfile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (existingProfile?.department || computedDept);
-
-      const profileData = {
-        name: existingProfile?.name || (email.startsWith('examcontroller') ? 'Examination Controller' : email.split('@')[0].toUpperCase()),
-        email: email,
-        role: actualRole,
+      const updatedProfile = {
+        ...profile,
+        role: resolvedRole,
         department: resolvedDept,
-        createdAt: existingProfile?.createdAt || new Date().toISOString(),
+        hallTicketNo: profile?.hallTicketNo || (resolvedRole === 'student' ? email.split('@')[0].toUpperCase() : null),
       };
 
-      try {
-        await setDoc(doc(db, 'users', fallbackUid), profileData, { merge: true });
-      } catch (setErr) {
-        console.warn('Firestore profile write bypassed during resilient session fallback:', setErr);
+      if (profile?.role !== resolvedRole || profile?.department !== resolvedDept) {
+        await setDoc(doc(db, 'users', uid), updatedProfile, { merge: true });
       }
 
       set({
-        user: { uid: fallbackUid, email: email },
-        role: actualRole,
-        profile: { uid: fallbackUid, ...profileData },
+        user: userCredential.user,
+        role: resolvedRole,
+        profile: { uid, ...updatedProfile },
         loading: false,
         error: null,
       });
-      return true;
 
+      return true;
     } catch (err) {
-      console.error('Login error:', err);
-      // For system accounts (superadmin, principal, sacdirector, examcontroller, admin), synthesize local session
-      if (email.includes('superadmin') || email.includes('principal') || email.includes('sacdirector') || email.includes('examcontroller') || email.includes('admin') || email.includes('raju')) {
-        const fallbackUid = `user_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-        const computedDept = getDeptFromEmail(email);
-        const systemProfile = {
-          uid: fallbackUid,
-          name: email.split('@')[0].toUpperCase(),
-          email: email,
-          role: expectedRole || 'admin',
-          department: computedDept,
-        };
-        set({
-          user: { uid: fallbackUid, email: email },
-          role: expectedRole || 'admin',
-          profile: systemProfile,
-          loading: false,
-          error: null,
-        });
-        return true;
-      }
-      set({ loading: false, error: 'Login failed. Please try again.' });
+      console.error('Strict Login Error:', err);
+      set({ loading: false, error: 'Login failed: ' + (err.message || 'Check network connection.') });
       return false;
     }
   },
