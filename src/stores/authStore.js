@@ -10,6 +10,8 @@ import {
   createUserWithEmailAndPassword,
   signInAnonymously,
   signOut, 
+  setPersistence,
+  browserSessionPersistence,
   onAuthStateChanged as firebaseOnAuthStateChanged 
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
@@ -64,6 +66,13 @@ const useAuthStore = create((set, get) => ({
     }
 
     try {
+      // Enable per-tab session persistence so different roles can log in in separate tabs simultaneously
+      try {
+        await setPersistence(auth, browserSessionPersistence);
+      } catch (pErr) {
+        console.warn('Per-tab persistence configuration bypassed:', pErr);
+      }
+
       let userCredential = null;
 
       // 1. Single Clean Authentication via Firebase Auth
