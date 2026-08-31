@@ -432,3 +432,42 @@ export async function addCustomDepartment(deptName) {
   return name;
 }
 
+/**
+ * Dynamic Custom Club Categories Registry
+ */
+export const DEFAULT_CLUB_CATEGORIES = [
+  'Technical',
+  'Cultural',
+  'Sports',
+  'Social',
+  'Literary',
+  'Professional',
+];
+
+export async function fetchCustomCategories() {
+  try {
+    const snap = await getDocs(collection(db, 'club_categories'));
+    const list = [...DEFAULT_CLUB_CATEGORIES];
+    snap.forEach(d => {
+      const name = d.data().name;
+      if (name && !list.includes(name)) list.push(name);
+    });
+    return list;
+  } catch (err) {
+    console.error('Error fetching custom categories:', err);
+    return DEFAULT_CLUB_CATEGORIES;
+  }
+}
+
+export async function addCustomCategory(categoryName) {
+  const name = categoryName.trim();
+  if (!name) return;
+  const docId = `cat_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  await setDoc(doc(db, 'club_categories', docId), {
+    name,
+    createdAt: new Date().toISOString(),
+  }, { merge: true });
+  return name;
+}
+
+

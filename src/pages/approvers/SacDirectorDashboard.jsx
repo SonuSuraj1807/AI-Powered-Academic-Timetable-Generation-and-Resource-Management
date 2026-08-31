@@ -11,13 +11,15 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { sacReviewBooking } from '../../lib/facilityBookingEngine';
+import { fetchFacilities, sacReviewBooking } from '../../lib/facilityBookingEngine';
+import VenueAvailabilityCalendar from '../../components/admin/VenueAvailabilityCalendar';
 import {
   fetchClubs, addClub, updateClub, deleteClub,
   fetchClubMembers, addClubMember, updateClubMember, deleteClubMember,
   declareTenureCompletion,
   fetchCustomDesignations, addCustomDesignation,
-  fetchCustomDepartments, addCustomDepartment
+  fetchCustomDepartments, addCustomDepartment,
+  fetchCustomCategories, addCustomCategory
 } from '../../lib/clubGovernanceEngine';
 import {
   Building2, CheckCircle2, XCircle, Clock, Send, Calendar, Users, AlertCircle,
@@ -69,9 +71,12 @@ export default function SacDirectorDashboard() {
   const [memberDesignation, setMemberDesignation] = useState('Student Coordinator / Lead (President)');
   const [memberCanBook, setMemberCanBook] = useState(true);
 
-  // Dynamic Custom Designation & Department State
+  // Dynamic Custom Category, Designation & Department State
+  const [facilitiesList, setFacilitiesList] = useState([]);
+  const [categoryList, setCategoryList] = useState([]);
   const [designationList, setDesignationList] = useState([]);
   const [deptList, setDeptList] = useState([]);
+  const [customCategoryText, setCustomCategoryText] = useState('');
   const [customDesigText, setCustomDesigText] = useState('');
   const [customDeptText, setCustomDeptText] = useState('');
 
@@ -82,8 +87,10 @@ export default function SacDirectorDashboard() {
   const [newTenureLabel, setNewTenureLabel] = useState('2025-2026');
   const [archiving, setArchiving] = useState(false);
 
-  // 1. Real-time Listeners for facility_bookings
+  // 1. Real-time Listeners for facility_bookings & facilities
   useEffect(() => {
+    fetchFacilities().then(facs => setFacilitiesList(facs));
+
     const unsub = onSnapshot(collection(db, 'facility_bookings'), (snap) => {
       const list = [];
       snap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -96,7 +103,7 @@ export default function SacDirectorDashboard() {
     return () => unsub();
   }, []);
 
-  // 2. Load Clubs, Designations & Departments when CLUBS tab is opened
+  // 2. Load Clubs, Categories, Designations & Departments when CLUBS tab is opened
   useEffect(() => {
     if (activeTab === 'CLUBS') {
       loadClubs();
@@ -110,6 +117,8 @@ export default function SacDirectorDashboard() {
     if (list.length > 0 && !selectedClub) {
       setSelectedClub(list[0]);
     }
+    const cats = await fetchCustomCategories();
+    setCategoryList(cats);
     const dList = await fetchCustomDesignations();
     setDesignationList(dList);
     const depts = await fetchCustomDepartments();
@@ -151,10 +160,20 @@ export default function SacDirectorDashboard() {
     e.preventDefault();
     if (!clubNameInput.trim()) return alert('Please enter club name.');
     try {
+      let finalCategory = clubCategoryInput;
+      if (clubCategoryInput === '__ADD_NEW__') {
+        if (!customCategoryText.trim()) return alert('Please enter custom category name.');
+        finalCategory = customCategoryText.trim();
+        await addCustomCategory(finalCategory);
+        if (!categoryList.includes(finalCategory)) {
+          setCategoryList([...categoryList, finalCategory]);
+        }
+      }
+
       if (editingClub) {
         await updateClub(editingClub.id, {
           name: clubNameInput.trim(),
-          category: clubCategoryInput,
+          category: finalCategory,
           description: clubDescInput,
           establishedYear: clubEstYearInput,
         });
@@ -162,7 +181,7 @@ export default function SacDirectorDashboard() {
       } else {
         const newClub = await addClub({
           name: clubNameInput.trim(),
-          category: clubCategoryInput,
+          category: finalCategory,
           description: clubDescInput,
           establishedYear: clubEstYearInput,
         });
@@ -170,6 +189,7 @@ export default function SacDirectorDashboard() {
         setSelectedClub(newClub);
       }
       setShowClubModal(false);
+      setCustomCategoryText('');
       loadClubs();
     } catch (err) {
       console.error(err);
@@ -412,59 +432,8 @@ export default function SacDirectorDashboard() {
       {/* TAB 2: LIVE VENUE AVAILABILITY MATRIX */}
       {/* ==================================================== */}
       {activeTab === 'MATRIX' && (
-        <div className="solid-card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Calendar size={20} style={{ color: 'var(--accent-primary)' }} />
-            Live Campus Venue & Auditorium Slot Availability Matrix
-          </h3>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: '20px' }}>
-            Real-time schedule grid displaying all sanctioned and pending venue reservations across Nalandha Auditorium, Chethana Auditorium, and Departmental Seminar Halls.
-          </p>
-
-          {approvedBookings.length === 0 ? (
-            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <Calendar size={36} style={{ margin: '0 auto 10px', opacity: 0.5 }} />
-              <p>No active or pending venue bookings found for this academic period.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {approvedBookings.map(b => (
-                <div
-                  key={b.id}
-                  style={{
-                    padding: '16px 20px', borderRadius: '10px', background: 'var(--bg-elevated)',
-                    border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                    <div style={{ padding: '12px', borderRadius: '8px', background: 'rgba(139, 92, 246, 0.15)', color: 'var(--accent-primary)', fontWeight: 800 }}>
-                      🏛️
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                        <h4 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>{b.facilityName}</h4>
-                        <span className={`badge badge-${b.status === 'APPROVED' ? 'green' : 'amber'}`}>
-                          {b.status === 'APPROVED' ? 'Final Sanctioned' : 'SAC Approved (Awaiting Principal)'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                        Event: <strong>{b.eventTitle}</strong> ({b.clubName}) • Booked By: {b.bookedByName} ({b.bookedByRollNumber})
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--accent-green)' }}>
-                      🗓️ {b.date}
-                    </div>
-                    <div style={{ fontSize: '0.813rem', color: 'var(--text-tertiary)', fontWeight: 600 }}>
-                      ⏰ {b.startTime} – {b.endTime}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <VenueAvailabilityCalendar bookings={allBookings} facilities={facilitiesList} />
         </div>
       )}
 
@@ -807,10 +776,22 @@ export default function SacDirectorDashboard() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Category</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Category *</label>
                   <select className="input-field" value={clubCategoryInput} onChange={e => setClubCategoryInput(e.target.value)}>
-                    {['Technical', 'Cultural', 'Sports', 'Social', 'Literary', 'Professional'].map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    {categoryList.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                    <option value="__ADD_NEW__">➕ Add Custom Category...</option>
                   </select>
+                  {clubCategoryInput === '__ADD_NEW__' && (
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Type custom category (e.g. Fine Arts)..."
+                      value={customCategoryText}
+                      onChange={e => setCustomCategoryText(e.target.value)}
+                      style={{ marginTop: '6px', border: '1px solid var(--accent-primary)' }}
+                      required
+                    />
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Established Year</label>
