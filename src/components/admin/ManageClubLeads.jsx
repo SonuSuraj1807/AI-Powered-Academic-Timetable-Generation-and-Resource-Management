@@ -111,53 +111,57 @@ export default function ManageClubLeads() {
     l.department?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const isSuperAdmin = profile?.role === 'superadmin';
+
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ShieldCheck size={22} style={{ color: 'var(--accent-primary)' }} />
-            Manage Student Venue Booking Privileges
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
-            Grant, update, or revoke auditorium & facility booking privileges for Club Leads, Hospitality Leads, Secretaries, and Representatives by Roll Number.
-          </p>
-        </div>
+      {isSuperAdmin ? (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <ShieldCheck size={22} style={{ color: 'var(--accent-primary)' }} />
+                Manage Student Venue Booking Privileges
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
+                Grant, update, or revoke auditorium & facility booking privileges for Club Leads, Hospitality Leads, Secretaries, and Representatives by Roll Number.
+              </p>
+            </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn btn-primary"
-          style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-        >
-          <UserPlus size={16} /> Grant Student Booking Privilege
-        </button>
-      </div>
-
-      {/* Roster Controls */}
-      <div className="solid-card" style={{ padding: '18px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Search by Roll Number (e.g. 23P61A6794), Name, or Club..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '36px' }}
-            />
+            <button
+              onClick={() => setShowModal(true)}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <UserPlus size={16} /> Grant Student Booking Privilege
+            </button>
           </div>
-          <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            Total Authorized Student Reps: {leads.length}
-          </div>
-        </div>
-      </div>
 
-      {/* Authorized Roster Table */}
-      <div className="solid-card" style={{ padding: '20px' }}>
-        {loading ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading authorized student roster...</p>
-        ) : filteredLeads.length === 0 ? (
+          {/* Roster Controls */}
+          <div className="solid-card" style={{ padding: '18px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Search by Roll Number (e.g. 23P61A6794), Name, or Club..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{ paddingLeft: '36px' }}
+                />
+              </div>
+              <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                Total Authorized Student Reps: {leads.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Authorized Roster Table */}
+          <div className="solid-card" style={{ padding: '20px', marginBottom: '20px' }}>
+            {loading ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading authorized student roster...</p>
+            ) : filteredLeads.length === 0 ? (
           <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
             <ShieldAlert size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
             <p style={{ fontSize: '0.875rem' }}>No student leads found. Click "Grant Student Booking Privilege" to authorize a student by Roll Number.</p>
@@ -216,7 +220,9 @@ export default function ManageClubLeads() {
             </table>
           </div>
         )}
-      </div>
+          </div>
+        </>
+      ) : null}
 
       {/* Department Student Club Roster View (HOD & Admin) */}
       <DepartmentClubRosterView />

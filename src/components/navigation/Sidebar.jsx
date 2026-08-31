@@ -61,7 +61,6 @@ const MENU_CONFIG = {
     items: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
       { path: '/admin/club-leads', icon: UserCheck, label: 'Department Student Club Roster' },
-      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Allocation Oversight' },
       { path: '/admin/generate', icon: Cpu, label: 'Generate Timetable' },
       { path: '/admin/schedules', icon: Calendar, label: 'View Schedules' },
       { path: '/admin/faculty', icon: Users, label: 'Faculty Management' },
