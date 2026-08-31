@@ -506,14 +506,14 @@ export default function SacDirectorDashboard() {
           {loadingClubs ? (
             <p style={{ color: 'var(--text-muted)' }}>Loading student clubs directory...</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '14px' }}>
               {clubs.map(c => (
                 <div
                   key={c.id}
                   className="solid-card card-hover"
                   style={{
-                    padding: '20px',
-                    borderRadius: '14px',
+                    padding: '16px 14px',
+                    borderRadius: '12px',
                     display: 'flex',
                     flexDirection: 'column',
                     justify: 'space-between',
@@ -523,40 +523,40 @@ export default function SacDirectorDashboard() {
                   }}
                 >
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
-                      <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Award size={18} style={{ color: 'var(--accent-primary)' }} />
-                        {c.name}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px', gap: '6px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '0.938rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                        <Award size={16} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
                       </h3>
-                      <span className="badge badge-purple" style={{ fontWeight: 700 }}>{c.category || 'Technical'}</span>
+                      <span className="badge badge-purple" style={{ fontWeight: 700, fontSize: '0.688rem', padding: '2px 6px' }}>{c.category || 'Technical'}</span>
                     </div>
 
-                    <p style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: '1.4' }}>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '10px', lineHeight: '1.35', height: '32px', overflow: 'hidden' }}>
                       {c.description || 'VBIT Registered Student Body Organization.'}
                     </p>
 
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <span>Established: <strong>{c.establishedYear || '2020'}</strong></span>
+                    <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span>Est: <strong>{c.establishedYear || '2020'}</strong></span>
                       <span>•</span>
-                      <span className="badge badge-green" style={{ fontSize: '0.688rem' }}>
-                        Tenure: {c.currentTenure || '2025-2026'}
+                      <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                        {c.currentTenure || '2025-2026'}
                       </span>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-primary)', marginTop: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border-primary)', marginTop: '4px' }}>
                     <button
                       onClick={() => {
                         setSelectedClub(c);
                         setActiveClubModal(c);
                       }}
                       className="btn btn-primary btn-sm"
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.813rem' }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}
                     >
-                      <Users size={14} /> Inspect Roster ➔
+                      <Users size={13} /> Inspect Roster ➔
                     </button>
 
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '2px' }}>
                       <button
                         onClick={() => {
                           setEditingClub(c);
@@ -567,18 +567,18 @@ export default function SacDirectorDashboard() {
                           setShowClubModal(true);
                         }}
                         className="btn btn-ghost btn-sm"
-                        style={{ padding: '4px 8px' }}
+                        style={{ padding: '3px 6px' }}
                         title="Edit Club"
                       >
-                        <Edit2 size={14} />
+                        <Edit2 size={13} />
                       </button>
                       <button
                         onClick={() => handleDeleteClub(c)}
                         className="btn btn-ghost btn-sm"
-                        style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                        style={{ padding: '3px 6px', color: 'var(--danger)' }}
                         title="Delete Club"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
