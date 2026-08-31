@@ -132,8 +132,10 @@ export default function DepartmentClubRosterView() {
               {filteredMembers.map(m => (
                 <tr key={m.id}>
                   <td>
-                    <strong>{m.name}</strong>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                      {m.studentName || (m.name && m.name !== m.rollNumber ? m.name : 'Student Lead')}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
                       {m.rollNumber}
                     </div>
                   </td>

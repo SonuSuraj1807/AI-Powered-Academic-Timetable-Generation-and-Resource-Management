@@ -190,14 +190,20 @@ export async function fetchDepartmentClubMembers(deptName) {
     const list = [];
     const seenKeys = new Set();
 
+    const matchesDept = (dept1, targetDept) => {
+      if (!targetDept || targetDept === 'ALL') return true;
+      if (!dept1) return false;
+      return dept1.trim().toUpperCase() === targetDept.trim().toUpperCase();
+    };
+
     // 1. Fetch from /club_members
     const snap1 = await getDocs(collection(db, 'club_members'));
     snap1.forEach(d => {
       const m = d.data();
-      if (!deptName || m.department === deptName || m.department?.includes(deptName)) {
+      if (matchesDept(m.department, deptName)) {
         const key = `${m.rollNumber}_${m.clubName}_${m.tenureType || 'PRESENT_TENURE'}`;
         seenKeys.add(key);
-        list.push({ id: d.id, ...m });
+        list.push({ id: d.id, ...m, name: m.studentName || m.name });
       }
     });
 
@@ -205,14 +211,15 @@ export async function fetchDepartmentClubMembers(deptName) {
     const snap2 = await getDocs(collection(db, 'club_leads'));
     snap2.forEach(d => {
       const l = d.data();
-      if (!deptName || l.department === deptName || l.department?.includes(deptName)) {
+      if (matchesDept(l.department, deptName)) {
         const key = `${l.rollNumber}_${l.clubName}_PRESENT_TENURE`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
           list.push({
             id: `lead_${d.id}`,
             rollNumber: l.rollNumber,
-            name: l.name || l.rollNumber,
+            name: l.studentName || l.name || 'Student Representative',
+            studentName: l.studentName || l.name || 'Student Representative',
             clubName: l.clubName,
             designation: l.designation || 'Club Lead',
             department: l.department || deptName || 'CSE-DS',
