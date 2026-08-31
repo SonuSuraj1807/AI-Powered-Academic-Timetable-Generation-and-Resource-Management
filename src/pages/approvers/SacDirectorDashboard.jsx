@@ -139,29 +139,11 @@ export default function SacDirectorDashboard() {
 
   const getMemberHierarchyRank = (designation = '') => {
     const d = (designation || '').toUpperCase();
-    if (d.includes('PRESIDENT') || d.includes('CHIEF') || d.includes('HEAD') || d.includes('STUDENT LEAD')) return 1;
-    if (d.includes('VICE') || d.includes('CO-LEAD') || d.includes('DEPUTY')) return 2;
-    if (d.includes('SECRETARY') || d.includes('TREASURER')) return 3;
-    if (d.includes('LEAD') || d.includes('COORDINATOR')) return 4;
-    if (d.includes('CORE') || d.includes('COMMITTEE')) return 5;
-    return 6;
-  };
-
-  const getHierarchyBadge = (rank) => {
-    switch (rank) {
-      case 1:
-        return <span className="badge badge-gold" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #F59E0B, #B45309)', color: '#fff', fontWeight: 800 }}>🥇 Tier 1 • Chief Lead</span>;
-      case 2:
-        return <span className="badge badge-purple" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #8B5CF6, #6D28D9)', color: '#fff', fontWeight: 800 }}>🥈 Tier 2 • Deputy Lead</span>;
-      case 3:
-        return <span className="badge badge-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', color: '#fff', fontWeight: 800 }}>🥉 Tier 3 • Executive</span>;
-      case 4:
-        return <span className="badge badge-cyan" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(6, 182, 212, 0.15)', color: '#06B6D4', border: '1px solid #06B6D4', fontWeight: 700 }}>🎖️ Domain Lead</span>;
-      case 5:
-        return <span className="badge badge-indigo" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', border: '1px solid #6366F1', fontWeight: 600 }}>⭐ Core Member</span>;
-      default:
-        return <span className="badge badge-gray" style={{ fontWeight: 600 }}>👥 Member</span>;
-    }
+    if (d.includes('CHAIRPERSON') || d.includes('PRESIDENT') || d.includes('CHIEF LEAD') || d.includes('HEAD LEAD') || d.includes('STUDENT LEAD')) return 1;
+    if (d.includes('VICE CHAIR') || d.includes('VICE PRESIDENT') || d.includes('VICE') || d.includes('CO-LEAD') || d.includes('DEPUTY')) return 2;
+    if (d.includes('SECRETARY') || d.includes('TREASURER') || d.includes('ADMINISTRATOR') || d.includes('ADMIN')) return 3;
+    if (d.includes('REPRESENTATIVE') || d.includes('REP')) return 4;
+    return 5;
   };
 
   const sortedClubMembers = useMemo(() => {
@@ -636,55 +618,51 @@ export default function SacDirectorDashboard() {
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
-                    <table className="data-table" style={{ width: '100%', fontSize: '0.813rem', borderCollapse: 'separate', borderSpacing: '0 6px' }}>
+                    <table className="data-table" style={{ width: '100%', fontSize: '0.813rem' }}>
                       <thead>
                         <tr>
-                          <th style={{ width: '150px' }}>Hierarchy Level</th>
-                          <th style={{ width: '180px' }}>Student Roll & Name</th>
-                          <th style={{ width: '180px' }}>Club Designation</th>
-                          <th style={{ width: '140px' }}>Class / Dept</th>
-                          <th style={{ width: '200px' }}>Contact Details</th>
-                          <th style={{ width: '170px' }}>Booking Privileges</th>
-                          <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+                          <th style={{ textAlign: 'center' }}>Student Roll & Name</th>
+                          <th style={{ textAlign: 'center' }}>Club Designation</th>
+                          <th style={{ textAlign: 'center' }}>Class & Dept</th>
+                          <th style={{ textAlign: 'center' }}>Contact Details</th>
+                          <th style={{ textAlign: 'center' }}>Booking Privileges</th>
+                          <th style={{ textAlign: 'center' }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedClubMembers.map(m => {
-                          const rank = getMemberHierarchyRank(m.designation);
-                          return (
-                            <tr key={m.id}>
-                              <td>{getHierarchyBadge(rank)}</td>
-                              <td>
-                                <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
-                                  {m.studentName || m.name}
-                                </div>
-                                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
-                                  {m.rollNumber}
-                                </div>
-                              </td>
-                              <td>
-                                <div style={{ fontWeight: 800, color: 'var(--accent-purple)', fontSize: '0.875rem' }}>
-                                  {m.designation}
-                                </div>
-                                <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                  Tenure: {m.tenureLabel || '2025-2026'}
-                                </div>
-                              </td>
-                              <td>
-                                <span className="badge badge-purple" style={{ fontWeight: 700 }}>{m.department}</span>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                  {m.year} • {m.section}
-                                </div>
-                              </td>
-                              <td>
-                                <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
-                                <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
-                              </td>
-                              <td>
-                                <span className={`badge badge-${m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'green' : 'red'}`} style={{ whiteSpace: 'nowrap' }}>
-                                  {m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? '✓ Authorized Lead' : '🔒 Revoked (403)'}
-                                </span>
-                              </td>
+                        {sortedClubMembers.map(m => (
+                          <tr key={m.id}>
+                            <td style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                                {m.studentName || m.name}
+                              </div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
+                                {m.rollNumber}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 800, color: 'var(--accent-purple)', fontSize: '0.875rem' }}>
+                                {m.designation}
+                              </div>
+                              <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                Tenure: {m.tenureLabel || '2025-2026'}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className="badge badge-purple" style={{ fontWeight: 700 }}>{m.department}</span>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                {m.year} • {m.section}
+                              </div>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
+                              <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
+                            </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`badge badge-${m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'green' : 'red'}`} style={{ whiteSpace: 'nowrap' }}>
+                                {m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? '✓ Authorized Lead' : '🔒 Revoked (403)'}
+                              </span>
+                            </td>
                               <td>
                                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                                   <button
@@ -718,8 +696,7 @@ export default function SacDirectorDashboard() {
                                 </div>
                               </td>
                             </tr>
-                          );
-                        })}
+                        ))}
                       </tbody>
                     </table>
                   </div>
