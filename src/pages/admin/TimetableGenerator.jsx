@@ -399,17 +399,20 @@ export default function TimetableGenerator() {
               return loadA - loadB;
             });
 
-            // Find candidate not yet teaching in this section and under 18 hours
+            const hoursToAdd = isLab ? 3 : 5;
             assignedFaculty = candidates.find(c => {
               const cId = c.id || c.uid;
               const currentLoad = facultyLoadCounter[cId] || 0;
-              return !sectionAssignedFacIds.has(cId) && currentLoad < 18;
-            }) || candidates[0]; // Fallback to lowest loaded candidate
+              return !sectionAssignedFacIds.has(cId) && (currentLoad + hoursToAdd) <= 18;
+            }) || candidates.find(c => {
+              const cId = c.id || c.uid;
+              const currentLoad = facultyLoadCounter[cId] || 0;
+              return (currentLoad + hoursToAdd) <= 18;
+            });
 
             if (assignedFaculty) {
               const facId = assignedFaculty.id || assignedFaculty.uid;
               sectionAssignedFacIds.add(facId);
-              const hoursToAdd = isLab ? 3 : 5;
               facultyLoadCounter[facId] = (facultyLoadCounter[facId] || 0) + hoursToAdd;
             }
           }

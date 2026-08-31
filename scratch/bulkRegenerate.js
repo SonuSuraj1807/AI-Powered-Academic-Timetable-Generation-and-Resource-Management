@@ -78,16 +78,20 @@ async function main() {
           return loadA - loadB;
         });
 
+        const hoursToAdd = isLab ? 3 : 5;
         const assignedFaculty = candidates.find(c => {
           const cId = c.id || c.uid;
           const currentLoad = facultyLoadCounter[cId] || 0;
-          return !sectionAssignedFacIds.has(cId) && currentLoad < 18;
-        }) || candidates[0];
+          return !sectionAssignedFacIds.has(cId) && (currentLoad + hoursToAdd) <= 18;
+        }) || candidates.find(c => {
+          const cId = c.id || c.uid;
+          const currentLoad = facultyLoadCounter[cId] || 0;
+          return (currentLoad + hoursToAdd) <= 18;
+        });
 
         if (assignedFaculty) {
           const facId = assignedFaculty.id || assignedFaculty.uid;
           sectionAssignedFacIds.add(facId);
-          const hoursToAdd = isLab ? 3 : 5;
           facultyLoadCounter[facId] = (facultyLoadCounter[facId] || 0) + hoursToAdd;
         }
 

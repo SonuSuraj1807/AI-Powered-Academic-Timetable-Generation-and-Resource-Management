@@ -474,7 +474,7 @@ function placeLabSession(grid, lab, availableDays, facultySchedule, section, exi
         if (!slice.every(s => s === null)) continue;
 
         const indices = Array.from({ length: labDuration }, (_, k) => startIdx + k);
-        const facultyFree = indices.every(idx => !isFacultyBusy(facultySchedule, lab.facultyId, day, idx));
+        const facultyFree = indices.every(idx => !isFacultyBusy(facultySchedule, lab.facultyId, day, idx, true));
         if (!facultyFree) continue;
 
         const roomFree = indices.every(idx => !isLabRoomBusy(existingSchedules, labRoom, day, idx));
@@ -624,11 +624,26 @@ function buildFacultyScheduleMap(existingSchedules) {
   return map;
 }
 
-function isFacultyBusy(facultySchedule, facultyId, day, periodIndex) {
+function isFacultyBusy(facultySchedule, facultyId, day, periodIndex, isLabBlock = false) {
   if (!facultyId || facultyId.startsWith('fac_') || facultyId.startsWith('Faculty') || facultyId.startsWith('faculty_')) return false;
-  if (facultySchedule[facultyId]?.[`${day}-${periodIndex}`] !== undefined) return true;
+
+  // 1. HARD WORKLOAD CAP: Maximum 18 hours/week total across all sections & subjects
   const currentTotal = facultySchedule._totalHours?.[facultyId] || 0;
   if (currentTotal >= 18) return true;
+
+  // 2. Direct slot collision: Faculty is already teaching in this day-period slot in another section
+  if (facultySchedule[facultyId]?.[`${day}-${periodIndex}`] !== undefined) return true;
+
+  // 3. FACULTY REST PERIOD RULE: No back-to-back theory classes for the same faculty!
+  // If Faculty A has a class in period (periodIndex - 1) or (periodIndex + 1), periodIndex MUST be a free rest period!
+  if (!isLabBlock) {
+    const prevSlot = facultySchedule[facultyId]?.[`${day}-${periodIndex - 1}`];
+    const nextSlot = facultySchedule[facultyId]?.[`${day}-${periodIndex + 1}`];
+    if (prevSlot !== undefined || nextSlot !== undefined) {
+      return true; // Enforces mandatory rest period between theory classes!
+    }
+  }
+
   return false;
 }
 
