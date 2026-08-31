@@ -17,8 +17,9 @@ export default function FacilityBookingSection() {
   const studentRoll = derivedRoll || profile?.hallTicketNo || '';
   const studentEmail = profile?.email || '';
 
-  const [leadPrivilege, setLeadPrivilege] = useState(null); // { isClubLead, clubName, clubDesignation }
+  const [leadPrivilege, setLeadPrivilege] = useState(null); // { isClubLead, clubName, clubDesignation, clubs }
   const [checkingLead, setCheckingLead] = useState(true);
+  const [selectedClubName, setSelectedClubName] = useState('');
 
   const [facilities, setFacilities] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
@@ -50,6 +51,11 @@ export default function FacilityBookingSection() {
       }
       const res = await checkStudentClubLead(studentRoll, studentEmail);
       setLeadPrivilege(res);
+      if (res.clubs && res.clubs.length > 0) {
+        setSelectedClubName(res.clubs[0].clubName);
+      } else if (res.clubName) {
+        setSelectedClubName(res.clubName);
+      }
       setCheckingLead(false);
     }
     verifyPrivilege();
@@ -113,14 +119,19 @@ export default function FacilityBookingSection() {
     setSubmitMsg('');
 
     try {
+      const activeClubObj = leadPrivilege?.clubs?.find(c => c.clubName === selectedClubName) || {
+        clubName: selectedClubName || leadPrivilege?.clubName || 'Student Club',
+        clubDesignation: leadPrivilege?.clubDesignation || 'Hospitality Lead',
+      };
+
       const fac = facilities.find(f => f.facilityId === selectedFacilityId);
       await submitBookingRequest({
         facilityId: selectedFacilityId,
         facilityName: fac?.name || 'VBIT Auditorium',
         bookedByRollNumber: studentRoll,
         bookedByName: profile?.name || studentRoll,
-        clubName: leadPrivilege?.clubName || 'Student Club',
-        designation: leadPrivilege?.clubDesignation || 'Hospitality Lead',
+        clubName: activeClubObj.clubName,
+        designation: activeClubObj.clubDesignation,
         eventTitle,
         startDate: sDate,
         endDate: eDate,
@@ -329,6 +340,27 @@ export default function FacilityBookingSection() {
             <Sparkles size={18} style={{ color: 'var(--accent-primary)' }} />
             New Auditorium & Venue Allocation Request
           </h2>
+
+          {/* Multi-Club Organization Selector */}
+          {leadPrivilege?.clubs && leadPrivilege.clubs.length > 1 && (
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-primary)', marginBottom: '6px' }}>
+                Select Organization / Student Club You Represent *
+              </label>
+              <select
+                className="input-field"
+                value={selectedClubName}
+                onChange={e => setSelectedClubName(e.target.value)}
+                style={{ border: '1px solid var(--accent-primary)', background: 'var(--bg-elevated)' }}
+              >
+                {leadPrivilege.clubs.map(c => (
+                  <option key={c.clubName} value={c.clubName}>
+                    {c.clubName} ({c.clubDesignation})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
             <div>

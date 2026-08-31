@@ -227,7 +227,7 @@ const useAuthStore = create((set, get) => ({
 }));
 
 /**
- * Check if a student roll number or email has active venue booking privileges in /club_leads
+ * Check if a student roll number or email has active venue booking privileges across all registered clubs (Supports Multi-Club Leads)
  */
 export async function checkStudentClubLead(rollNumber, email) {
   try {
@@ -237,35 +237,71 @@ export async function checkStudentClubLead(rollNumber, email) {
       derivedRollFromEmail || null
     ].filter(Boolean)));
 
+    const activeClubs = [];
+
+    // 1. Query /club_leads
     for (const r of rollsToCheck) {
       const q1 = query(collection(db, 'club_leads'), where('rollNumber', '==', r));
       const snap1 = await getDocs(q1);
-      if (!snap1.empty) {
-        for (const docSnap of snap1.docs) {
-          const d = docSnap.data();
-          if (d.isActive !== false) {
-            return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
-          }
+      snap1.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.isActive !== false && !activeClubs.some(c => c.clubName === d.clubName)) {
+          activeClubs.push({
+            clubName: d.clubName,
+            clubDesignation: d.designation || 'Club Lead',
+            department: d.department || 'CSE-DS',
+          });
         }
-      }
+      });
     }
 
     if (email) {
       const q2 = query(collection(db, 'club_leads'), where('email', '==', String(email).toLowerCase()));
       const snap2 = await getDocs(q2);
-      if (!snap2.empty) {
-        for (const docSnap of snap2.docs) {
-          const d = docSnap.data();
-          if (d.isActive !== false) {
-            return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
-          }
+      snap2.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.isActive !== false && !activeClubs.some(c => c.clubName === d.clubName)) {
+          activeClubs.push({
+            clubName: d.clubName,
+            clubDesignation: d.designation || 'Club Lead',
+            department: d.department || 'CSE-DS',
+          });
         }
-      }
+      });
+    }
+
+    // 2. Query /club_members for PRESENT_TENURE
+    for (const r of rollsToCheck) {
+      const q3 = query(
+        collection(db, 'club_members'),
+        where('rollNumber', '==', r),
+        where('tenureType', '==', 'PRESENT_TENURE')
+      );
+      const snap3 = await getDocs(q3);
+      snap3.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.canBookVenues !== false && !activeClubs.some(c => c.clubName === d.clubName)) {
+          activeClubs.push({
+            clubName: d.clubName,
+            clubDesignation: d.designation || 'Club Lead',
+            department: d.department || 'CSE-DS',
+          });
+        }
+      });
+    }
+
+    if (activeClubs.length > 0) {
+      return {
+        isClubLead: true,
+        clubs: activeClubs,
+        clubName: activeClubs[0].clubName,
+        clubDesignation: activeClubs[0].clubDesignation,
+      };
     }
   } catch (e) {
     console.warn('Error checking club lead privilege:', e);
   }
-  return { isClubLead: false };
+  return { isClubLead: false, clubs: [] };
 }
 
 export default useAuthStore;

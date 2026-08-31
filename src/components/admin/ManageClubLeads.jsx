@@ -4,8 +4,9 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { Users, UserPlus, ShieldCheck, ShieldAlert, Trash2, Search, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Users, UserPlus, ShieldCheck, ShieldAlert, Trash2, Search, Sparkles, CheckCircle2, Award } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
+import DepartmentClubRosterView from './DepartmentClubRosterView';
 
 const DESIGNATION_OPTIONS = [
   'Hospitality Lead',
@@ -216,6 +217,9 @@ export default function ManageClubLeads() {
           </div>
         )}
       </div>
+
+      {/* Department Student Club Roster View (HOD & Admin) */}
+      <DepartmentClubRosterView />
 
       {/* Grant Privilege Modal */}
       {showModal && (

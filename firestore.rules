@@ -108,6 +108,15 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // ── Student Clubs & Members Registry ──
+    match /student_clubs/{clubId} {
+      allow read, write: if true;
+    }
+
+    match /club_members/{memberId} {
+      allow read, write: if true;
+    }
+
     // ── Facility Bookings Collection ──
     match /facility_bookings/{bookingId} {
       allow read, write: if true;
