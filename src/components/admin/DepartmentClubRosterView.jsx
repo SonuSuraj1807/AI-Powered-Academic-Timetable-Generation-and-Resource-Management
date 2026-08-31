@@ -153,11 +153,11 @@ export default function DepartmentClubRosterView() {
           <table className="data-table" style={{ width: '100%', fontSize: '0.813rem' }}>
             <thead>
               <tr>
-                <th>Student Roll & Name</th>
-                <th>Clubs & Designations</th>
-                <th>Contact Details</th>
-                <th>Class & Year</th>
-                <th>Booking Credentials</th>
+                <th style={{ textAlign: 'center', minWidth: '160px' }}>Student Roll & Name</th>
+                <th style={{ textAlign: 'center', minWidth: '260px' }}>Clubs & Designations</th>
+                <th style={{ textAlign: 'center', minWidth: '180px' }}>Contact Details</th>
+                <th style={{ textAlign: 'center', minWidth: '130px' }}>Class & Dept</th>
+                <th style={{ textAlign: 'center', minWidth: '160px' }}>Booking Credentials</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +165,7 @@ export default function DepartmentClubRosterView() {
                 const activeClubs = s.clubs.filter(c => c.canBookVenues && c.tenureType === 'PRESENT_TENURE');
                 return (
                   <tr key={s.rollNumber}>
-                    <td>
+                    <td style={{ textAlign: 'center', padding: '12px' }}>
                       <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
                         {s.name}
                       </div>
@@ -173,29 +173,32 @@ export default function DepartmentClubRosterView() {
                         {s.rollNumber}
                       </div>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <td style={{ textAlign: 'center', padding: '12px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
                         {s.clubs.map(c => (
-                          <div key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            <span className="badge badge-purple" style={{ fontWeight: 700 }}>{c.clubName}</span>
-                            <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.813rem' }}>{c.designation}</span>
-                            <span className={`badge badge-${c.tenureType === 'PRESENT_TENURE' ? 'green' : 'amber'}`} style={{ fontSize: '0.719rem' }}>
+                          <div key={c.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', flexWrap: 'nowrap' }}>
+                            <span className="badge badge-purple" style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{c.clubName}</span>
+                            <span style={{ fontWeight: 700, color: 'var(--accent-purple)', fontSize: '0.813rem', whiteSpace: 'nowrap' }}>{c.designation}</span>
+                            <span className={`badge badge-${c.tenureType === 'PRESENT_TENURE' ? 'green' : 'amber'}`} style={{ fontSize: '0.719rem', whiteSpace: 'nowrap' }}>
                               {c.tenureType === 'PRESENT_TENURE' ? 'Active' : 'Past Tenure'}
                             </span>
                           </div>
                         ))}
                       </div>
                     </td>
-                    <td>
+                    <td style={{ textAlign: 'center', padding: '12px' }}>
                       <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {s.phone || 'N/A'}</div>
-                      <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{s.email}</div>
+                      <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{s.email}</div>
                     </td>
-                    <td>
-                      {s.year} • {s.section}
+                    <td style={{ textAlign: 'center', padding: '12px' }}>
+                      <span className="badge badge-purple" style={{ fontWeight: 700 }}>{s.department}</span>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                        {s.year} • {s.section}
+                      </div>
                     </td>
-                    <td>
-                      <span className={`badge badge-${activeClubs.length > 0 ? 'green' : 'red'}`}>
-                        {activeClubs.length > 0 ? `Authorized (${activeClubs.length} Club${activeClubs.length > 1 ? 's' : ''})` : 'Revoked / Inactive (403)'}
+                    <td style={{ textAlign: 'center', padding: '12px' }}>
+                      <span className={`badge badge-${activeClubs.length > 0 ? 'green' : 'red'}`} style={{ whiteSpace: 'nowrap' }}>
+                        {activeClubs.length > 0 ? `✓ Authorized (${activeClubs.length} Club${activeClubs.length > 1 ? 's' : ''})` : '🔒 Revoked / Inactive (403)'}
                       </span>
                     </td>
                   </tr>
