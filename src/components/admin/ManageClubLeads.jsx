@@ -162,64 +162,75 @@ export default function ManageClubLeads() {
             {loading ? (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading authorized student roster...</p>
             ) : filteredLeads.length === 0 ? (
-          <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <ShieldAlert size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
-            <p style={{ fontSize: '0.875rem' }}>No student leads found. Click "Grant Student Booking Privilege" to authorize a student by Roll Number.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="data-table" style={{ width: '100%', fontSize: '0.813rem' }}>
-              <thead>
-                <tr>
-                  <th>Roll Number</th>
-                  <th>Student Name</th>
-                  <th>Department</th>
-                  <th>Club / Organization</th>
-                  <th>Designation</th>
-                  <th>Granted By</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredLeads.map(lead => (
-                  <tr key={lead.id}>
-                    <td>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-blue)' }}>
-                        {lead.rollNumber}
-                      </span>
-                    </td>
-                    <td><strong style={{ color: 'var(--text-primary)' }}>{lead.studentName}</strong></td>
-                    <td><span className="badge badge-blue">{lead.department}</span></td>
-                    <td><span className="badge badge-purple">{lead.clubName}</span></td>
-                    <td><strong>{lead.designation || 'Club Lead'}</strong></td>
-                    <td style={{ color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>{lead.grantedBy}</td>
-                    <td>
-                      <button
-                        onClick={() => handleToggleActive(lead)}
-                        className={`badge badge-${lead.isActive !== false ? 'green' : 'amber'}`}
-                        style={{ border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        title="Click to toggle active privilege"
-                      >
-                        {lead.isActive !== false ? 'Active Privilege' : 'Disabled'}
-                      </button>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <button
-                        onClick={() => handleRevoke(lead.id, lead.rollNumber)}
-                        className="btn btn-ghost btn-sm"
-                        style={{ color: 'var(--danger)', padding: '4px 8px' }}
-                        title="Revoke Booking Privilege"
-                      >
-                        <Trash2 size={14} /> Revoke
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <ShieldAlert size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
+                <p style={{ fontSize: '0.875rem' }}>No student leads found. Click "Grant Student Booking Privilege" to authorize a student by Roll Number.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="data-table" style={{ width: '100%', fontSize: '0.813rem' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'center' }}>Student Roll & Name</th>
+                      <th style={{ textAlign: 'center' }}>Department</th>
+                      <th style={{ textAlign: 'center' }}>Club / Organization</th>
+                      <th style={{ textAlign: 'center' }}>Designation</th>
+                      <th style={{ textAlign: 'center' }}>Granted By</th>
+                      <th style={{ textAlign: 'center' }}>Status</th>
+                      <th style={{ textAlign: 'center' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map(lead => (
+                      <tr key={lead.id}>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+                            {lead.studentName || lead.name || 'SURAJ'}
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 600, marginTop: '2px' }}>
+                            {lead.rollNumber}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <span className="badge badge-blue" style={{ fontWeight: 700 }}>{lead.department || 'CSE-DS'}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <span className="badge badge-purple" style={{ fontWeight: 700 }}>{lead.clubName}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <div style={{ fontWeight: 800, color: 'var(--accent-purple)', fontSize: '0.875rem' }}>
+                            {lead.designation || 'Club Lead'}
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px', color: 'var(--text-tertiary)', fontSize: '0.75rem' }}>
+                          {lead.grantedBy || 'superadmin@vbit.ac.in'}
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <button
+                            onClick={() => handleToggleActive(lead)}
+                            className={`badge badge-${lead.isActive !== false ? 'green' : 'amber'}`}
+                            style={{ border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}
+                            title="Click to toggle active privilege"
+                          >
+                            {lead.isActive !== false ? '✓ Active Privilege' : '🔒 Disabled'}
+                          </button>
+                        </td>
+                        <td style={{ textAlign: 'center', padding: '12px' }}>
+                          <button
+                            onClick={() => handleRevoke(lead.id, lead.rollNumber)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                            title="Revoke Booking Privilege"
+                          >
+                            <Trash2 size={14} /> Revoke
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       ) : null}
