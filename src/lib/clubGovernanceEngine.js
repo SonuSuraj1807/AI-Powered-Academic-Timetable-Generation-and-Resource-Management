@@ -345,3 +345,90 @@ export async function declareTenureCompletion(clubId, pastTenureLabel = '2024-20
   await batch.commit();
   return { archivedCount: presentMembers.length, pastTenureLabel, newTenureLabel };
 }
+
+/**
+ * Dynamic Custom Designations Registry
+ */
+export const DEFAULT_DESIGNATIONS = [
+  'Student Coordinator / Lead (President)',
+  'Co-Lead / Vice President',
+  'Hospitality Lead / Secretary / Treasurer',
+  'Core Committee Member',
+  'Documentation Lead',
+  'PR & Media Lead',
+  'Design Lead',
+  'Logistics Coordinator',
+  'General Member',
+];
+
+export async function fetchCustomDesignations() {
+  try {
+    const snap = await getDocs(collection(db, 'club_designations'));
+    const list = [...DEFAULT_DESIGNATIONS];
+    snap.forEach(d => {
+      const name = d.data().name;
+      if (name && !list.includes(name)) list.push(name);
+    });
+    return list;
+  } catch (err) {
+    console.error('Error fetching custom designations:', err);
+    return DEFAULT_DESIGNATIONS;
+  }
+}
+
+export async function addCustomDesignation(designationName) {
+  const name = designationName.trim();
+  if (!name) return;
+  const docId = `desig_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  await setDoc(doc(db, 'club_designations', docId), {
+    name,
+    createdAt: new Date().toISOString(),
+  }, { merge: true });
+  return name;
+}
+
+/**
+ * Dynamic Custom Departments Registry
+ */
+export const DEFAULT_DEPARTMENTS = [
+  'CSE-DS',
+  'CSE',
+  'CSE-AIML',
+  'CSE-CS',
+  'CSE-BS',
+  'IT',
+  'ECE',
+  'EEE',
+  'MECH',
+  'CIVIL',
+  'FRESHMAN_ENG',
+  'MBA',
+  'MTECH',
+];
+
+export async function fetchCustomDepartments() {
+  try {
+    const snap = await getDocs(collection(db, 'custom_departments'));
+    const list = [...DEFAULT_DEPARTMENTS];
+    snap.forEach(d => {
+      const name = d.data().name;
+      if (name && !list.includes(name)) list.push(name);
+    });
+    return list;
+  } catch (err) {
+    console.error('Error fetching custom departments:', err);
+    return DEFAULT_DEPARTMENTS;
+  }
+}
+
+export async function addCustomDepartment(deptName) {
+  const name = deptName.trim().toUpperCase();
+  if (!name) return;
+  const docId = `dept_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+  await setDoc(doc(db, 'custom_departments', docId), {
+    name,
+    createdAt: new Date().toISOString(),
+  }, { merge: true });
+  return name;
+}
+

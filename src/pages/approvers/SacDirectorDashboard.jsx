@@ -15,7 +15,9 @@ import { sacReviewBooking } from '../../lib/facilityBookingEngine';
 import {
   fetchClubs, addClub, updateClub, deleteClub,
   fetchClubMembers, addClubMember, updateClubMember, deleteClubMember,
-  declareTenureCompletion
+  declareTenureCompletion,
+  fetchCustomDesignations, addCustomDesignation,
+  fetchCustomDepartments, addCustomDepartment
 } from '../../lib/clubGovernanceEngine';
 import {
   Building2, CheckCircle2, XCircle, Clock, Send, Calendar, Users, AlertCircle,
@@ -64,8 +66,14 @@ export default function SacDirectorDashboard() {
   const [memberYear, setMemberYear] = useState('4th Year');
   const [memberSection, setMemberSection] = useState('Sec A');
   const [memberDept, setMemberDept] = useState('CSE-DS');
-  const [memberDesignation, setMemberDesignation] = useState('Student Coordinator / Lead');
+  const [memberDesignation, setMemberDesignation] = useState('Student Coordinator / Lead (President)');
   const [memberCanBook, setMemberCanBook] = useState(true);
+
+  // Dynamic Custom Designation & Department State
+  const [designationList, setDesignationList] = useState([]);
+  const [deptList, setDeptList] = useState([]);
+  const [customDesigText, setCustomDesigText] = useState('');
+  const [customDeptText, setCustomDeptText] = useState('');
 
   // Double Confirmation Tenure Archive Modal State
   const [showArchiveModal, setShowArchiveModal] = useState(false);
@@ -88,7 +96,7 @@ export default function SacDirectorDashboard() {
     return () => unsub();
   }, []);
 
-  // 2. Load Clubs when CLUBS tab is opened
+  // 2. Load Clubs, Designations & Departments when CLUBS tab is opened
   useEffect(() => {
     if (activeTab === 'CLUBS') {
       loadClubs();
@@ -102,6 +110,10 @@ export default function SacDirectorDashboard() {
     if (list.length > 0 && !selectedClub) {
       setSelectedClub(list[0]);
     }
+    const dList = await fetchCustomDesignations();
+    setDesignationList(dList);
+    const depts = await fetchCustomDepartments();
+    setDeptList(depts);
     setLoadingClubs(false);
   };
 
@@ -184,6 +196,26 @@ export default function SacDirectorDashboard() {
     if (!memberRoll.trim() || !selectedClub) return alert('Please fill in roll number.');
 
     try {
+      let finalDesignation = memberDesignation;
+      if (memberDesignation === '__ADD_NEW__') {
+        if (!customDesigText.trim()) return alert('Please enter the new custom designation name.');
+        finalDesignation = customDesigText.trim();
+        await addCustomDesignation(finalDesignation);
+        if (!designationList.includes(finalDesignation)) {
+          setDesignationList([...designationList, finalDesignation]);
+        }
+      }
+
+      let finalDept = memberDept;
+      if (memberDept === '__ADD_NEW__') {
+        if (!customDeptText.trim()) return alert('Please enter the new custom department name.');
+        finalDept = customDeptText.trim().toUpperCase();
+        await addCustomDepartment(finalDept);
+        if (!deptList.includes(finalDept)) {
+          setDeptList([...deptList, finalDept]);
+        }
+      }
+
       const data = {
         clubId: selectedClub.id,
         clubName: selectedClub.name,
@@ -193,8 +225,8 @@ export default function SacDirectorDashboard() {
         phone: memberPhone.trim() || '+91 98765 43210',
         year: memberYear,
         section: memberSection,
-        department: memberDept,
-        designation: memberDesignation,
+        department: finalDept,
+        designation: finalDesignation,
         tenureType: tenureView,
         tenureLabel: selectedClub.currentTenure || '2025-2026',
         canBookVenues: memberCanBook,
@@ -202,12 +234,14 @@ export default function SacDirectorDashboard() {
 
       if (editingMember) {
         await updateClubMember(editingMember.id, data);
-        alert(`Member ${data.name} updated!`);
+        alert(`Member ${data.name} (${data.rollNumber}) updated!`);
       } else {
         await addClubMember(selectedClub.id, data);
-        alert(`Member ${data.name} added to ${selectedClub.name}!`);
+        alert(`Member ${data.name} (${data.rollNumber}) added to ${selectedClub.name}!`);
       }
       setShowMemberModal(false);
+      setCustomDesigText('');
+      setCustomDeptText('');
       const list = await fetchClubMembers(selectedClub.id, tenureView);
       setClubMembers(list);
     } catch (err) {
@@ -825,8 +859,20 @@ export default function SacDirectorDashboard() {
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Department *</label>
                   <select className="input-field" value={memberDept} onChange={e => setMemberDept(e.target.value)}>
-                    {['CSE-DS', 'CSE', 'CSE-AIML', 'CSE-CS', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'MBA'].map(d => <option key={d} value={d}>{d}</option>)}
+                    {deptList.map(d => <option key={d} value={d}>{d}</option>)}
+                    <option value="__ADD_NEW__">➕ Add Custom Department...</option>
                   </select>
+                  {memberDept === '__ADD_NEW__' && (
+                    <input
+                      type="text"
+                      className="input-field"
+                      placeholder="Type custom dept (e.g. AI & DS)..."
+                      value={customDeptText}
+                      onChange={e => setCustomDeptText(e.target.value)}
+                      style={{ marginTop: '6px', border: '1px solid var(--accent-primary)' }}
+                      required
+                    />
+                  )}
                 </div>
               </div>
 
@@ -846,12 +892,20 @@ export default function SacDirectorDashboard() {
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Club Designation *</label>
                 <select className="input-field" value={memberDesignation} onChange={e => setMemberDesignation(e.target.value)}>
-                  <option value="Student Coordinator / Lead">Student Coordinator / Lead (President)</option>
-                  <option value="Co-Lead">Co-Lead / Vice President</option>
-                  <option value="Hospitality Lead / Secretary">Hospitality Lead / Secretary / Treasurer</option>
-                  <option value="Core Committee Member">Core Committee Member</option>
-                  <option value="General Member">General Member</option>
+                  {designationList.map(des => <option key={des} value={des}>{des}</option>)}
+                  <option value="__ADD_NEW__">➕ Add Custom Designation...</option>
                 </select>
+                {memberDesignation === '__ADD_NEW__' && (
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Type custom designation (e.g. Documentation Lead)..."
+                    value={customDesigText}
+                    onChange={e => setCustomDesigText(e.target.value)}
+                    style={{ marginTop: '6px', border: '1px solid var(--accent-primary)' }}
+                    required
+                  />
+                )}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
