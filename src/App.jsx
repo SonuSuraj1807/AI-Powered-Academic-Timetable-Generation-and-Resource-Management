@@ -36,6 +36,13 @@ const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'));
 const ExamSeatingController = lazy(() => import('./pages/admin/ExamSeatingController'));
 const ExamRoomManagement = lazy(() => import('./pages/admin/ExamRoomManagement'));
 
+// Venue & Auditorium Allocation System
+const ManageClubLeads = lazy(() => import('./components/admin/ManageClubLeads'));
+const VenueOversightView = lazy(() => import('./components/admin/VenueOversightView'));
+const SacDirectorDashboard = lazy(() => import('./pages/approvers/SacDirectorDashboard'));
+const PrincipalDashboard = lazy(() => import('./pages/approvers/PrincipalDashboard'));
+const FacilityBookingSection = lazy(() => import('./components/student/FacilityBookingSection'));
+
 // Super Admin Console Pages (Hidden URL Access)
 const SuperAdminLogin = lazy(() => import('./pages/superadmin/SuperAdminLogin'));
 const SuperAdminDashboard = lazy(() => import('./pages/superadmin/SuperAdminDashboard'));
@@ -79,6 +86,8 @@ function ProtectedRoute({ children, requiredRole }) {
       admin: '/admin', 
       hod: '/admin',
       dept_admin: '/admin',
+      sac_director: '/sac-director',
+      principal: '/principal',
       faculty: '/faculty', 
       student: '/student', 
       superadmin: '/superadmin', 
@@ -114,6 +123,8 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<AdminDashboard />} />
+                <Route path="club-leads" element={<ManageClubLeads />} />
+                <Route path="venue-oversight" element={<VenueOversightView />} />
                 <Route path="generate" element={<TimetableGenerator />} />
                 <Route path="exam-scheduler" element={<ExamSchedulerPage />} />
                 <Route path="schedules" element={<ViewSchedules />} />
@@ -125,6 +136,24 @@ export default function App() {
                 <Route path="exam-seating" element={<ExamSeatingController />} />
                 <Route path="exam-rooms" element={<ExamRoomManagement />} />
                 <Route path="settings" element={<AdminSettingsPage />} />
+              </Route>
+
+              {/* SAC Director Console (Tier 1 Approver) */}
+              <Route path="/sac-director" element={
+                <ProtectedRoute requiredRole="sac_director">
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<SacDirectorDashboard />} />
+              </Route>
+
+              {/* Principal Console (Tier 2 Approver) */}
+              <Route path="/principal" element={
+                <ProtectedRoute requiredRole="principal">
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<PrincipalDashboard />} />
               </Route>
 
               {/* Faculty Panel */}
@@ -147,6 +176,7 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<StudentDashboard />} />
+                <Route path="facility-booking" element={<FacilityBookingSection />} />
                 <Route path="timetable" element={<StudentDashboard />} />
                 <Route path="exams" element={<StudentDashboard />} />
                 <Route path="settings" element={<StudentSettingsPage />} />

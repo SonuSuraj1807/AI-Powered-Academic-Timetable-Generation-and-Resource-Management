@@ -506,13 +506,8 @@ export default function FacultyManagement() {
 
               {filteredFaculty.length > 0 && (
                 <div
-                  onClick={() => {
-                    if (selectedIds.length === filteredFaculty.length) {
-                      setSelectedIds([]);
-                    } else {
-                      setSelectedIds(filteredFaculty.map(f => f.id));
-                    }
-                  }}
+                  onClick={handleSelectAll}
+                  className="hover-checkbox-parent"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -527,6 +522,7 @@ export default function FacultyManagement() {
                   }}
                 >
                   <div
+                    className={`hover-checkbox ${filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length ? 'selected' : ''}`}
                     style={{
                       width: '18px',
                       height: '18px',

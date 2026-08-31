@@ -99,8 +99,18 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // ── Exam Students (uploaded registrations) ──
-    match /exam_students/{studentId} {
+    // ── Club Lead Booking Privileges ──
+    match /club_leads/{leadId} {
+      allow read, write: if true;
+    }
+
+    // ── Facilities Collection ──
+    match /facilities/{facilityId} {
+      allow read, write: if true;
+    }
+
+    // ── Facility Bookings Collection ──
+    match /facility_bookings/{bookingId} {
       allow read, write: if true;
     }
 

@@ -20,9 +20,28 @@ const MENU_CONFIG = {
     color: '#8B5CF6',
     items: [
       { path: '/superadmin', icon: Shield, label: 'Super Admin Console', end: true },
+      { path: '/admin/club-leads', icon: UserCheck, label: 'Manage Club Leads' },
+      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Oversight' },
       { path: '/admin/schedules', icon: Calendar, label: 'All Schedules' },
       { path: '/admin/faculty', icon: Users, label: 'All Faculty Pool' },
       { path: '/admin/reports', icon: BarChart3, label: 'Analytics' },
+    ],
+  },
+  sac_director: {
+    label: 'SAC Director',
+    color: '#F59E0B',
+    items: [
+      { path: '/sac-director', icon: LayoutDashboard, label: 'SAC Approval Console', end: true },
+      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Oversight' },
+    ],
+  },
+  principal: {
+    label: 'Principal Office',
+    color: '#10B981',
+    items: [
+      { path: '/principal', icon: LayoutDashboard, label: 'Principal Console', end: true },
+      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Oversight' },
+      { path: '/admin/schedules', icon: Calendar, label: 'All Schedules' },
     ],
   },
   exam_controller: {
@@ -40,6 +59,8 @@ const MENU_CONFIG = {
     color: '#E8522E',
     items: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { path: '/admin/club-leads', icon: UserCheck, label: 'Manage Club Leads' },
+      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Allocation Oversight' },
       { path: '/admin/generate', icon: Cpu, label: 'Generate Timetable' },
       { path: '/admin/schedules', icon: Calendar, label: 'View Schedules' },
       { path: '/admin/exam-scheduler', icon: CalendarCheck, label: 'Exam Scheduler' },
@@ -70,6 +91,7 @@ const MENU_CONFIG = {
     color: '#10B981',
     items: [
       { path: '/student', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { path: '/student/facility-booking', icon: Building2, label: 'Auditorium & Venue Booking' },
       { path: '/student/timetable', icon: Calendar, label: 'Class Timetable' },
       { path: '/student/exams', icon: CalendarCheck, label: 'Exam Schedule' },
       { path: '/student/settings', icon: Settings, label: 'Settings' },

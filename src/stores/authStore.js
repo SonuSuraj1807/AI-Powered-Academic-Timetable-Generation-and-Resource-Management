@@ -58,6 +58,10 @@ const useAuthStore = create((set, get) => ({
       let actualRole = expectedRole;
       if (email.startsWith('superadmin')) {
         actualRole = 'superadmin';
+      } else if (email.includes('sacdirector') || email.includes('sac_director')) {
+        actualRole = 'sac_director';
+      } else if (email.includes('principal')) {
+        actualRole = 'principal';
       } else if (email.startsWith('examcontroller') || email.includes('exam')) {
         actualRole = 'exam_controller';
       } else {
@@ -290,5 +294,37 @@ const useAuthStore = create((set, get) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+/**
+ * Check if a student roll number or email has active venue booking privileges in /club_leads
+ */
+export async function checkStudentClubLead(rollNumber, email) {
+  try {
+    if (rollNumber) {
+      const q1 = query(collection(db, 'club_leads'), where('rollNumber', '==', String(rollNumber).toUpperCase()));
+      const snap1 = await getDocs(q1);
+      if (!snap1.empty) {
+        const d = snap1.docs[0].data();
+        if (d.isActive !== false) {
+          return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+        }
+      }
+    }
+
+    if (email) {
+      const q2 = query(collection(db, 'club_leads'), where('email', '==', String(email).toLowerCase()));
+      const snap2 = await getDocs(q2);
+      if (!snap2.empty) {
+        const d = snap2.docs[0].data();
+        if (d.isActive !== false) {
+          return { isClubLead: true, clubName: d.clubName, clubDesignation: d.designation || 'Club Lead' };
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error checking club lead privilege:', e);
+  }
+  return { isClubLead: false };
+}
 
 export default useAuthStore;
