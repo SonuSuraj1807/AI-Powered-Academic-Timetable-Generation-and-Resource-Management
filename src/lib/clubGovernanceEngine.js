@@ -167,14 +167,59 @@ export async function deleteClub(clubId) {
  */
 export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
   try {
-    const q = query(
+    const list = [];
+    const seenRolls = new Set();
+
+    // 1. Fetch from /club_members
+    const q1 = query(
       collection(db, 'club_members'),
       where('clubId', '==', clubId),
       where('tenureType', '==', tenureType)
     );
-    const snap = await getDocs(q);
-    const list = [];
-    snap.forEach(d => list.push({ id: d.id, ...d.data() }));
+    const snap1 = await getDocs(q1);
+    snap1.forEach(d => {
+      const m = d.data();
+      const roll = (m.rollNumber || '').trim().toUpperCase();
+      if (roll) seenRolls.add(roll);
+      list.push({ id: d.id, ...m, name: m.studentName || m.name });
+    });
+
+    // 2. If PRESENT_TENURE, also check /club_leads for matching club
+    if (tenureType === 'PRESENT_TENURE') {
+      let clubName = null;
+      try {
+        const clubSnap = await getDoc(doc(db, 'student_clubs', clubId));
+        if (clubSnap.exists()) clubName = clubSnap.data().name;
+      } catch (e) {}
+
+      const snapLeads = await getDocs(collection(db, 'club_leads'));
+      snapLeads.forEach(d => {
+        const l = d.data();
+        const matchesClub = l.clubId === clubId || (clubName && l.clubName === clubName);
+        const roll = (l.rollNumber || '').trim().toUpperCase();
+        if (matchesClub && roll && !seenRolls.has(roll) && l.isActive !== false) {
+          seenRolls.add(roll);
+          list.push({
+            id: `lead_${d.id}`,
+            clubId,
+            clubName: l.clubName || clubName || 'Student Club',
+            rollNumber: roll,
+            name: l.studentName || l.name || roll,
+            studentName: l.studentName || l.name || roll,
+            designation: l.designation || 'Club Lead',
+            department: l.department || 'CSE-DS',
+            email: l.email || `${roll.toLowerCase()}@vbit.ac.in`,
+            phone: l.phone || '+91 98765 43210',
+            year: '4th Year',
+            section: 'Sec A',
+            tenureType: 'PRESENT_TENURE',
+            tenureLabel: '2025-2026',
+            canBookVenues: true,
+          });
+        }
+      });
+    }
+
     return list;
   } catch (err) {
     console.error('Error fetching club members:', err);
