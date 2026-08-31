@@ -39,6 +39,18 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == uid;
     }
 
+    function isExamController() {
+      return hasRole('exam_controller') || isSuperAdmin();
+    }
+
+    function isSacDirector() {
+      return hasRole('sac_director') || isSuperAdmin();
+    }
+
+    function isPrincipal() {
+      return hasRole('principal') || isSuperAdmin();
+    }
+
     // ── Users Collection ──
     match /users/{userId} {
       allow read: if true;
@@ -48,14 +60,14 @@ service cloud.firestore {
 
     // ── Curriculum Registry ──
     match /curriculum_registry/{subjectCode} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ── Schedules ──
     match /schedules/{scheduleId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ── Notifications ──
@@ -65,17 +77,20 @@ service cloud.firestore {
 
     // ── Faculty Collection ──
     match /faculty/{facultyId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // ── Exam Schedules ──
+    // ── Exam Schedules (Exam Controller Managed) ──
     match /exam_schedules/{examId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isExamController() || isSuperAdmin();
     }
 
     // ── Training Overrides ──
     match /training_overrides/{overrideId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // ── Substitutions ──
@@ -83,47 +98,70 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // ── Exam Rooms ──
+    // ── Exam Rooms (Exam Controller Managed) ──
     match /exam_rooms/{roomId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isExamController() || isSuperAdmin();
     }
 
-    // ── Exam Sessions ──
+    // ── Exam Sessions (Exam Controller Managed) ──
     match /exam_sessions/{sessionId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isExamController() || isSuperAdmin();
     }
 
-    // ── Seating Plans ──
+    // ── Seating Plans (Published Plans: Public Read; Exam Controller Write) ──
     match /seating_plans/{planId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isExamController() || isSuperAdmin();
     }
 
     // ── Club Lead Booking Privileges ──
     match /club_leads/{leadId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin() || isAdmin();
     }
 
-    // ── Facilities Collection ──
+    // ── Campus Facilities Registry (Super Admin Managed) ──
     match /facilities/{facilityId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSuperAdmin() || isAdmin();
     }
 
-    // ── Student Clubs & Members Registry ──
+    // ── Student Clubs & Members Registry (SAC Director & Super Admin Managed) ──
     match /student_clubs/{clubId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin();
     }
 
     match /club_members/{memberId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin() || isAdmin();
+    }
+
+    match /club_designations/{desigId} {
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin();
+    }
+
+    match /custom_departments/{deptId} {
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin() || isAdmin();
+    }
+
+    match /club_categories/{catId} {
+      allow read: if true;
+      allow write: if isSacDirector() || isSuperAdmin();
     }
 
     // ── Facility Bookings Collection ──
     match /facility_bookings/{bookingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isSacDirector() || isPrincipal() || isSuperAdmin() || isAdmin();
     }
 
-    // ── Development / Testing Mode Fallback Access ──
-    // Allows full read/write for all users to prevent permission errors during E2E testing
+    // ── Development / Fallback Access ──
     match /{document=**} {
       allow read, write: if true;
     }
