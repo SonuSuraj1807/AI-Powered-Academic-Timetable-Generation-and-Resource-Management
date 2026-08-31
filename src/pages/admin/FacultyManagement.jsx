@@ -286,6 +286,7 @@ export default function FacultyManagement() {
   const [editEmail, setEditEmail] = useState('');
   const [editDepartment, setEditDepartment] = useState('CSE-DS');
   const [editDesignation, setEditDesignation] = useState('Assistant Professor');
+  const [deptFilter, setDeptFilter] = useState('ALL');
 
   // Real-time syncing with Firestore — strictly scoped to logged-in user department
   useEffect(() => {
@@ -311,11 +312,14 @@ export default function FacultyManagement() {
     return () => unsubscribe();
   }, [profile]);
 
-  const filteredFaculty = facultyList.filter(f => 
-    !filterQuery || 
-    f.name.toLowerCase().includes(filterQuery.toLowerCase()) || 
-    f.email.toLowerCase().includes(filterQuery.toLowerCase())
-  );
+  const filteredFaculty = facultyList.filter(f => {
+    const matchesSearch =
+      !filterQuery ||
+      f.name.toLowerCase().includes(filterQuery.toLowerCase()) ||
+      f.email.toLowerCase().includes(filterQuery.toLowerCase());
+    const matchesDept = deptFilter === 'ALL' || f.department === deptFilter;
+    return matchesSearch && matchesDept;
+  });
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -348,52 +352,59 @@ export default function FacultyManagement() {
   };
 
   const handleSeedFaculty = async () => {
-    const targetDept = profile?.department || 'CSE-DS';
-    const deptSeedList = OFFICIAL_VBIT_FACULTY_REGISTRY[targetDept] || 
-                         OFFICIAL_VBIT_FACULTY_REGISTRY[targetDept.replace('CSE-', '')] || 
-                         OFFICIAL_VBIT_FACULTY_REGISTRY['CSE-DS'];
+    const isSuperAdmin = profile?.role === 'superadmin';
+    const targetDepts = isSuperAdmin
+      ? Object.keys(OFFICIAL_VBIT_FACULTY_REGISTRY)
+      : [profile?.department || 'CSE-DS'];
 
-    if (!confirm(`Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time ${targetDept} faculty members?`)) return;
+    const confirmMsg = isSuperAdmin
+      ? `Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time teaching faculty across ALL departments (CSE, CSE-DS, CSE-AIML, ECE, EEE, IT, MECH, CIVIL, etc.)?`
+      : `Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time ${profile?.department || 'CSE-DS'} faculty members?`;
+
+    if (!confirm(confirmMsg)) return;
     setSeeding(true);
     let count = 0;
 
     try {
       const secAuth = getSecondaryAuth();
-      for (const f of deptSeedList) {
-        const existsInFirestore = facultyList.some(fac => fac.email?.toLowerCase() === f.email.toLowerCase());
-        if (!existsInFirestore) {
-          let uid = null;
-          try {
-            const userCredential = await createUserWithEmailAndPassword(secAuth, f.email, 'Password@123');
-            uid = userCredential.user.uid;
-          } catch (e) {
-            console.warn(`Auth user exists for ${f.email}, creating Firestore record...`, e);
+      for (const deptKey of targetDepts) {
+        const deptSeedList = OFFICIAL_VBIT_FACULTY_REGISTRY[deptKey] || [];
+        for (const f of deptSeedList) {
+          const existsInFirestore = facultyList.some(fac => fac.email?.toLowerCase() === f.email.toLowerCase());
+          if (!existsInFirestore) {
+            let uid = null;
+            try {
+              const userCredential = await createUserWithEmailAndPassword(secAuth, f.email, 'Password@123');
+              uid = userCredential.user.uid;
+            } catch (e) {
+              console.warn(`Auth user exists for ${f.email}, creating Firestore record...`, e);
+            }
+
+            const docId = uid || `vbit_${deptKey.toLowerCase()}_${f.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+
+            await setDoc(doc(db, 'faculty', docId), {
+              name: f.name,
+              email: f.email,
+              department: f.department || deptKey,
+              designation: f.designation,
+              workloadHours: 0,
+              uid: docId,
+            }, { merge: true });
+
+            await setDoc(doc(db, 'users', docId), {
+              name: f.name,
+              email: f.email,
+              role: 'faculty',
+              department: f.department || deptKey,
+              designation: f.designation,
+              createdAt: new Date().toISOString(),
+            }, { merge: true });
+
+            count++;
           }
-
-          const docId = uid || `vbit_${targetDept.toLowerCase()}_${f.name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
-
-          await setDoc(doc(db, 'faculty', docId), {
-            name: f.name,
-            email: f.email,
-            department: f.department || targetDept,
-            designation: f.designation,
-            workloadHours: 0,
-            uid: docId,
-          }, { merge: true });
-
-          await setDoc(doc(db, 'users', docId), {
-            name: f.name,
-            email: f.email,
-            role: 'faculty',
-            department: f.department || targetDept,
-            designation: f.designation,
-            createdAt: new Date().toISOString(),
-          }, { merge: true });
-
-          count++;
         }
       }
-      alert(`VBIT Webhook Sync Complete! Received ${count > 0 ? count : deptSeedList.length} official teaching faculty profiles for ${targetDept} from vbithyd.ac.in.`);
+      alert(`VBIT Webhook Sync Complete! Received ${count > 0 ? count : 'all'} official teaching faculty profiles ${isSuperAdmin ? 'across ALL departments' : 'for ' + (profile?.department || 'CSE-DS')} from vbithyd.ac.in.`);
     } catch (err) {
       console.error(err);
       alert('Webhook Sync Error: ' + err.message);
@@ -472,9 +483,11 @@ export default function FacultyManagement() {
     }
   };
 
+  const isSuperAdmin = profile?.role === 'superadmin';
+
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Users size={24} style={{ color: 'var(--accent-primary)' }} />
@@ -491,7 +504,11 @@ export default function FacultyManagement() {
           style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px' }}
         >
           {seeding ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
-          {seeding ? `Syncing ${profile?.department || 'CSE'} Faculty...` : `Seed VBIT ${profile?.department || 'CSE'} Faculty Pool`}
+          {seeding
+            ? `Syncing Faculty Pools...`
+            : isSuperAdmin
+            ? `Seed All Department Faculty Pools`
+            : `Seed VBIT ${profile?.department || 'CSE'} Faculty Pool`}
         </button>
       </div>
 
@@ -529,7 +546,7 @@ export default function FacultyManagement() {
                       borderRadius: '5px',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
+                      justify: 'center',
                       background: (filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length)
                         ? 'linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)'
                         : 'rgba(255, 255, 255, 0.05)',
@@ -572,15 +589,30 @@ export default function FacultyManagement() {
               )}
             </div>
 
-            {/* Filter Search Input */}
-            <input
-              type="text"
-              className="input-field"
-              placeholder="Search faculty name or email..."
-              value={filterQuery}
-              onChange={e => setFilterQuery(e.target.value)}
-              style={{ maxWidth: '240px', padding: '6px 12px', fontSize: '0.813rem' }}
-            />
+            {/* Filter Search Input & Dept Filter for Super Admin */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {isSuperAdmin && (
+                <select
+                  className="input-field"
+                  value={deptFilter}
+                  onChange={e => setDeptFilter(e.target.value)}
+                  style={{ padding: '6px 10px', fontSize: '0.813rem', width: '150px' }}
+                >
+                  <option value="ALL">All Departments</option>
+                  {DEPARTMENTS.map(d => (
+                    <option key={d.id} value={d.id}>{d.id}</option>
+                  ))}
+                </select>
+              )}
+              <input
+                type="text"
+                className="input-field"
+                placeholder="Search faculty name or email..."
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                style={{ maxWidth: '220px', padding: '6px 12px', fontSize: '0.813rem' }}
+              />
+            </div>
           </div>
 
           {loading ? (
