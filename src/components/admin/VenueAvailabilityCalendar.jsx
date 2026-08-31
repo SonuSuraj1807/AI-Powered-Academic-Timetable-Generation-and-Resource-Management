@@ -128,7 +128,32 @@ export default function VenueAvailabilityCalendar({ bookings = [], facilities = 
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Month & Year Jump Selector */}
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <select
+              className="input-field"
+              value={month}
+              onChange={e => setCurrentDate(new Date(year, Number(e.target.value), 1))}
+              style={{ width: 'auto', fontSize: '0.813rem', padding: '6px 10px', background: 'var(--bg-elevated)', fontWeight: 700, border: '1px solid var(--accent-primary)' }}
+            >
+              {monthNames.map((mName, idx) => (
+                <option key={idx} value={idx}>{mName}</option>
+              ))}
+            </select>
+
+            <select
+              className="input-field"
+              value={year}
+              onChange={e => setCurrentDate(new Date(Number(e.target.value), month, 1))}
+              style={{ width: 'auto', fontSize: '0.813rem', padding: '6px 10px', background: 'var(--bg-elevated)', fontWeight: 700, border: '1px solid var(--accent-primary)' }}
+            >
+              {[2025, 2026, 2027, 2028].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Facility Filter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Filter size={15} style={{ color: 'var(--text-tertiary)' }} />
@@ -147,15 +172,15 @@ export default function VenueAvailabilityCalendar({ bookings = [], facilities = 
             </select>
           </div>
 
-          {/* Month Navigation */}
+          {/* Month Navigation Arrows */}
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <button onClick={handlePrevMonth} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }}>
+            <button onClick={handlePrevMonth} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} title="Previous Month">
               <ChevronLeft size={16} />
             </button>
             <button onClick={handleToday} className="btn btn-secondary btn-sm" style={{ fontSize: '0.781rem', padding: '6px 12px' }}>
               Today
             </button>
-            <button onClick={handleNextMonth} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }}>
+            <button onClick={handleNextMonth} className="btn btn-ghost btn-sm" style={{ padding: '6px 10px' }} title="Next Month">
               <ChevronRight size={16} />
             </button>
           </div>

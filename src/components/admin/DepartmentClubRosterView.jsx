@@ -4,7 +4,7 @@
  * Allows HODs and Department Admins to filter and view all students in their department
  * holding lead or member positions across all VBIT student clubs in Present and Past Tenures.
  */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchDepartmentClubMembers, fetchClubs } from '../../lib/clubGovernanceEngine';
 import { Users, Phone, Award, Search, Filter, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
