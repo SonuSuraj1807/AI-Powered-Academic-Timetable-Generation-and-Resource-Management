@@ -20,6 +20,7 @@ const MENU_CONFIG = {
     color: '#8B5CF6',
     items: [
       { path: '/superadmin', icon: Shield, label: 'Super Admin Console', end: true },
+      { path: '/admin/facilities', icon: Building2, label: 'Manage Campus Venues' },
       { path: '/admin/club-leads', icon: UserCheck, label: 'Manage Club Leads' },
       { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Oversight' },
       { path: '/admin/schedules', icon: Calendar, label: 'All Schedules' },
@@ -59,6 +60,7 @@ const MENU_CONFIG = {
     color: '#E8522E',
     items: [
       { path: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
+      { path: '/admin/facilities', icon: Building2, label: 'Manage Campus Venues' },
       { path: '/admin/club-leads', icon: UserCheck, label: 'Manage Club Leads' },
       { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Allocation Oversight' },
       { path: '/admin/generate', icon: Cpu, label: 'Generate Timetable' },

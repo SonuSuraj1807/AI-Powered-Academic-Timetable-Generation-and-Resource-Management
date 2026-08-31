@@ -37,6 +37,7 @@ const ExamSeatingController = lazy(() => import('./pages/admin/ExamSeatingContro
 const ExamRoomManagement = lazy(() => import('./pages/admin/ExamRoomManagement'));
 
 // Venue & Auditorium Allocation System
+const ManageFacilities = lazy(() => import('./components/admin/ManageFacilities'));
 const ManageClubLeads = lazy(() => import('./components/admin/ManageClubLeads'));
 const VenueOversightView = lazy(() => import('./components/admin/VenueOversightView'));
 const SacDirectorDashboard = lazy(() => import('./pages/approvers/SacDirectorDashboard'));
@@ -137,6 +138,7 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<AdminDashboard />} />
+                <Route path="facilities" element={<ManageFacilities />} />
                 <Route path="club-leads" element={<ManageClubLeads />} />
                 <Route path="venue-oversight" element={<VenueOversightView />} />
                 <Route path="generate" element={<TimetableGenerator />} />

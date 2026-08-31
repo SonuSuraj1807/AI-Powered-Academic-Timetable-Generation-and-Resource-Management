@@ -5,7 +5,7 @@
  */
 import { db } from './firebase';
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, onSnapshot
 } from 'firebase/firestore';
 import useNotificationStore from '../stores/notificationStore';
@@ -126,18 +126,24 @@ export async function seedDefaultFacilities() {
 }
 
 /**
- * Fetch all operational facilities
+ * Fetch all operational facilities strictly managed in Firestore
  */
 export async function fetchFacilities() {
   try {
-    await seedDefaultFacilities();
     const snap = await getDocs(collection(db, 'facilities'));
+    if (snap.empty) {
+      await seedDefaultFacilities();
+      const freshSnap = await getDocs(collection(db, 'facilities'));
+      const list = [];
+      freshSnap.forEach(d => list.push({ id: d.id, ...d.data() }));
+      return list.filter(f => f.isOperational !== false);
+    }
     const list = [];
     snap.forEach(d => list.push({ id: d.id, ...d.data() }));
     return list.filter(f => f.isOperational !== false);
   } catch (err) {
     console.error('Error fetching facilities:', err);
-    return DEFAULT_FACILITIES;
+    return [];
   }
 }
 
@@ -149,14 +155,27 @@ function isTimeOverlapping(startA, endA, startB, endB) {
 }
 
 /**
- * Check real-time slot conflicts against existing active/approved bookings
+ * Date range overlap helper (YYYY-MM-DD string comparison)
  */
-export async function checkSlotConflict(facilityId, date, startTime, endTime, excludeBookingId = null) {
+function isDateOverlapping(startA, endA, startB, endB) {
+  const sA = startA || endA;
+  const eA = endA || startA;
+  const sB = startB || endB;
+  const eB = endB || startB;
+  return (sA <= eB) && (eA >= sB);
+}
+
+/**
+ * Check real-time slot conflicts against existing active/approved bookings across date range & time window
+ */
+export async function checkSlotConflict(facilityId, startDate, endDate, startTime, endTime, excludeBookingId = null) {
   try {
+    const sDate = startDate || endDate;
+    const eDate = endDate || startDate;
+
     const q = query(
       collection(db, 'facility_bookings'),
-      where('facilityId', '==', facilityId),
-      where('date', '==', date)
+      where('facilityId', '==', facilityId)
     );
     const snap = await getDocs(q);
     
@@ -166,11 +185,17 @@ export async function checkSlotConflict(facilityId, date, startTime, endTime, ex
 
       // Only active statuses cause conflict: APPROVED, SAC_APPROVED_WAITING_FOR_PRINCIPAL, PENDING_SAC_APPROVAL
       if (['APPROVED', 'SAC_APPROVED_WAITING_FOR_PRINCIPAL', 'PENDING_SAC_APPROVAL'].includes(b.status)) {
-        if (isTimeOverlapping(startTime, endTime, b.startTime, b.endTime)) {
-          return {
-            hasConflict: true,
-            conflictingBooking: { id: docSnap.id, ...b },
-          };
+        const bStart = b.startDate || b.date;
+        const bEnd = b.endDate || b.date;
+
+        if (isDateOverlapping(sDate, eDate, bStart, bEnd)) {
+          if (isTimeOverlapping(startTime, endTime, b.startTime, b.endTime)) {
+            const dateDisplay = (bStart === bEnd) ? bStart : `${bStart} to ${bEnd}`;
+            return {
+              hasConflict: true,
+              conflictingBooking: { id: docSnap.id, dateDisplay, ...b },
+            };
+          }
         }
       }
     }
@@ -182,7 +207,43 @@ export async function checkSlotConflict(facilityId, date, startTime, endTime, ex
 }
 
 /**
- * Step 1: Submit new booking request by Club Lead / Representative
+ * Venue Management CRUD Operations for Super Admin & Department Admins
+ */
+export async function addFacility(facilityData) {
+  const facilityId = facilityData.facilityId || `fac_${Date.now()}`;
+  const docRef = doc(db, 'facilities', facilityId);
+  const data = {
+    facilityId,
+    name: facilityData.name,
+    locationBlock: facilityData.locationBlock,
+    capacity: Number(facilityData.capacity) || 200,
+    department: facilityData.department || 'Campus-Wide',
+    amenities: facilityData.amenities || ['AC', 'Sound System', 'HD Projector', 'Podium'],
+    isOperational: facilityData.isOperational !== false,
+    updatedAt: new Date().toISOString(),
+  };
+  await setDoc(docRef, data, { merge: true });
+  return { id: facilityId, ...data };
+}
+
+export async function updateFacility(facilityId, facilityData) {
+  const docRef = doc(db, 'facilities', facilityId);
+  const data = {
+    ...facilityData,
+    capacity: Number(facilityData.capacity) || 200,
+    updatedAt: new Date().toISOString(),
+  };
+  await updateDoc(docRef, data);
+  return { id: facilityId, ...data };
+}
+
+export async function deleteFacility(facilityId) {
+  await deleteDoc(doc(db, 'facilities', facilityId));
+  return true;
+}
+
+/**
+ * Step 1: Submit new booking request by Club Lead / Representative (Supports Multi-Day Events)
  */
 export async function submitBookingRequest({
   facilityId,
@@ -192,16 +253,29 @@ export async function submitBookingRequest({
   clubName,
   designation = 'Club Lead',
   eventTitle,
+  startDate,
+  endDate,
   date,
   startTime,
   endTime,
   expectedAttendance,
   description,
 }) {
+  const sDate = startDate || date;
+  const eDate = endDate || date || sDate;
+
+  // Calculate event duration in days
+  const d1 = new Date(sDate);
+  const d2 = new Date(eDate);
+  const diffTime = Math.max(0, d2 - d1);
+  const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+  const dateLabel = (sDate === eDate) ? sDate : `${sDate} to ${eDate} (${durationDays} Days)`;
+
   // Check conflict before submitting
-  const conflictInfo = await checkSlotConflict(facilityId, date, startTime, endTime);
+  const conflictInfo = await checkSlotConflict(facilityId, sDate, eDate, startTime, endTime);
   if (conflictInfo.hasConflict) {
-    throw new Error(`Slot Conflict: Venue is already reserved for "${conflictInfo.conflictingBooking.eventTitle}" (${conflictInfo.conflictingBooking.startTime} - ${conflictInfo.conflictingBooking.endTime}).`);
+    throw new Error(`Slot Conflict: Venue is already reserved for "${conflictInfo.conflictingBooking.eventTitle}" (${conflictInfo.conflictingBooking.dateDisplay}, ${conflictInfo.conflictingBooking.startTime} - ${conflictInfo.conflictingBooking.endTime}).`);
   }
 
   const bookingData = {
@@ -212,7 +286,10 @@ export async function submitBookingRequest({
     clubName,
     designation,
     eventTitle,
-    date,
+    startDate: sDate,
+    endDate: eDate,
+    date: dateLabel,
+    durationDays,
     startTime,
     endTime,
     expectedAttendance: Number(expectedAttendance),
@@ -227,7 +304,7 @@ export async function submitBookingRequest({
   const sendNotification = useNotificationStore.getState().sendNotification;
   await sendNotification({
     title: 'New Venue Allocation Request 🏛️',
-    message: `${clubName} (${designation} ${bookedByName}) requested ${facilityName} for "${eventTitle}" on ${date} (${startTime} - ${endTime}). Pending SAC Approval.`,
+    message: `${clubName} (${designation} ${bookedByName}) requested ${facilityName} for "${eventTitle}" on ${dateLabel} (${startTime} - ${endTime}). Pending SAC Approval.`,
     type: 'warning',
     targetRole: 'sac_director',
     targetEmail: 'sacdirector@vbit.ac.in',

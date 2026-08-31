@@ -28,7 +28,8 @@ export default function FacilityBookingSection() {
   // Booking Form State
   const [selectedFacilityId, setSelectedFacilityId] = useState('');
   const [eventTitle, setEventTitle] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('13:00');
   const [expectedAttendance, setExpectedAttendance] = useState('200');
@@ -79,23 +80,30 @@ export default function FacilityBookingSection() {
     }
   }, [studentRoll]);
 
-  // 3. Real-time conflict checker when date/time/venue changes
+  // 3. Real-time conflict checker when date/time/venue changes (Supports Multi-Day Range)
   useEffect(() => {
-    if (selectedFacilityId && eventDate && startTime && endTime) {
+    const sDate = startDate || endDate;
+    const eDate = endDate || startDate;
+    if (selectedFacilityId && sDate && startTime && endTime) {
       setConflictChecking(true);
-      checkSlotConflict(selectedFacilityId, eventDate, startTime, endTime).then(res => {
+      checkSlotConflict(selectedFacilityId, sDate, eDate, startTime, endTime).then(res => {
         setConflictResult(res);
         setConflictChecking(false);
       });
     } else {
       setConflictResult(null);
     }
-  }, [selectedFacilityId, eventDate, startTime, endTime]);
+  }, [selectedFacilityId, startDate, endDate, startTime, endTime]);
 
   const handleSubmitBooking = async (e) => {
     e.preventDefault();
-    if (!eventTitle.trim() || !eventDate) {
-      return alert('Please fill in event title and date.');
+    if (!eventTitle.trim() || !startDate) {
+      return alert('Please fill in event title and start date.');
+    }
+    const sDate = startDate;
+    const eDate = endDate || startDate;
+    if (new Date(eDate) < new Date(sDate)) {
+      return alert('End Date cannot be earlier than Start Date.');
     }
     if (conflictResult?.hasConflict) {
       return alert('Cannot submit request: Venue is already booked during this time window.');
@@ -114,14 +122,16 @@ export default function FacilityBookingSection() {
         clubName: leadPrivilege?.clubName || 'Student Club',
         designation: leadPrivilege?.clubDesignation || 'Hospitality Lead',
         eventTitle,
-        date: eventDate,
+        startDate: sDate,
+        endDate: eDate,
+        date: sDate === eDate ? sDate : `${sDate} to ${eDate}`,
         startTime,
         endTime,
         expectedAttendance,
         description,
       });
 
-      setSubmitMsg('🎉 Venue allocation request submitted successfully! Pending SAC Director Approval.');
+      setSubmitMsg('🎉 Multi-Day Venue allocation request submitted successfully! Pending SAC Director Approval.');
       setEventTitle('');
       setDescription('');
       setActiveTab('TRACKER');
@@ -349,23 +359,40 @@ export default function FacilityBookingSection() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Event Date *
+                Start Date *
               </label>
               <input
                 type="date"
                 className="input-field"
-                value={eventDate}
-                onChange={e => setEventDate(e.target.value)}
+                value={startDate}
+                onChange={e => {
+                  setStartDate(e.target.value);
+                  if (!endDate) setEndDate(e.target.value);
+                }}
                 required
               />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Start Time *
+                End Date (Multi-Day Event) *
+              </label>
+              <input
+                type="date"
+                className="input-field"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                min={startDate}
+                required
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                Daily Start Time *
               </label>
               <input
                 type="time"
@@ -378,7 +405,7 @@ export default function FacilityBookingSection() {
 
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                End Time *
+                Daily End Time *
               </label>
               <input
                 type="time"
@@ -404,7 +431,7 @@ export default function FacilityBookingSection() {
           </div>
 
           {/* Slot Conflict Check Status Banner */}
-          {eventDate && (
+          {startDate && (
             <div>
               {conflictChecking ? (
                 <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)' }}>Checking real-time slot conflict against timetable & existing bookings...</div>
@@ -412,12 +439,12 @@ export default function FacilityBookingSection() {
                 <div style={{ padding: '12px 16px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', color: 'var(--danger)', fontSize: '0.813rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <AlertTriangle size={18} />
                   <div>
-                    <strong>Slot Conflict Warning:</strong> Venue is already reserved for "{conflictResult.conflictingBooking.eventTitle}" ({conflictResult.conflictingBooking.startTime} - {conflictResult.conflictingBooking.endTime}).
+                    <strong>Slot Conflict Warning:</strong> Venue is already reserved for "{conflictResult.conflictingBooking.eventTitle}" ({conflictResult.conflictingBooking.dateDisplay}, {conflictResult.conflictingBooking.startTime} - {conflictResult.conflictingBooking.endTime}).
                   </div>
                 </div>
               ) : (
                 <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent-green)', color: 'var(--accent-green)', fontSize: '0.813rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} /> Venue Slot Available for Requested Time Window!
+                  <CheckCircle2 size={16} /> Venue Slot Available for {startDate === endDate || !endDate ? startDate : `${startDate} to ${endDate}`} ({startTime} - {endTime})!
                 </div>
               )}
             </div>
