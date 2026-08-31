@@ -54,6 +54,8 @@ const BLOCK_COLORS = {
 
 export default function ExamSeatingController() {
   const { profile } = useAuthStore();
+  const isReadOnlyAdmin = profile?.role === 'admin' || (profile?.role !== 'superadmin' && profile?.role !== 'exam_controller');
+
   const [currentStep, setCurrentStep] = useState(0);
 
   // ── Step 1 State ──
@@ -91,11 +93,17 @@ export default function ExamSeatingController() {
 
   // ── Published Plans Inspector & Folder Grouping State ──
   const [publishedPlansList, setPublishedPlansList] = useState([]);
-  const [viewingPublishedTab, setViewingPublishedTab] = useState(false);
+  const [viewingPublishedTab, setViewingPublishedTab] = useState(isReadOnlyAdmin);
   const [previewRoomPlanDoc, setPreviewRoomPlanDoc] = useState(null);
   const [selectedPlanIds, setSelectedPlanIds] = useState([]);
   const [expandedFolders, setExpandedFolders] = useState({});
   const [directorySearch, setDirectorySearch] = useState('');
+
+  useEffect(() => {
+    if (isReadOnlyAdmin) {
+      setViewingPublishedTab(true);
+    }
+  }, [isReadOnlyAdmin]);
 
   // ── Group seating plans into date-created batch folders ──
   const groupedBatches = useMemo(() => {
@@ -511,40 +519,48 @@ export default function ExamSeatingController() {
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '-0.03em', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <ClipboardList size={24} style={{ color: '#E8522E' }} />
-            Exam Seating Plan Controller
+            {isReadOnlyAdmin ? 'Published Examination Seating Plans' : 'Exam Seating Plan Controller'}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
-            Generate anti-malpractice interleaved seating plans & browse published room blueprints.
+            {isReadOnlyAdmin
+              ? 'Read-only departmental access: Browse, inspect, and download official published seating plan blueprints.'
+              : 'Generate anti-malpractice interleaved seating plans & browse published room blueprints.'}
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
-          <button
-            onClick={() => setViewingPublishedTab(false)}
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
-              background: !viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
-              color: !viewingPublishedTab ? 'white' : 'var(--text-secondary)',
-              border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
-            }}
-          >
-            ⚡ Wizard Generator
-          </button>
-          <button
-            onClick={() => setViewingPublishedTab(true)}
-            id="view-published-plans-tab"
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
-              background: viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
-              color: viewingPublishedTab ? 'white' : 'var(--text-secondary)',
-              border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
-              display: 'flex', alignItems: 'center', gap: '6px',
-            }}
-          >
-            <Eye size={15} /> Published Plans ({publishedPlansList.length})
-          </button>
-        </div>
+        {!isReadOnlyAdmin ? (
+          <div style={{ display: 'flex', gap: '8px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>
+            <button
+              onClick={() => setViewingPublishedTab(false)}
+              style={{
+                padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+                background: !viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
+                color: !viewingPublishedTab ? 'white' : 'var(--text-secondary)',
+                border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
+              }}
+            >
+              ⚡ Wizard Generator
+            </button>
+            <button
+              onClick={() => setViewingPublishedTab(true)}
+              id="view-published-plans-tab"
+              style={{
+                padding: '8px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+                background: viewingPublishedTab ? 'var(--accent-primary)' : 'transparent',
+                color: viewingPublishedTab ? 'white' : 'var(--text-secondary)',
+                border: 'none', cursor: 'pointer', transition: 'all 150ms ease',
+                display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+            >
+              <Eye size={15} /> Published Plans ({publishedPlansList.length})
+            </button>
+          </div>
+        ) : (
+          <span className="badge badge-purple" style={{ padding: '8px 14px', fontSize: '0.813rem' }}>
+            🔒 Dept Admin Confirmation View (Read-Only)
+          </span>
+        )}
       </div>
 
       {/* ═══════════════════════════════════════════ */}

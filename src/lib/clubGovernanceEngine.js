@@ -187,14 +187,47 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
  */
 export async function fetchDepartmentClubMembers(deptName) {
   try {
-    const snap = await getDocs(collection(db, 'club_members'));
     const list = [];
-    snap.forEach(d => {
+    const seenKeys = new Set();
+
+    // 1. Fetch from /club_members
+    const snap1 = await getDocs(collection(db, 'club_members'));
+    snap1.forEach(d => {
       const m = d.data();
       if (!deptName || m.department === deptName || m.department?.includes(deptName)) {
+        const key = `${m.rollNumber}_${m.clubName}_${m.tenureType || 'PRESENT_TENURE'}`;
+        seenKeys.add(key);
         list.push({ id: d.id, ...m });
       }
     });
+
+    // 2. Fetch from /club_leads (for authorized leads)
+    const snap2 = await getDocs(collection(db, 'club_leads'));
+    snap2.forEach(d => {
+      const l = d.data();
+      if (!deptName || l.department === deptName || l.department?.includes(deptName)) {
+        const key = `${l.rollNumber}_${l.clubName}_PRESENT_TENURE`;
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: `lead_${d.id}`,
+            rollNumber: l.rollNumber,
+            name: l.name || l.rollNumber,
+            clubName: l.clubName,
+            designation: l.designation || 'Club Lead',
+            department: l.department || deptName || 'CSE-DS',
+            email: l.email || `${l.rollNumber?.toLowerCase()}@vbit.ac.in`,
+            phone: l.phone || '+91 98765 43210',
+            year: '4th Year',
+            section: 'Sec A',
+            tenureType: 'PRESENT_TENURE',
+            tenureLabel: '2025-2026',
+            canBookVenues: l.isActive !== false,
+          });
+        }
+      }
+    });
+
     return list;
   } catch (err) {
     console.error('Error fetching department club members:', err);
