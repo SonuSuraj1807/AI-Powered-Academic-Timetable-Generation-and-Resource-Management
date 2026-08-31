@@ -23,7 +23,7 @@ import {
 } from '../../lib/clubGovernanceEngine';
 import {
   Building2, CheckCircle2, XCircle, Clock, Send, Calendar, Users, AlertCircle,
-  Plus, Edit2, Trash2, Shield, Search, Phone, GraduationCap, Award, RefreshCw, AlertTriangle, Layers
+  Plus, Edit2, Trash2, Shield, Search, Phone, GraduationCap, Award, RefreshCw, AlertTriangle, Layers, X
 } from 'lucide-react';
 import useAuthStore from '../../stores/authStore';
 
@@ -86,6 +86,20 @@ export default function SacDirectorDashboard() {
   const [pastTenureLabel, setPastTenureLabel] = useState('2024-2025');
   const [newTenureLabel, setNewTenureLabel] = useState('2025-2026');
   const [archiving, setArchiving] = useState(false);
+
+  // Full Screen Governance Roster Modal State
+  const [activeClubModal, setActiveClubModal] = useState(null);
+
+  // Keyboard Esc listener to close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setActiveClubModal(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 1. Real-time Listeners for facility_bookings & facilities
   useEffect(() => {
@@ -459,125 +473,218 @@ export default function SacDirectorDashboard() {
       {/* TAB 3: STUDENT CLUBS & TENURE GOVERNANCE */}
       {/* ==================================================== */}
       {activeTab === 'CLUBS' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '20px' }}>
-          {/* Left Column: Clubs Directory List */}
-          <div className="solid-card" style={{ padding: '18px', height: 'fit-content' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-              <h3 style={{ fontSize: '0.938rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Award size={16} style={{ color: 'var(--accent-primary)' }} />
-                VBIT Student Clubs
-              </h3>
-              <button
-                onClick={() => {
-                  setEditingClub(null);
-                  setClubNameInput('');
-                  setClubCategoryInput('Technical');
-                  setClubDescInput('');
-                  setClubEstYearInput('2025');
-                  setShowClubModal(true);
-                }}
-                className="btn btn-primary btn-sm"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '4px 8px' }}
-              >
-                <Plus size={14} /> Add Club
-              </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Header Bar */}
+          <div className="solid-card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Award size={22} style={{ color: 'var(--accent-primary)' }} />
+                VBIT Registered Student Clubs & Organizations
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.844rem', marginTop: '2px' }}>
+                Inspect student body clubs in a 3xN grid. Click on any club card to open the full-screen tenure governance roster.
+              </p>
             </div>
 
-            {loadingClubs ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.813rem' }}>Loading clubs directory...</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {clubs.map(c => {
-                  const isSelected = selectedClub?.id === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      onClick={() => setSelectedClub(c)}
-                      style={{
-                        padding: '10px 12px', borderRadius: '8px', cursor: 'pointer',
-                        background: isSelected ? 'rgba(139, 92, 246, 0.2)' : 'var(--bg-elevated)',
-                        border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-primary)',
-                        transition: 'all 0.2s ease', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '0.875rem', fontWeight: 800, color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
-                          {c.name}
-                        </div>
-                        <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>
-                          {c.category} • Current Tenure: {c.currentTenure || '2025-2026'}
-                        </div>
-                      </div>
-                      {isSelected && <span style={{ color: 'var(--accent-primary)', fontSize: '0.875rem' }}>➔</span>}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <button
+              onClick={() => {
+                setEditingClub(null);
+                setClubNameInput('');
+                setClubCategoryInput('Technical');
+                setClubDescInput('');
+                setClubEstYearInput('2025');
+                setShowClubModal(true);
+              }}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={16} /> Add New Student Club
+            </button>
           </div>
 
-          {/* Right Column: Selected Club Detail & Member Roster */}
-          <div className="solid-card" style={{ padding: '24px' }}>
-            {selectedClub ? (
-              <div>
-                {/* Club Header & Tenure Controls */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
+          {/* 3xN Grid of Club Cards */}
+          {loadingClubs ? (
+            <p style={{ color: 'var(--text-muted)' }}>Loading student clubs directory...</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+              {clubs.map(c => (
+                <div
+                  key={c.id}
+                  className="solid-card card-hover"
+                  style={{
+                    padding: '20px',
+                    borderRadius: '14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justify: 'space-between',
+                    border: '1px solid var(--border-primary)',
+                    background: 'var(--bg-elevated)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <h2 style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                        {selectedClub.name}
-                      </h2>
-                      <span className="badge badge-purple">{selectedClub.category}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '8px' }}>
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Award size={18} style={{ color: 'var(--accent-primary)' }} />
+                        {c.name}
+                      </h3>
+                      <span className="badge badge-purple" style={{ fontWeight: 700 }}>{c.category || 'Technical'}</span>
+                    </div>
+
+                    <p style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: '1.4' }}>
+                      {c.description || 'VBIT Registered Student Body Organization.'}
+                    </p>
+
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '16px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <span>Established: <strong>{c.establishedYear || '2020'}</strong></span>
+                      <span>•</span>
+                      <span className="badge badge-green" style={{ fontSize: '0.688rem' }}>
+                        Tenure: {c.currentTenure || '2025-2026'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-primary)', marginTop: '8px' }}>
+                    <button
+                      onClick={() => {
+                        setSelectedClub(c);
+                        setActiveClubModal(c);
+                      }}
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.813rem' }}
+                    >
+                      <Users size={14} /> Inspect Roster ➔
+                    </button>
+
+                    <div style={{ display: 'flex', gap: '4px' }}>
                       <button
                         onClick={() => {
-                          setEditingClub(selectedClub);
-                          setClubNameInput(selectedClub.name);
-                          setClubCategoryInput(selectedClub.category || 'Technical');
-                          setClubDescInput(selectedClub.description || '');
-                          setClubEstYearInput(selectedClub.establishedYear || '2025');
+                          setEditingClub(c);
+                          setClubNameInput(c.name);
+                          setClubCategoryInput(c.category || 'Technical');
+                          setClubDescInput(c.description || '');
+                          setClubEstYearInput(c.establishedYear || '2025');
+                          setShowClubModal(true);
+                        }}
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '4px 8px' }}
+                        title="Edit Club"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClub(c)}
+                        className="btn btn-ghost btn-sm"
+                        style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                        title="Delete Club"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Full-Screen Backdrop Blur Roster Governance Modal */}
+          {activeClubModal && (
+            <div
+              onClick={() => setActiveClubModal(null)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.75)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 999,
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'center',
+                padding: '24px',
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                className="solid-card animate-fade-in-up"
+                style={{
+                  maxWidth: '1200px',
+                  width: '95vw',
+                  maxHeight: '90vh',
+                  overflowY: 'auto',
+                  padding: '28px',
+                  borderRadius: '16px',
+                  border: '1px solid var(--accent-primary)',
+                  boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+                }}
+              >
+                {/* Modal Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)' }}>
+                        {activeClubModal.name}
+                      </h2>
+                      <span className="badge badge-purple" style={{ fontSize: '0.813rem' }}>{activeClubModal.category}</span>
+                      <button
+                        onClick={() => {
+                          setEditingClub(activeClubModal);
+                          setClubNameInput(activeClubModal.name);
+                          setClubCategoryInput(activeClubModal.category || 'Technical');
+                          setClubDescInput(activeClubModal.description || '');
+                          setClubEstYearInput(activeClubModal.establishedYear || '2025');
                           setShowClubModal(true);
                         }}
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '2px 6px' }}
                       >
-                        <Edit2 size={14} />
+                        <Edit2 size={15} />
                       </button>
                       <button
-                        onClick={() => handleDeleteClub(selectedClub)}
+                        onClick={() => handleDeleteClub(activeClubModal)}
                         className="btn btn-ghost btn-sm"
                         style={{ padding: '2px 6px', color: 'var(--danger)' }}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} />
                       </button>
                     </div>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.844rem', marginTop: '4px' }}>
-                      {selectedClub.description || 'VBIT Registered Student Body'} • Established: {selectedClub.establishedYear || '2020'}
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '4px' }}>
+                      {activeClubModal.description || 'VBIT Registered Student Body Organization.'} • Established: {activeClubModal.establishedYear || '2020'}
                     </p>
                   </div>
 
-                  {/* Declare Tenure Completion Action Button (SAC Director Exclusive) */}
-                  <button
-                    onClick={() => {
-                      setArchiveStep(1);
-                      setPastTenureLabel(selectedClub.currentTenure || '2024-2025');
-                      setNewTenureLabel('2025-2026');
-                      setShowArchiveModal(true);
-                    }}
-                    className="btn btn-primary"
-                    style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <RefreshCw size={16} /> Declare Tenure Completion & Archive
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button
+                      onClick={() => {
+                        setArchiveStep(1);
+                        setPastTenureLabel(activeClubModal.currentTenure || '2024-2025');
+                        setNewTenureLabel('2025-2026');
+                        setShowArchiveModal(true);
+                      }}
+                      className="btn btn-primary"
+                      style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)', border: 'none', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem' }}
+                    >
+                      <RefreshCw size={15} /> Declare Tenure Completion & Archive
+                    </button>
+
+                    <button
+                      onClick={() => setActiveClubModal(null)}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '6px 10px', fontSize: '1rem', fontWeight: 800, color: 'var(--text-secondary)' }}
+                      title="Close Modal (Esc or Click Backdrop)"
+                    >
+                      <X size={22} />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Tenure Filter Sub-Tabs */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '10px' }}>
+                {/* Tenure Filter Sub-Tabs & Add Member Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       onClick={() => setTenureView('PRESENT_TENURE')}
                       className={`btn btn-sm ${tenureView === 'PRESENT_TENURE' ? 'btn-primary' : 'btn-ghost'}`}
                     >
-                      Present Tenure ({selectedClub.currentTenure || '2025-2026'})
+                      Present Tenure ({activeClubModal.currentTenure || '2025-2026'})
                     </button>
                     <button
                       onClick={() => setTenureView('PAST_TENURE')}
@@ -608,13 +715,13 @@ export default function SacDirectorDashboard() {
                   </button>
                 </div>
 
-                {/* Member List Table */}
+                {/* Member Roster Table */}
                 {loadingMembers ? (
-                  <p style={{ color: 'var(--text-muted)' }}>Loading member roster...</p>
+                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '30px' }}>Loading member roster...</p>
                 ) : sortedClubMembers.length === 0 ? (
-                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                    <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
-                    <p>No members registered in {tenureView === 'PRESENT_TENURE' ? 'Present Tenure' : 'Past Tenure'}. Click "Add Student Member" to add coordinators and leads.</p>
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <Users size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+                    <p style={{ fontSize: '0.938rem' }}>No members registered in {tenureView === 'PRESENT_TENURE' ? 'Present Tenure' : 'Past Tenure'}. Click "Add Student Member" to add coordinators and leads.</p>
                   </div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
@@ -632,7 +739,7 @@ export default function SacDirectorDashboard() {
                       <tbody>
                         {sortedClubMembers.map(m => (
                           <tr key={m.id}>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
                               <div style={{ fontWeight: 800, color: 'var(--text-primary)', fontSize: '0.875rem' }}>
                                 {m.studentName || m.name}
                               </div>
@@ -640,7 +747,7 @@ export default function SacDirectorDashboard() {
                                 {m.rollNumber}
                               </div>
                             </td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
                               <div style={{ fontWeight: 800, color: 'var(--accent-purple)', fontSize: '0.875rem' }}>
                                 {m.designation}
                               </div>
@@ -648,64 +755,62 @@ export default function SacDirectorDashboard() {
                                 Tenure: {m.tenureLabel || '2025-2026'}
                               </div>
                             </td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
                               <span className="badge badge-purple" style={{ fontWeight: 700 }}>{m.department}</span>
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                                 {m.year} • {m.section}
                               </div>
                             </td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
                               <div><Phone size={11} style={{ display: 'inline', marginRight: '4px' }} /> {m.phone || 'N/A'}</div>
-                              <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>{m.email}</div>
+                              <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>{m.email}</div>
                             </td>
-                            <td style={{ textAlign: 'center' }}>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
                               <span className={`badge badge-${m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? 'green' : 'red'}`} style={{ whiteSpace: 'nowrap' }}>
                                 {m.canBookVenues !== false && tenureView === 'PRESENT_TENURE' ? '✓ Authorized Lead' : '🔒 Revoked (403)'}
                               </span>
                             </td>
-                              <td>
-                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                                  <button
-                                    onClick={() => {
-                                      setEditingMember(m);
-                                      setMemberRoll(m.rollNumber || '');
-                                      setMemberName(m.name || '');
-                                      setMemberEmail(m.email || '');
-                                      setMemberPhone(m.phone || '');
-                                      setMemberYear(m.year || '4th Year');
-                                      setMemberSection(m.section || 'Sec A');
-                                      setMemberDept(m.department || 'CSE-DS');
-                                      setMemberDesignation(m.designation || 'Lead');
-                                      setMemberCanBook(m.canBookVenues !== false);
-                                      setShowMemberModal(true);
-                                    }}
-                                    className="btn btn-ghost btn-sm"
-                                    style={{ padding: '4px 8px' }}
-                                    title="Edit Member"
-                                  >
-                                    <Edit2 size={13} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteMember(m)}
-                                    className="btn btn-ghost btn-sm"
-                                    style={{ padding: '4px 8px', color: 'var(--danger)' }}
-                                    title="Delete Member"
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                            <td style={{ textAlign: 'center', padding: '12px' }}>
+                              <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                <button
+                                  onClick={() => {
+                                    setEditingMember(m);
+                                    setMemberRoll(m.rollNumber || '');
+                                    setMemberName(m.name || '');
+                                    setMemberEmail(m.email || '');
+                                    setMemberPhone(m.phone || '');
+                                    setMemberYear(m.year || '4th Year');
+                                    setMemberSection(m.section || 'Sec A');
+                                    setMemberDept(m.department || 'CSE-DS');
+                                    setMemberDesignation(m.designation || 'Lead');
+                                    setMemberCanBook(m.canBookVenues !== false);
+                                    setShowMemberModal(true);
+                                  }}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ padding: '4px 8px' }}
+                                  title="Edit Member"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteMember(m)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ padding: '4px 8px', color: 'var(--danger)' }}
+                                  title="Delete Member"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                 )}
               </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)' }}>Select a club from the left panel to manage its members and tenure.</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
