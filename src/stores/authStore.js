@@ -51,11 +51,9 @@ const useAuthStore = create((set, get) => ({
     // Auto-repair domain typos
     if (email.endsWith('.ac.i')) email = email + 'n';
     if (email.endsWith('.ac')) email = email + '.in';
-    if (email.includes('examcontroller')) email = 'examcontroller@vbithyd.ac.in';
-    if (email.includes('superadmin')) email = 'superadmin@vbit.ac.in';
 
     let actualRole = expectedRole;
-    if (email === 'superadmin@vbit.ac.in') {
+    if (email.includes('superadmin')) {
       actualRole = 'superadmin';
     } else if (email.includes('sacdirector') || email.includes('sac_director')) {
       actualRole = 'sac_director';
@@ -68,27 +66,18 @@ const useAuthStore = create((set, get) => ({
     try {
       let userCredential = null;
 
-      // 1. Authenticate via Firebase Auth
+      // 1. Single Clean Authentication via Firebase Auth
       try {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authErr) {
-        // For superadmin@vbit.ac.in, try signing in with master password vbit1234
-        if (email === 'superadmin@vbit.ac.in') {
+        // If user was newly deleted or does not exist in Auth, provision ONCE with the user's entered password
+        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
           try {
-            userCredential = await signInWithEmailAndPassword(auth, email, 'vbit1234');
-          } catch (e) {}
-        }
-
-        // On-the-fly user creation in Firebase Auth if account does not exist or was deleted
-        if (!userCredential) {
-          try {
-            const signupPassword = (email === 'superadmin@vbit.ac.in') ? 'vbit1234' : (password || 'vbit1234');
-            userCredential = await createUserWithEmailAndPassword(auth, email, signupPassword);
+            userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (createErr) {
             if (createErr.code === 'auth/email-already-in-use') {
-              try {
-                userCredential = await signInWithEmailAndPassword(auth, email, 'vbit1234');
-              } catch (e2) {}
+              set({ loading: false, error: 'Incorrect password for this institutional account.' });
+              return false;
             }
           }
         }
@@ -102,25 +91,22 @@ const useAuthStore = create((set, get) => ({
       const uid = userCredential.user.uid;
 
       // 2. Real-time Cloud Firestore Profile Sync
-      let userDoc = await getDoc(doc(db, 'users', uid));
-      if (!userDoc.exists()) {
-        const profileData = {
-          name: email.split('@')[0].toUpperCase(),
-          email: email,
-          role: actualRole,
-          department: getDeptFromEmail(email),
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(doc(db, 'users', uid), profileData);
-        userDoc = await getDoc(doc(db, 'users', uid));
-      }
+      const profileData = {
+        name: email.split('@')[0].toUpperCase(),
+        email: email,
+        role: actualRole,
+        department: getDeptFromEmail(email),
+        createdAt: new Date().toISOString(),
+      };
 
-      const profile = userDoc.data();
-      const resolvedRole = (email === 'superadmin@vbit.ac.in') ? 'superadmin' : (profile?.role || actualRole);
+      await setDoc(doc(db, 'users', uid), profileData, { merge: true });
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      const profile = userDoc.exists() ? userDoc.data() : profileData;
+      const resolvedRole = email.includes('superadmin') ? 'superadmin' : (profile?.role || actualRole);
       const resolvedDept = profile?.department || getDeptFromEmail(email);
 
       // Strict Role Verification Guard: Only Super Admin email/role can unlock Super Admin Console
-      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && email !== 'superadmin@vbit.ac.in') {
+      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && !email.includes('superadmin')) {
         set({ loading: false, error: 'Access Denied: Only Super Admin can access the Super Admin Portal.' });
         return false;
       }
@@ -131,10 +117,6 @@ const useAuthStore = create((set, get) => ({
         department: resolvedDept,
         hallTicketNo: profile?.hallTicketNo || (resolvedRole === 'student' ? email.split('@')[0].toUpperCase() : null),
       };
-
-      if (profile?.role !== resolvedRole || profile?.department !== resolvedDept) {
-        await setDoc(doc(db, 'users', uid), updatedProfile, { merge: true });
-      }
 
       set({
         user: userCredential.user,
