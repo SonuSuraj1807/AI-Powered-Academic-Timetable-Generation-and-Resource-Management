@@ -64,6 +64,7 @@ export default function ExamSeatingController() {
   const [sessionDate, setSessionDate] = useState('');
   const [sessionSlot, setSessionSlot] = useState('FN');
   const [examTitle, setExamTitle] = useState('');
+  const [examType, setExamType] = useState('regular');
   const [selectedRegulations, setSelectedRegulations] = useState(['R22']);
   const [selectedBlocks, setSelectedBlocks] = useState(['Srujan', 'Avishkar', 'Nirmithi', 'Aakash']);
   const [targetExamYears, setTargetExamYears] = useState(['4', '3']);
