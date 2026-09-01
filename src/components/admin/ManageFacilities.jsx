@@ -22,16 +22,16 @@ const AMENITY_OPTIONS = [
   'Executive Seating',
 ];
 
-const LOCATION_BLOCKS = [
-  'Nalandha Block',
-  'Aakash Block',
+export const LOCATION_BLOCKS = [
   'Avishkar Block',
-  'IT Block',
-  'Pratham Block',
+  'Nirmithi Block',
   'Srujan Block',
-  'Mechanical Block',
-  'Civil Block',
-  'Main Administrative Block',
+  'Pragna Block',
+  'Prathibha Block',
+  'Pratham Block',
+  'Aakash Block',
+  'Prashasan Block (20 Labs & Central Library)',
+  'Nalandha Block (Auditorium & IIIC)',
 ];
 
 export default function ManageFacilities() {

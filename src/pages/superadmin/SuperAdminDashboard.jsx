@@ -4,6 +4,7 @@ import { collection, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'fireb
 import { Shield, Building2, Users, Calendar, KeyRound, Plus, Trash2, Edit2, CheckCircle2, UserCheck, Search, X, Check, Eye, EyeOff } from 'lucide-react';
 import { DEPARTMENTS } from '../../data/curriculumSeed';
 import useNotificationStore from '../../stores/notificationStore';
+import FacultyManagement from '../admin/FacultyManagement';
 
 export default function SuperAdminDashboard() {
   const [schedules, setSchedules] = useState([]);
@@ -557,155 +558,9 @@ export default function SuperAdminDashboard() {
         </div>
       )}
 
-      {/* TAB 2: Global Faculty Registration (WITH SEARCH) */}
+      {/* TAB 2: Global Faculty Registration & Directory */}
       {activeTab === 'faculty' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '24px' }}>
-          {/* Register Faculty Form */}
-          <div className="solid-card" style={{ padding: '24px' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <UserCheck size={20} style={{ color: '#10B981' }} />
-              Register Teaching Staff (Real-time Sync)
-            </h3>
-            <p style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              Super Admin can register faculty members for ANY department. Additions reflect immediately via real-time Firestore sync in that department's admin portal.
-            </p>
-
-            {facSuccess && (
-              <div style={{ padding: '12px 16px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', color: '#10B981', fontSize: '0.813rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={16} /> {facSuccess}
-              </div>
-            )}
-
-            <form onSubmit={handleRegisterFaculty} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Faculty Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Dr. P. ECE Professor"
-                  className="input-field"
-                  value={facName}
-                  onChange={e => setFacName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Email Address</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. p.faculty@vbit.ac.in"
-                  className="input-field"
-                  value={facEmail}
-                  onChange={e => setFacEmail(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Department</label>
-                  <select
-                    className="input-field"
-                    value={facDept}
-                    onChange={e => setFacDept(e.target.value)}
-                  >
-                    {DEPARTMENTS.map(d => (
-                      <option key={d.id} value={d.id}>{d.name} [{d.id}]</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Designation</label>
-                  <select
-                    className="input-field"
-                    value={facDesig}
-                    onChange={e => setFacDesig(e.target.value)}
-                  >
-                    <option value="Professor">Professor</option>
-                    <option value="Associate Professor">Associate Professor</option>
-                    <option value="Assistant Professor">Assistant Professor</option>
-                    <option value="HoD">Professor & HoD</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Exp (Years)</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={facExp}
-                    onChange={e => setFacExp(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '6px' }}>Max Weekly Hours</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={facMaxHours}
-                    onChange={e => setFacMaxHours(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <button type="submit" disabled={isSubmittingFac} className="btn btn-primary" style={{ marginTop: '8px' }}>
-                {isSubmittingFac ? 'Registering...' : 'Register Faculty Member'}
-              </button>
-            </form>
-          </div>
-
-          {/* Institutional Faculty Directory (WITH INSTANT SEARCH) */}
-          <div className="solid-card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-              <h3 style={{ fontSize: '1.125rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Users size={20} style={{ color: '#10B981' }} />
-                Institutional Faculty Directory ({filteredFaculty.length})
-              </h3>
-            </div>
-
-            {/* Instant Search Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-glass)', padding: '8px 12px', borderRadius: '10px', border: '1px solid var(--border-primary)', marginBottom: '16px' }}>
-              <Search size={16} style={{ color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                placeholder="Search by name, email, designation, or department..."
-                value={facSearchQuery}
-                onChange={e => setFacSearchQuery(e.target.value)}
-                style={{ background: 'transparent', border: 'none', outline: 'none', color: 'var(--text-primary)', fontSize: '0.813rem', width: '100%' }}
-              />
-              {facSearchQuery && (
-                <button onClick={() => setFacSearchQuery('')} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <X size={14} />
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '420px', overflowY: 'auto' }}>
-              {filteredFaculty.map(f => (
-                <div key={f.id} style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--surface-glass)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{f.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
-                      {f.designation} • {f.email}
-                    </div>
-                  </div>
-                  <span className="badge badge-blue">
-                    {f.department}
-                  </span>
-                </div>
-              ))}
-              {filteredFaculty.length === 0 && (
-                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textAlign: 'center', padding: '20px' }}>
-                  No faculty members matching "{facSearchQuery}" found.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        <FacultyManagement />
       )}
 
       {/* TAB 3: Institutional Timetable Monitor (WITH DEPARTMENT DROPDOWN FILTER) */}
