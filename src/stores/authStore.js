@@ -75,11 +75,29 @@ const useAuthStore = create((set, get) => ({
 
       let userCredential = null;
 
+      // Student Provisioning Guard: Ensure student accounts are pre-provisioned by Super Admin
+      if (actualRole === 'student' && !email.includes('superadmin')) {
+        const usersRef = collection(db, 'users');
+        const qEmail = query(usersRef, where('email', '==', email));
+        const snap = await getDocs(qEmail);
+
+        if (snap.empty) {
+          const handle = email.split('@')[0].toUpperCase();
+          const studentsRef = collection(db, 'students');
+          const qRoll = query(studentsRef, where('rollNumber', '==', handle));
+          const snapRoll = await getDocs(qRoll);
+
+          if (snapRoll.empty) {
+            set({ loading: false, error: 'Access Denied: Student account not provisioned by Super Admin. Please contact Examination Branch.' });
+            return false;
+          }
+        }
+      }
+
       // 1. Single Clean Authentication via Firebase Auth
       try {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authErr) {
-        // If user was newly deleted or does not exist in Auth, provision ONCE with the user's entered password
         if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);

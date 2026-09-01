@@ -258,22 +258,40 @@ import useAuthStore from '../../stores/authStore';
 export default function FacultyManagement() {
   const profile = useAuthStore(state => state.profile);
   const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState('faculty'); // 'faculty' | 'students'
   const [facultyList, setFacultyList] = useState([]);
+  const [studentList, setStudentList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [filterQuery, setFilterQuery] = useState(searchParams.get('q') || '');
   const [selectedFacultyModal, setSelectedFacultyModal] = useState(null);
 
-  // Form states — default department to logged-in profile
+  // Faculty Form states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [department, setDepartment] = useState(profile?.department || 'CSE-DS');
   const [designation, setDesignation] = useState('Assistant Professor');
+  const [teachingBranches, setTeachingBranches] = useState(['CSE-DS']);
+
+  // Student Form states
+  const [stdName, setStdName] = useState('');
+  const [stdRoll, setStdRoll] = useState('');
+  const [stdEmail, setStdEmail] = useState('');
+  const [stdPassword, setStdPassword] = useState('Vbit@2026');
+  const [stdDept, setStdDept] = useState('CSE-DS');
+  const [stdYear, setStdYear] = useState('3');
+  const [stdSem, setStdSem] = useState('2');
+  const [stdRegulation, setStdRegulation] = useState('R22');
+
+  // Teaching Branch Edit Modal State
+  const [editingTeachingFac, setEditingTeachingFac] = useState(null);
+  const [facTeachingBranches, setFacTeachingBranches] = useState([]);
 
   useEffect(() => {
     if (profile?.department) {
       setDepartment(profile.department);
+      setStdDept(profile.department);
     }
   }, [profile?.department]);
 
@@ -288,29 +306,160 @@ export default function FacultyManagement() {
   const [editDesignation, setEditDesignation] = useState('Assistant Professor');
   const [deptFilter, setDeptFilter] = useState('ALL');
 
-  // Real-time syncing with Firestore — strictly scoped to logged-in user department
+  // Real-time syncing with Firestore
   useEffect(() => {
     const isSuperAdmin = profile?.role === 'superadmin';
     const userDept = profile?.department || 'CSE-DS';
 
-    const unsubscribe = onSnapshot(collection(db, 'faculty'), (snapshot) => {
+    // 1. Sync Faculty
+    const unsubFaculty = onSnapshot(collection(db, 'faculty'), (snapshot) => {
       let list = [];
       snapshot.forEach(docSnap => {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
 
-      // Strict Department Scoping for Department Administrators
       if (!isSuperAdmin && userDept) {
         list = list.filter(f => f.department === userDept);
       }
 
-      // Sort alphabetically by name
       list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       setFacultyList(list);
       setLoading(false);
     });
-    return () => unsubscribe();
+
+    // 2. Sync Students from /users and /students
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      let stds = [];
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.role === 'student') {
+          stds.push({ id: docSnap.id, ...d });
+        }
+      });
+
+      if (!isSuperAdmin && userDept) {
+        stds = stds.filter(s => s.department === userDept);
+      }
+
+      stds.sort((a, b) => (a.hallTicketNo || a.name || '').localeCompare(b.hallTicketNo || b.name || ''));
+      setStudentList(stds);
+    });
+
+    return () => {
+      unsubFaculty();
+      unsubUsers();
+    };
   }, [profile]);
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    if (!stdName.trim() || !stdRoll.trim() || !stdEmail.trim() || !stdPassword.trim()) return;
+
+    try {
+      const secAuth = getSecondaryAuth();
+      let uid = null;
+      try {
+        const cred = await createUserWithEmailAndPassword(secAuth, stdEmail.trim(), stdPassword);
+        uid = cred.user.uid;
+      } catch (authErr) {
+        console.warn('Auth user already exists or error, writing Firestore record...', authErr);
+      }
+
+      const cleanRoll = stdRoll.trim().toUpperCase();
+      const docId = uid || `std_${cleanRoll.toLowerCase()}`;
+
+      const studentProfile = {
+        name: stdName.trim(),
+        fullName: stdName.trim(),
+        email: stdEmail.trim().toLowerCase(),
+        rollNumber: cleanRoll,
+        hallTicketNo: cleanRoll,
+        department: stdDept,
+        year: stdYear,
+        semester: stdSem,
+        regulation: stdRegulation,
+        role: 'student',
+        createdAt: new Date().toISOString(),
+        createdByAdmin: true,
+      };
+
+      await setDoc(doc(db, 'users', docId), studentProfile, { merge: true });
+      await setDoc(doc(db, 'students', cleanRoll), studentProfile, { merge: true });
+
+      await secAuth.signOut();
+      setStdName('');
+      setStdRoll('');
+      setStdEmail('');
+      alert(`Student account (${cleanRoll}) registered successfully! Student can now log in with default credentials.`);
+    } catch (err) {
+      console.error(err);
+      alert('Error registering student: ' + err.message);
+    }
+  };
+
+  const handleSeedStudents = async () => {
+    if (!confirm('Seed official VBIT 96 Multi-Branch Student Roster (CSE-DS, ECE, CSE, IT) into Firestore?')) return;
+    setSeeding(true);
+    let count = 0;
+
+    const demoBranches = [
+      { code: 'CSE-DS', prefix: '22F61A67', count: 24 },
+      { code: 'ECE', prefix: '22F61A04', count: 24 },
+      { code: 'CSE', prefix: '22F61A05', count: 24 },
+      { code: 'IT', prefix: '22F61A12', count: 24 },
+    ];
+
+    try {
+      const secAuth = getSecondaryAuth();
+      for (const b of demoBranches) {
+        for (let i = 1; i <= b.count; i++) {
+          const roll = `${b.prefix}${String(i).padStart(2, '0')}`;
+          const emailStr = `${roll.toLowerCase()}@vbit.ac.in`;
+          const docId = `std_${roll.toLowerCase()}`;
+
+          const studentData = {
+            name: `${b.code} Student ${i}`,
+            fullName: `${b.code} Student ${i}`,
+            email: emailStr,
+            rollNumber: roll,
+            hallTicketNo: roll,
+            department: b.code,
+            year: '3',
+            semester: '2',
+            regulation: 'R22',
+            role: 'student',
+            createdAt: new Date().toISOString(),
+            createdByAdmin: true,
+          };
+
+          try {
+            await createUserWithEmailAndPassword(secAuth, emailStr, 'Vbit@2026');
+          } catch (e) {}
+
+          await setDoc(doc(db, 'users', docId), studentData, { merge: true });
+          await setDoc(doc(db, 'students', roll), studentData, { merge: true });
+          count++;
+        }
+      }
+      alert(`Student Roster Seed Complete! Provisioned ${count} student accounts in Firestore.`);
+    } catch (err) {
+      console.error(err);
+      alert('Error seeding student roster: ' + err.message);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const handleDeleteStudent = async (id, roll) => {
+    if (!confirm(`Are you sure you want to remove student account (${roll || id})?`)) return;
+    try {
+      await deleteDoc(doc(db, 'users', id));
+      if (roll) await deleteDoc(doc(db, 'students', roll));
+    } catch (err) {
+      console.error(err);
+      alert('Error deleting student: ' + err.message);
+    }
+  };
 
   const filteredFaculty = facultyList.filter(f => {
     const matchesSearch =
@@ -512,6 +661,223 @@ export default function FacultyManagement() {
         </button>
       </div>
 
+      {/* Top Tab Bar: Faculty vs Student Roster */}
+      <div style={{
+        display: 'flex', gap: '12px', marginBottom: '20px',
+        borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px',
+      }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab('faculty')}
+          style={{
+            padding: '10px 18px', borderRadius: '10px',
+            background: activeTab === 'faculty' ? 'var(--accent-primary-subtle)' : 'transparent',
+            border: `1.5px solid ${activeTab === 'faculty' ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+            color: activeTab === 'faculty' ? 'var(--accent-primary)' : 'var(--text-secondary)',
+            fontWeight: 700, fontSize: '0.875rem',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            cursor: 'pointer', transition: 'all 150ms ease',
+          }}
+        >
+          <Users size={18} /> All Faculty Pool ({facultyList.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('students')}
+          style={{
+            padding: '10px 18px', borderRadius: '10px',
+            background: activeTab === 'students' ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
+            border: `1.5px solid ${activeTab === 'students' ? '#8B5CF6' : 'var(--border-primary)'}`,
+            color: activeTab === 'students' ? '#8B5CF6' : 'var(--text-secondary)',
+            fontWeight: 700, fontSize: '0.875rem',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            cursor: 'pointer', transition: 'all 150ms ease',
+          }}
+        >
+          <Sparkles size={18} /> Student Roster ({studentList.length})
+        </button>
+      </div>
+
+      {activeTab === 'students' ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
+          {/* Student Roster List Card */}
+          <div className="solid-card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                Provisioned Student Accounts ({studentList.length})
+              </h3>
+              <button
+                disabled={seeding}
+                onClick={handleSeedStudents}
+                className="btn btn-sm btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {seeding ? <RefreshCw className="animate-spin" size={14} /> : <Sparkles size={14} />}
+                Seed 96 VBIT Students
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+              <input
+                className="input-field"
+                placeholder="Search roll number or name..."
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                style={{ flex: 1 }}
+              />
+              <select
+                className="select-field"
+                value={deptFilter}
+                onChange={e => setDeptFilter(e.target.value)}
+                style={{ width: '160px' }}
+              >
+                <option value="ALL">All Departments</option>
+                {DEPARTMENTS.map(d => (
+                  <option key={d.code} value={d.code}>{d.code}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto' }}>
+              {studentList
+                .filter(s => {
+                  const q = filterQuery.toLowerCase();
+                  const mQ = !q || (s.name || '').toLowerCase().includes(q) || (s.rollNumber || '').toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q);
+                  const mD = deptFilter === 'ALL' || s.department === deptFilter;
+                  return mQ && mD;
+                })
+                .map(std => (
+                  <div
+                    key={std.id}
+                    style={{
+                      padding: '12px 14px', borderRadius: '10px',
+                      background: 'var(--surface-glass)', border: '1px solid var(--border-primary)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{std.rollNumber || std.hallTicketNo}</span>
+                        <span>• {std.name || std.fullName}</span>
+                      </div>
+                      <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                        {std.email} • {std.department || 'CSE-DS'} (Year {std.year || '3'}, Sem {std.semester || '2'}, {std.regulation || 'R22'})
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStudent(std.id, std.rollNumber)}
+                      style={{ color: 'var(--danger)', padding: '6px', cursor: 'pointer', background: 'transparent', border: 'none' }}
+                      title="Remove Student Account"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Add Student Account Form */}
+          <div className="solid-card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Plus size={18} style={{ color: '#8B5CF6' }} /> Create Student Account
+            </h3>
+            <p style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
+              Only students provisioned here by Super Admin can access the student portal. Self-registration is restricted.
+            </p>
+
+            <form onSubmit={handleAddStudent} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Full Name</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. Kommu Suraj"
+                  value={stdName}
+                  onChange={e => setStdName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Roll / Hall Ticket Number</label>
+                <input
+                  className="input-field"
+                  placeholder="e.g. 23P61A6794"
+                  value={stdRoll}
+                  onChange={e => setStdRoll(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Email Address</label>
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="e.g. 23P61A6794@vbithyd.ac.in"
+                  value={stdEmail}
+                  onChange={e => setStdEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Default Password</label>
+                <input
+                  className="input-field"
+                  value={stdPassword}
+                  onChange={e => setStdPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Department</label>
+                  <select className="select-field" value={stdDept} onChange={e => setStdDept(e.target.value)}>
+                    {DEPARTMENTS.map(d => (
+                      <option key={d.code} value={d.code}>{d.code}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Regulation</label>
+                  <select className="select-field" value={stdRegulation} onChange={e => setStdRegulation(e.target.value)}>
+                    <option value="R25">R25</option>
+                    <option value="R22">R22</option>
+                    <option value="R21">R21</option>
+                    <option value="R19">R19</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Year</label>
+                  <select className="select-field" value={stdYear} onChange={e => setStdYear(e.target.value)}>
+                    <option value="1">1st Year</option>
+                    <option value="2">2nd Year</option>
+                    <option value="3">3rd Year</option>
+                    <option value="4">4th Year</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Semester</label>
+                  <select className="select-field" value={stdSem} onChange={e => setStdSem(e.target.value)}>
+                    <option value="1">1st Sem</option>
+                    <option value="2">2nd Sem</option>
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ marginTop: '8px', padding: '10px' }}>
+                Provision Student Account
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
         {/* Faculty List Card */}
         <div className="solid-card" style={{ padding: '20px' }}>
@@ -773,6 +1139,7 @@ export default function FacultyManagement() {
           </form>
         </div>
       </div>
+      )}
 
       {/* Detailed Faculty Schedule & Substitutions Modal */}
       <FacultyScheduleModal
