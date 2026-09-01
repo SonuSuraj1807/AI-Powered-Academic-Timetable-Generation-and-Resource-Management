@@ -123,10 +123,10 @@ export default function ExamSeatingController() {
       const title = planDoc.examTitle || 'B.Tech Examinations';
       const date = planDoc.sessionDate || 'General Session';
       const slot = planDoc.sessionSlot || 'FN';
-      const createdFormatted = planDoc.createdAt 
-        ? new Date(planDoc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+      const createdFormatted = planDoc.createdAt
+        ? new Date(planDoc.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : date;
-      
+
       // Folder grouping key by Exam Title + Session Date + Created Date
       const key = `${title} • Date: ${date} (${slot}) • Created: ${createdFormatted}`;
 
@@ -172,7 +172,7 @@ export default function ExamSeatingController() {
   };
 
   const handleTogglePlanSelect = (id) => {
-    setSelectedPlanIds(prev => 
+    setSelectedPlanIds(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
   };
@@ -211,7 +211,7 @@ export default function ExamSeatingController() {
   const handleExportGroupPDFs = (group) => {
     const reconstructedPlans = group.plans.map(p => {
       let parsedGrid = [];
-      try { parsedGrid = JSON.parse(p.gridData || '[]'); } catch (e) {}
+      try { parsedGrid = JSON.parse(p.gridData || '[]'); } catch (e) { }
       return {
         room: { roomNumber: p.roomNumber, block: p.block, floor: p.floor, cols: 4, rows: 6 },
         grid: parsedGrid,
@@ -366,7 +366,7 @@ export default function ExamSeatingController() {
       }
 
       await batch.commit();
-      
+
       // Dispatch real-time notification to Student & Faculty portals
       useNotificationStore.getState().sendNotification({
         title: 'Exam Seating Arrangement Published 🪑',
@@ -712,7 +712,7 @@ export default function ExamSeatingController() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                           {/* Folder Selection Checkbox */}
-                          <div 
+                          <div
                             onClick={(e) => {
                               e.stopPropagation();
                               handleToggleFolderSelect(group.plans);
@@ -782,7 +782,7 @@ export default function ExamSeatingController() {
                           {group.plans.map(planDoc => {
                             const isSelected = selectedPlanIds.includes(planDoc.id);
                             let parsedGrid = [];
-                            try { parsedGrid = JSON.parse(planDoc.gridData || '[]'); } catch (e) {}
+                            try { parsedGrid = JSON.parse(planDoc.gridData || '[]'); } catch (e) { }
 
                             return (
                               <div
@@ -922,815 +922,815 @@ export default function ExamSeatingController() {
       ) : (
         <>
 
-      {/* ── Stepper ── */}
-      <div className="solid-card animate-fade-in-up delay-1" style={{ padding: '16px 20px', marginBottom: '20px', opacity: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {STEP_LABELS.map((step, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0', flex: 1 }}>
-              <div
-                onClick={() => idx <= currentStep && setCurrentStep(idx)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  cursor: idx <= currentStep ? 'pointer' : 'default',
-                  opacity: idx <= currentStep ? 1 : 0.4,
-                }}
-              >
-                <div style={{
-                  width: '36px', height: '36px', borderRadius: '10px',
-                  background: idx === currentStep
-                    ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))'
-                    : idx < currentStep
-                    ? 'var(--accent-green)'
-                    : 'var(--bg-elevated)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: idx <= currentStep ? 'white' : 'var(--text-muted)',
-                  boxShadow: idx === currentStep ? '0 4px 12px var(--accent-primary-glow)' : 'none',
-                  transition: 'all 250ms ease',
-                }}>
-                  {idx < currentStep ? <Check size={16} /> : <step.icon size={16} />}
-                </div>
-                <div style={{ display: idx === currentStep || window.innerWidth > 900 ? 'block' : 'none' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{step.label}</div>
-                  <div style={{ fontSize: '0.625rem', color: 'var(--text-tertiary)' }}>{step.desc}</div>
-                </div>
-              </div>
-              {idx < STEP_LABELS.length - 1 && (
-                <div style={{
-                  flex: 1, height: '2px', margin: '0 12px',
-                  background: idx < currentStep ? 'var(--accent-green)' : 'var(--border-primary)',
-                  transition: 'background 250ms ease',
-                }} />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════ */}
-      {/* STEP 1: Session Configuration              */}
-      {/* ═══════════════════════════════════════════ */}
-      {currentStep === 0 && (
-        <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {/* Left: Form */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Exam Session Details</h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Date */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Exam Date *</label>
-                <input
-                  type="date"
-                  className="input-field"
-                  value={sessionDate}
-                  onChange={e => setSessionDate(e.target.value)}
-                  id="exam-date-input"
-                />
-              </div>
-
-              {/* Session */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Session *</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {Object.values(EXAM_SESSIONS).map(s => (
-                    <button
-                      key={s.id}
-                      onClick={() => setSessionSlot(s.id)}
-                      style={{
-                        flex: 1, padding: '10px', borderRadius: '10px', textAlign: 'center',
-                        background: sessionSlot === s.id ? 'var(--accent-primary-subtle)' : 'var(--surface-glass)',
-                        border: `1.5px solid ${sessionSlot === s.id ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
-                        color: sessionSlot === s.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                        fontWeight: sessionSlot === s.id ? 700 : 400,
-                        transition: 'all 150ms ease',
-                      }}
-                    >
-                      <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>{s.id}</div>
-                      <div style={{ fontSize: '0.688rem' }}>{s.start} – {s.end}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Exam Title */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Exam Title *</label>
-                <input
-                  className="input-field"
-                  placeholder="e.g. B.Tech III-II Sem Regular Examinations, July 2026"
-                  value={examTitle}
-                  onChange={e => setExamTitle(e.target.value)}
-                  id="exam-title-input"
-                />
-              </div>
-
-              {/* Exam Type */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Type</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {EXAM_TYPES.map(t => (
-                    <button
-                      key={t.id}
-                      onClick={() => setExamType(t.id)}
-                      style={{
-                        padding: '6px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 600,
-                        background: examType === t.id ? '#10B98120' : 'var(--surface-glass)',
-                        color: examType === t.id ? '#10B981' : 'var(--text-secondary)',
-                        border: `1.5px solid ${examType === t.id ? '#10B981' : 'var(--border-primary)'}`,
-                      }}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Regulations */}
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Regulations</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  {REGULATION_OPTIONS.map(reg => (
-                    <button
-                      key={reg}
-                      onClick={() => handleToggleRegulation(reg)}
-                      style={{
-                        padding: '5px 14px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 600,
-                        background: selectedRegulations.includes(reg) ? '#3B82F615' : 'var(--surface-glass)',
-                        color: selectedRegulations.includes(reg) ? '#3B82F6' : 'var(--text-muted)',
-                        border: `1.5px solid ${selectedRegulations.includes(reg) ? '#3B82F6' : 'var(--border-primary)'}`,
-                      }}
-                    >
-                      {reg}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Target Exam Student Years */}
-              <div style={{ marginTop: '12px' }}>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-                  Target Exam Student Years *
-                </label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {[
-                    { id: '4', label: '4th Year' },
-                    { id: '3', label: '3rd Year' },
-                    { id: '2', label: '2nd Year' },
-                    { id: '1', label: '1st Year' },
-                  ].map(yr => {
-                    const isSelected = targetExamYears.includes(yr.id);
-                    return (
-                      <button
-                        key={yr.id}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            if (targetExamYears.length > 1) {
-                              setTargetExamYears(targetExamYears.filter(y => y !== yr.id));
-                            }
-                          } else {
-                            setTargetExamYears([...targetExamYears, yr.id]);
-                          }
-                        }}
-                        style={{
-                          padding: '6px 14px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
-                          background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'var(--surface-glass)',
-                          color: isSelected ? '#8B5CF6' : 'var(--text-tertiary)',
-                          border: `1.5px solid ${isSelected ? '#8B5CF6' : 'var(--border-primary)'}`,
-                          cursor: 'pointer', transition: 'all 150ms ease',
-                        }}
-                      >
-                        {isSelected ? '✓ ' : ''}{yr.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                  Non-exam years' theory classrooms will be protected from exam seating disturbance.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Block Selection */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Select Blocks</h3>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '14px' }}>
-              Choose which building blocks to use for this exam session.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {EXAM_BLOCKS.map(block => {
-                const isSelected = selectedBlocks.includes(block.name);
-                const themeColor = BLOCK_COLORS[block.name] || '#8B5CF6';
-                const blockRooms = rooms.filter(r => r.block === block.name && r.isActive !== false);
-                const capacity = blockRooms.reduce((s, r) => s + (r.capacity || 24), 0);
-                return (
-                  <button
-                    key={block.id}
-                    type="button"
-                    onClick={() => handleToggleBlock(block.name)}
+          {/* ── Stepper ── */}
+          <div className="solid-card animate-fade-in-up delay-1" style={{ padding: '16px 20px', marginBottom: '20px', opacity: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              {STEP_LABELS.map((step, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0', flex: 1 }}>
+                  <div
+                    onClick={() => idx <= currentStep && setCurrentStep(idx)}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: '12px',
-                      padding: '14px 16px', borderRadius: '12px',
-                      background: isSelected
-                        ? `${themeColor}20`
-                        : 'var(--surface-glass)',
-                      border: isSelected
-                        ? `2px solid ${themeColor}`
-                        : '1px solid var(--border-primary)',
-                      boxShadow: isSelected ? `0 4px 14px ${themeColor}35` : 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 150ms ease',
+                      display: 'flex', alignItems: 'center', gap: '10px',
+                      cursor: idx <= currentStep ? 'pointer' : 'default',
+                      opacity: idx <= currentStep ? 1 : 0.4,
                     }}
                   >
                     <div style={{
                       width: '36px', height: '36px', borderRadius: '10px',
-                      background: isSelected ? themeColor : 'var(--bg-elevated)',
-                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                      background: idx === currentStep
+                        ? 'linear-gradient(135deg, var(--accent-primary), var(--accent-primary-hover))'
+                        : idx < currentStep
+                          ? 'var(--accent-green)'
+                          : 'var(--bg-elevated)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'all 150ms ease',
+                      color: idx <= currentStep ? 'white' : 'var(--text-muted)',
+                      boxShadow: idx === currentStep ? '0 4px 12px var(--accent-primary-glow)' : 'none',
+                      transition: 'all 250ms ease',
                     }}>
-                      {isSelected
-                        ? <Check size={18} strokeWidth={3} />
-                        : <Building2 size={16} />
-                      }
+                      {idx < currentStep ? <Check size={16} /> : <step.icon size={16} />}
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? themeColor : 'var(--text-primary)' }}>
-                        {block.name}
-                      </div>
-                      <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>
-                        {blockRooms.length} rooms • {capacity} seats
-                      </div>
+                    <div style={{ display: idx === currentStep || window.innerWidth > 900 ? 'block' : 'none' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700 }}>{step.label}</div>
+                      <div style={{ fontSize: '0.625rem', color: 'var(--text-tertiary)' }}>{step.desc}</div>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Summary & Quick Add Room */}
-            <div style={{
-              marginTop: '16px', padding: '12px', borderRadius: '10px',
-              background: 'var(--accent-green-subtle)',
-              fontSize: '0.813rem', fontWeight: 600, color: 'var(--accent-green)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-              <span>{filteredRooms.length} rooms selected • {filteredRooms.reduce((s, r) => s + (r.capacity || 24), 0)} total seats</span>
-              <button
-                onClick={() => setShowAddRoomModal(true)}
-                className="btn btn-sm btn-ghost"
-                style={{ color: 'var(--accent-green)', border: '1px solid var(--accent-green)' }}
-                id="quick-add-room-btn"
-              >
-                <Plus size={14} /> Add Room
-              </button>
+                  </div>
+                  {idx < STEP_LABELS.length - 1 && (
+                    <div style={{
+                      flex: 1, height: '2px', margin: '0 12px',
+                      background: idx < currentStep ? 'var(--accent-green)' : 'var(--border-primary)',
+                      transition: 'background 250ms ease',
+                    }} />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ── Quick Add Room Modal Overlay ── */}
-      {showAddRoomModal && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-        }}>
-          <div className="solid-card animate-fade-in-up" style={{ padding: '24px', width: '420px', maxWidth: '90vw' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Building2 size={18} style={{ color: '#E8522E' }} /> Quick Add Exam Room
-              </h3>
-              <button onClick={() => setShowAddRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
-                <X size={16} />
-              </button>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Room Number / Code *</label>
-                <input
-                  className="input-field"
-                  placeholder="e.g. 108 or Ground-108"
-                  value={newRoomData.roomNumber}
-                  onChange={e => setNewRoomData(p => ({ ...p, roomNumber: e.target.value }))}
-                  id="modal-room-number-input"
-                />
-              </div>
+          {/* ═══════════════════════════════════════════ */}
+          {/* STEP 1: Session Configuration              */}
+          {/* ═══════════════════════════════════════════ */}
+          {currentStep === 0 && (
+            <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Left: Form */}
+              <div className="solid-card" style={{ padding: '20px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Exam Session Details</h3>
 
-              <div>
-                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Block</label>
-                <select
-                  className="input-field"
-                  value={newRoomData.block}
-                  onChange={e => setNewRoomData(p => ({ ...p, block: e.target.value }))}
-                >
-                  {EXAM_BLOCKS.map(b => (
-                    <option key={b.id} value={b.name}>{b.name} Block</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Floor</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={newRoomData.floor}
-                    onChange={e => setNewRoomData(p => ({ ...p, floor: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Capacity</label>
-                  <input
-                    type="number"
-                    className="input-field"
-                    value={newRoomData.capacity}
-                    onChange={e => setNewRoomData(p => ({ ...p, capacity: Number(e.target.value) }))}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-                <button onClick={() => setShowAddRoomModal(false)} className="btn btn-ghost">Cancel</button>
-                <button onClick={handleQuickAddRoom} disabled={isAddingRoom || !newRoomData.roomNumber.trim()} className="btn btn-primary" id="save-quick-room-btn">
-                  {isAddingRoom ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Room</>}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════ */}
-      {/* STEP 2: Subjects & Students                */}
-      {/* ═══════════════════════════════════════════ */}
-      {currentStep === 1 && (
-        <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          {/* Left: Subjects */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '14px' }}>Exam Subjects</h3>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-              <input className="input-field" placeholder="Code" value={newSubject.code} onChange={e => setNewSubject(p => ({ ...p, code: e.target.value }))} style={{ width: '100px' }} id="subject-code-input" />
-              <input className="input-field" placeholder="Subject Name" value={newSubject.name} onChange={e => setNewSubject(p => ({ ...p, name: e.target.value }))} style={{ flex: 1 }} id="subject-name-input" />
-              <input className="input-field" placeholder="Branches (CSV)" value={newSubject.branches} onChange={e => setNewSubject(p => ({ ...p, branches: e.target.value }))} style={{ width: '140px' }} id="subject-branches-input" />
-              <input className="input-field" placeholder="Year" value={newSubject.year} onChange={e => setNewSubject(p => ({ ...p, year: e.target.value }))} style={{ width: '60px' }} />
-              <input className="input-field" placeholder="Sem" value={newSubject.semester} onChange={e => setNewSubject(p => ({ ...p, semester: e.target.value }))} style={{ width: '60px' }} />
-              <button onClick={handleAddSubject} className="btn btn-primary btn-sm" id="add-subject-btn">
-                <Plus size={14} /> Add
-              </button>
-            </div>
-
-            {subjects.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '0.813rem' }}>
-                No subjects added yet. Add exam subjects above.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {subjects.map(s => (
-                  <div key={s.id} style={{
-                    display: 'flex', alignItems: 'center', gap: '10px',
-                    padding: '8px 12px', borderRadius: '8px',
-                    background: 'var(--surface-glass)',
-                    border: '1px solid var(--border-primary)',
-                  }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-blue)', minWidth: '80px' }}>
-                      {s.code}
-                    </span>
-                    <span style={{ flex: 1, fontSize: '0.813rem', fontWeight: 500 }}>{s.name}</span>
-                    <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>
-                      {s.branches?.join(', ')}
-                    </span>
-                    <button onClick={() => handleRemoveSubject(s.id)} style={{ color: 'var(--danger)', padding: '2px' }}>
-                      <X size={14} />
-                    </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Date */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Exam Date *</label>
+                    <input
+                      type="date"
+                      className="input-field"
+                      value={sessionDate}
+                      onChange={e => setSessionDate(e.target.value)}
+                      id="exam-date-input"
+                    />
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          {/* Right: Student Upload */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '14px' }}>Student Registrations</h3>
-            
-            {/* CSV Upload */}
-            <div style={{
-              border: '2px dashed var(--border-secondary)',
-              borderRadius: '12px',
-              padding: '24px',
-              textAlign: 'center',
-              marginBottom: '16px',
-              cursor: 'pointer',
-              transition: 'all 200ms ease',
-              background: csvFileName ? 'var(--accent-green-subtle)' : 'transparent',
-            }}
-              onClick={() => document.getElementById('csv-file-input')?.click()}
-            >
-              <input
-                id="csv-file-input"
-                type="file"
-                accept=".csv,.txt"
-                onChange={handleCSVUpload}
-                style={{ display: 'none' }}
-              />
-              {csvFileName ? (
-                <>
-                  <CheckCircle size={28} style={{ color: 'var(--accent-green)', margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-green)' }}>
-                    {csvFileName}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                    {studentData.length} students loaded
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Upload size={28} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    Upload Student CSV
-                  </div>
-                  <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Columns: HallTicketNo, Name, Branch, Year, Semester, Regulation
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* CSV Errors */}
-            {csvErrors.length > 0 && (
-              <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--danger-subtle)', marginBottom: '12px' }}>
-                {csvErrors.slice(0, 5).map((err, i) => (
-                  <div key={i} style={{ fontSize: '0.688rem', color: 'var(--danger)', display: 'flex', gap: '4px', padding: '2px 0' }}>
-                    <AlertTriangle size={12} /> {err}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Branch Breakdown */}
-            {branchBreakdown.length > 0 && (
-              <div>
-                <div style={{ fontSize: '0.813rem', fontWeight: 700, marginBottom: '8px' }}>Branch Breakdown</div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {branchBreakdown.map(([branch, count]) => (
-                    <div key={branch} style={{
-                      padding: '6px 12px', borderRadius: '8px',
-                      background: 'var(--accent-blue-subtle)',
-                      fontSize: '0.75rem', fontWeight: 600,
-                    }}>
-                      <span style={{ color: 'var(--accent-blue)' }}>{branch}</span>
-                      <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{count}</span>
+                  {/* Session */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Session *</label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {Object.values(EXAM_SESSIONS).map(s => (
+                        <button
+                          key={s.id}
+                          onClick={() => setSessionSlot(s.id)}
+                          style={{
+                            flex: 1, padding: '10px', borderRadius: '10px', textAlign: 'center',
+                            background: sessionSlot === s.id ? 'var(--accent-primary-subtle)' : 'var(--surface-glass)',
+                            border: `1.5px solid ${sessionSlot === s.id ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
+                            color: sessionSlot === s.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                            fontWeight: sessionSlot === s.id ? 700 : 400,
+                            transition: 'all 150ms ease',
+                          }}
+                        >
+                          <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>{s.id}</div>
+                          <div style={{ fontSize: '0.688rem' }}>{s.start} – {s.end}</div>
+                        </button>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Exam Title */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Exam Title *</label>
+                    <input
+                      className="input-field"
+                      placeholder="e.g. B.Tech III-II Sem Regular Examinations, July 2026"
+                      value={examTitle}
+                      onChange={e => setExamTitle(e.target.value)}
+                      id="exam-title-input"
+                    />
+                  </div>
+
+                  {/* Exam Type */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Type</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {EXAM_TYPES.map(t => (
+                        <button
+                          key={t.id}
+                          onClick={() => setExamType(t.id)}
+                          style={{
+                            padding: '6px 16px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 600,
+                            background: examType === t.id ? '#10B98120' : 'var(--surface-glass)',
+                            color: examType === t.id ? '#10B981' : 'var(--text-secondary)',
+                            border: `1.5px solid ${examType === t.id ? '#10B981' : 'var(--border-primary)'}`,
+                          }}
+                        >
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Regulations */}
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Regulations</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {REGULATION_OPTIONS.map(reg => (
+                        <button
+                          key={reg}
+                          onClick={() => handleToggleRegulation(reg)}
+                          style={{
+                            padding: '5px 14px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 600,
+                            background: selectedRegulations.includes(reg) ? '#3B82F615' : 'var(--surface-glass)',
+                            color: selectedRegulations.includes(reg) ? '#3B82F6' : 'var(--text-muted)',
+                            border: `1.5px solid ${selectedRegulations.includes(reg) ? '#3B82F6' : 'var(--border-primary)'}`,
+                          }}
+                        >
+                          {reg}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Target Exam Student Years */}
+                  <div style={{ marginTop: '12px' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                      Target Exam Student Years *
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {[
+                        { id: '4', label: '4th Year' },
+                        { id: '3', label: '3rd Year' },
+                        { id: '2', label: '2nd Year' },
+                        { id: '1', label: '1st Year' },
+                      ].map(yr => {
+                        const isSelected = targetExamYears.includes(yr.id);
+                        return (
+                          <button
+                            key={yr.id}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                if (targetExamYears.length > 1) {
+                                  setTargetExamYears(targetExamYears.filter(y => y !== yr.id));
+                                }
+                              } else {
+                                setTargetExamYears([...targetExamYears, yr.id]);
+                              }
+                            }}
+                            style={{
+                              padding: '6px 14px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+                              background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'var(--surface-glass)',
+                              color: isSelected ? '#8B5CF6' : 'var(--text-tertiary)',
+                              border: `1.5px solid ${isSelected ? '#8B5CF6' : 'var(--border-primary)'}`,
+                              cursor: 'pointer', transition: 'all 150ms ease',
+                            }}
+                          >
+                            {isSelected ? '✓ ' : ''}{yr.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                      Non-exam years' theory classrooms will be protected from exam seating disturbance.
+                    </p>
+                  </div>
                 </div>
+              </div>
+
+              {/* Right: Block Selection */}
+              <div className="solid-card" style={{ padding: '20px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px' }}>Select Blocks</h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '14px' }}>
+                  Choose which building blocks to use for this exam session.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {EXAM_BLOCKS.map(block => {
+                    const isSelected = selectedBlocks.includes(block.name);
+                    const themeColor = BLOCK_COLORS[block.name] || '#8B5CF6';
+                    const blockRooms = rooms.filter(r => r.block === block.name && r.isActive !== false);
+                    const capacity = blockRooms.reduce((s, r) => s + (r.capacity || 24), 0);
+                    return (
+                      <button
+                        key={block.id}
+                        type="button"
+                        onClick={() => handleToggleBlock(block.name)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '12px',
+                          padding: '14px 16px', borderRadius: '12px',
+                          background: isSelected
+                            ? `${themeColor}20`
+                            : 'var(--surface-glass)',
+                          border: isSelected
+                            ? `2px solid ${themeColor}`
+                            : '1px solid var(--border-primary)',
+                          boxShadow: isSelected ? `0 4px 14px ${themeColor}35` : 'none',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          transition: 'all 150ms ease',
+                        }}
+                      >
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '10px',
+                          background: isSelected ? themeColor : 'var(--bg-elevated)',
+                          color: isSelected ? '#ffffff' : 'var(--text-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          transition: 'all 150ms ease',
+                        }}>
+                          {isSelected
+                            ? <Check size={18} strokeWidth={3} />
+                            : <Building2 size={16} />
+                          }
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? themeColor : 'var(--text-primary)' }}>
+                            {block.name}
+                          </div>
+                          <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>
+                            {blockRooms.length} rooms • {capacity} seats
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Summary & Quick Add Room */}
                 <div style={{
-                  marginTop: '12px', padding: '10px', borderRadius: '8px',
-                  background: 'var(--surface-glass)', textAlign: 'center',
-                  fontSize: '0.875rem', fontWeight: 700,
-                }}>
-                  Total: {studentData.length} students
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════ */}
-      {/* STEP 3: Generate & Preview                 */}
-      {/* ═══════════════════════════════════════════ */}
-      {currentStep === 2 && (
-        <div className="animate-fade-in-up">
-          {/* Generation Controls */}
-          <div className="solid-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleGenerate}
-              disabled={isGenerating || studentData.length === 0}
-              className="btn btn-primary"
-              id="generate-seating-btn"
-              style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-            >
-              {isGenerating ? (
-                <><Loader2 size={16} className="animate-spin" /> Generating...</>
-              ) : result ? (
-                <><RotateCw size={16} /> Regenerate Seating Plan</>
-              ) : (
-                <><Sparkles size={16} /> Generate Seating Plan</>
-              )}
-            </button>
-
-            {result && (
-              <button
-                onClick={handleGenerate}
-                disabled={isGenerating}
-                className="btn btn-ghost"
-                id="regenerate-seating-btn"
-                style={{ color: 'var(--accent-blue)', border: '1px solid var(--border-primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                title="Shuffle and re-allocate seating with fresh dynamic branch pairings"
-              >
-                <RotateCw size={14} /> Re-Shuffle Pairings
-              </button>
-            )}
-
-            <button
-              onClick={() => setShowFacultyPanel(!showFacultyPanel)}
-              className="btn btn-ghost"
-              id="toggle-faculty-panel-btn"
-            >
-              <Users size={16} />
-              Faculty Availability ({availableFaculty.length}/{facultyList.length})
-              {showFacultyPanel ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-
-            <div style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              {studentData.length} students • {filteredRooms.length} rooms • {availableFaculty.length} faculty
-            </div>
-          </div>
-
-          {/* Faculty Availability Panel */}
-          {showFacultyPanel && (
-            <div className="solid-card animate-fade-in-up" style={{ padding: '16px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <h4 style={{ fontSize: '0.875rem', fontWeight: 700 }}>
-                  Faculty Availability
-                  <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, marginLeft: '8px', fontSize: '0.75rem' }}>
-                    Mark faculty unavailable for this session (on leave, external duty, viva, etc.)
-                  </span>
-                </h4>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
-                  borderRadius: '8px', padding: '5px 10px',
-                }}>
-                  <Search size={13} style={{ color: 'var(--text-muted)' }} />
-                  <input
-                    type="text"
-                    placeholder="Filter faculty..."
-                    value={facultySearch}
-                    onChange={e => setFacultySearch(e.target.value)}
-                    style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.75rem', color: 'var(--text-primary)', width: '140px' }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
-                {filteredFacultyForPanel.map(f => {
-                  const isUnavailable = unavailableFaculty.has(f.id);
-                  return (
-                    <button
-                      key={f.id}
-                      onClick={() => handleToggleFacultyAvailability(f.id)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '6px 10px', borderRadius: '8px',
-                        background: isUnavailable ? 'var(--danger-subtle)' : 'var(--surface-glass)',
-                        border: `1px solid ${isUnavailable ? 'var(--danger)' : 'var(--border-primary)'}`,
-                        fontSize: '0.75rem', textAlign: 'left',
-                        opacity: isUnavailable ? 0.7 : 1,
-                        transition: 'all 150ms ease',
-                      }}
-                    >
-                      <User size={12} style={{ color: isUnavailable ? 'var(--danger)' : 'var(--accent-blue)', flexShrink: 0 }} />
-                      <span style={{
-                        fontWeight: isUnavailable ? 400 : 600,
-                        textDecoration: isUnavailable ? 'line-through' : 'none',
-                        color: isUnavailable ? 'var(--danger)' : 'var(--text-primary)',
-                        overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-                      }}>
-                        {f.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {unavailableFaculty.size > 0 && (
-                <div style={{ marginTop: '8px', fontSize: '0.688rem', color: 'var(--danger)', fontWeight: 600 }}>
-                  {unavailableFaculty.size} faculty marked unavailable
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Results */}
-          {result && (
-            <>
-              {/* Summary Stats */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                {[
-                  { label: 'Students Seated', value: result.summary.totalSeated, color: '#3B82F6' },
-                  { label: 'Rooms Used', value: result.summary.totalRoomsUsed, color: '#10B981' },
-                  { label: 'Invigilators', value: result.summary.totalInvigilators, color: '#8B5CF6' },
-                  { label: 'Single-Branch Rooms', value: result.summary.singleBranchRooms, color: '#06B6D4' },
-                  { label: 'Multi-Branch Rooms', value: result.summary.multiBranchRooms, color: '#E8522E' },
-                ].map((stat, i) => (
-                  <div key={i} className="solid-card" style={{ padding: '14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Errors & Warnings */}
-              {result.errors.length > 0 && (
-                <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--danger-subtle)', marginBottom: '12px' }}>
-                  {result.errors.map((err, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '0.75rem', color: 'var(--danger)', padding: '2px 0' }}>
-                      <AlertTriangle size={13} /> {err}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {result.validation?.warnings?.length > 0 && (
-                <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--warning-subtle)', marginBottom: '12px' }}>
-                  {result.validation.warnings.map((w, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '0.75rem', color: 'var(--warning)', padding: '2px 0' }}>
-                      <AlertTriangle size={13} /> {w}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Room Grid Previews */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {result.roomPlans.map((plan, idx) => (
-                  <SeatingSheetPreview
-                    key={idx}
-                    roomPlan={plan}
-                    onDownloadPDF={() => handleExportSingleRoom(plan)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ═══════════════════════════════════════════ */}
-      {/* STEP 4: Publish & Export                   */}
-      {/* ═══════════════════════════════════════════ */}
-      {currentStep === 3 && result && (
-        <div className="animate-fade-in-up">
-          <div className="solid-card" style={{ padding: '32px', textAlign: 'center', marginBottom: '20px' }}>
-            {published ? (
-              <>
-                <div style={{
-                  width: '64px', height: '64px', borderRadius: '50%',
+                  marginTop: '16px', padding: '12px', borderRadius: '10px',
                   background: 'var(--accent-green-subtle)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px',
+                  fontSize: '0.813rem', fontWeight: 600, color: 'var(--accent-green)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 }}>
-                  <CheckCircle size={32} style={{ color: 'var(--accent-green)' }} />
+                  <span>{filteredRooms.length} rooms selected • {filteredRooms.reduce((s, r) => s + (r.capacity || 24), 0)} total seats</span>
+                  <button
+                    onClick={() => setShowAddRoomModal(true)}
+                    className="btn btn-sm btn-ghost"
+                    style={{ color: 'var(--accent-green)', border: '1px solid var(--accent-green)' }}
+                    id="quick-add-room-btn"
+                  >
+                    <Plus size={14} /> Add Room
+                  </button>
                 </div>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Seating Plan Published!</h2>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem', marginTop: '4px' }}>
-                  {result.roomPlans.length} room plans saved to database.
-                </p>
-              </>
-            ) : (
-              <>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Ready to Publish</h2>
-                <p style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem', marginBottom: '20px' }}>
-                  {result.summary.totalSeated} students across {result.summary.totalRoomsUsed} rooms with {result.summary.totalInvigilators} invigilators.
-                </p>
-                <button
-                  onClick={handlePublish}
-                  disabled={isPublishing}
-                  className="btn btn-green btn-lg"
-                  id="publish-seating-btn"
-                >
-                  {isPublishing ? <><Loader2 size={18} className="animate-spin" /> Publishing...</> : <><CheckCircle size={18} /> Publish to Database</>}
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Export Options */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-            <button
-              onClick={handleExportBatchPDF}
-              className="solid-card"
-              style={{
-                padding: '24px', textAlign: 'center', cursor: 'pointer',
-                transition: 'all 200ms ease',
-              }}
-              id="export-batch-pdf-btn"
-            >
-              <FileSpreadsheet size={28} style={{ color: '#E8522E', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Batch PDF</div>
-              <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                All {result.roomPlans.length} rooms in one PDF
-              </div>
-            </button>
-
-            <button
-              onClick={handleExportDutySheet}
-              className="solid-card"
-              style={{
-                padding: '24px', textAlign: 'center', cursor: 'pointer',
-                transition: 'all 200ms ease',
-              }}
-              id="export-duty-sheet-btn"
-            >
-              <Users size={28} style={{ color: '#8B5CF6', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Duty Roster PDF</div>
-              <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                Invigilator assignment sheet
-              </div>
-            </button>
-
-            <button
-              onClick={handleExportBatchPDF}
-              className="solid-card"
-              style={{
-                padding: '24px', textAlign: 'center', cursor: 'pointer',
-                transition: 'all 200ms ease',
-              }}
-            >
-              <Printer size={28} style={{ color: '#3B82F6', margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Print All</div>
-              <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                Generate & open print dialog
-              </div>
-            </button>
-          </div>
-
-          {/* Invigilator Summary Table */}
-          {result.invigilatorSummary && result.invigilatorSummary.length > 0 && (
-            <div className="solid-card" style={{ padding: '20px', marginTop: '20px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Users size={18} style={{ color: '#8B5CF6' }} /> Invigilation Assignment Summary
-              </h3>
-              <div className="timetable-container">
-                <table className="timetable-grid">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Faculty Name</th>
-                      <th>Department</th>
-                      <th>Designation</th>
-                      <th>Room</th>
-                      <th>Block</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.invigilatorSummary.map((inv, i) => (
-                      <tr key={i}>
-                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{i + 1}</td>
-                        <td style={{ fontWeight: 600, textAlign: 'left' }}>{inv.name}</td>
-                        <td>{inv.department}</td>
-                        <td style={{ fontSize: '0.75rem' }}>{inv.designation}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--accent-blue)' }}>{inv.assignedRoom}</td>
-                        <td>
-                          <span style={{
-                            padding: '2px 8px', borderRadius: '6px', fontSize: '0.688rem', fontWeight: 600,
-                            background: `${BLOCK_COLORS[inv.assignedBlock] || '#666'}15`,
-                            color: BLOCK_COLORS[inv.assignedBlock] || '#666',
-                          }}>
-                            {inv.assignedBlock}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* ── Navigation Footer ── */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginTop: '24px', padding: '16px 0',
-      }}>
-        <button
-          onClick={() => setCurrentStep(s => Math.max(0, s - 1))}
-          disabled={currentStep === 0}
-          className="btn btn-ghost"
-          id="step-prev-btn"
-        >
-          <ChevronLeft size={16} /> Previous
-        </button>
+          {/* ── Quick Add Room Modal Overlay ── */}
+          {showAddRoomModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            }}>
+              <div className="solid-card animate-fade-in-up" style={{ padding: '24px', width: '420px', maxWidth: '90vw' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Building2 size={18} style={{ color: '#E8522E' }} /> Quick Add Exam Room
+                  </h3>
+                  <button onClick={() => setShowAddRoomModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}>
+                    <X size={16} />
+                  </button>
+                </div>
 
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-          Step {currentStep + 1} of {STEP_LABELS.length}
-        </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Room Number / Code *</label>
+                    <input
+                      className="input-field"
+                      placeholder="e.g. 108 or Ground-108"
+                      value={newRoomData.roomNumber}
+                      onChange={e => setNewRoomData(p => ({ ...p, roomNumber: e.target.value }))}
+                      id="modal-room-number-input"
+                    />
+                  </div>
 
-        {currentStep < STEP_LABELS.length - 1 && (
-          <button
-            onClick={() => setCurrentStep(s => Math.min(STEP_LABELS.length - 1, s + 1))}
-            disabled={!canNext()}
-            className="btn btn-primary"
-            id="step-next-btn"
-          >
-            Next <ChevronRight size={16} />
-          </button>
-        )}
-      </div>
-      </>
+                  <div>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Block</label>
+                    <select
+                      className="input-field"
+                      value={newRoomData.block}
+                      onChange={e => setNewRoomData(p => ({ ...p, block: e.target.value }))}
+                    >
+                      {EXAM_BLOCKS.map(b => (
+                        <option key={b.id} value={b.name}>{b.name} Block</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Floor</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        value={newRoomData.floor}
+                        onChange={e => setNewRoomData(p => ({ ...p, floor: Number(e.target.value) }))}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Capacity</label>
+                      <input
+                        type="number"
+                        className="input-field"
+                        value={newRoomData.capacity}
+                        onChange={e => setNewRoomData(p => ({ ...p, capacity: Number(e.target.value) }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+                    <button onClick={() => setShowAddRoomModal(false)} className="btn btn-ghost">Cancel</button>
+                    <button onClick={handleQuickAddRoom} disabled={isAddingRoom || !newRoomData.roomNumber.trim()} className="btn btn-primary" id="save-quick-room-btn">
+                      {isAddingRoom ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Room</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════ */}
+          {/* STEP 2: Subjects & Students                */}
+          {/* ═══════════════════════════════════════════ */}
+          {currentStep === 1 && (
+            <div className="animate-fade-in-up" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              {/* Left: Subjects */}
+              <div className="solid-card" style={{ padding: '20px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '14px' }}>Exam Subjects</h3>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <input className="input-field" placeholder="Code" value={newSubject.code} onChange={e => setNewSubject(p => ({ ...p, code: e.target.value }))} style={{ width: '100px' }} id="subject-code-input" />
+                  <input className="input-field" placeholder="Subject Name" value={newSubject.name} onChange={e => setNewSubject(p => ({ ...p, name: e.target.value }))} style={{ flex: 1 }} id="subject-name-input" />
+                  <input className="input-field" placeholder="Branches (CSV)" value={newSubject.branches} onChange={e => setNewSubject(p => ({ ...p, branches: e.target.value }))} style={{ width: '140px' }} id="subject-branches-input" />
+                  <input className="input-field" placeholder="Year" value={newSubject.year} onChange={e => setNewSubject(p => ({ ...p, year: e.target.value }))} style={{ width: '60px' }} />
+                  <input className="input-field" placeholder="Sem" value={newSubject.semester} onChange={e => setNewSubject(p => ({ ...p, semester: e.target.value }))} style={{ width: '60px' }} />
+                  <button onClick={handleAddSubject} className="btn btn-primary btn-sm" id="add-subject-btn">
+                    <Plus size={14} /> Add
+                  </button>
+                </div>
+
+                {subjects.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontSize: '0.813rem' }}>
+                    No subjects added yet. Add exam subjects above.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {subjects.map(s => (
+                      <div key={s.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '8px 12px', borderRadius: '8px',
+                        background: 'var(--surface-glass)',
+                        border: '1px solid var(--border-primary)',
+                      }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-blue)', minWidth: '80px' }}>
+                          {s.code}
+                        </span>
+                        <span style={{ flex: 1, fontSize: '0.813rem', fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>
+                          {s.branches?.join(', ')}
+                        </span>
+                        <button onClick={() => handleRemoveSubject(s.id)} style={{ color: 'var(--danger)', padding: '2px' }}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Student Upload */}
+              <div className="solid-card" style={{ padding: '20px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '14px' }}>Student Registrations</h3>
+
+                {/* CSV Upload */}
+                <div style={{
+                  border: '2px dashed var(--border-secondary)',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  marginBottom: '16px',
+                  cursor: 'pointer',
+                  transition: 'all 200ms ease',
+                  background: csvFileName ? 'var(--accent-green-subtle)' : 'transparent',
+                }}
+                  onClick={() => document.getElementById('csv-file-input')?.click()}
+                >
+                  <input
+                    id="csv-file-input"
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleCSVUpload}
+                    style={{ display: 'none' }}
+                  />
+                  {csvFileName ? (
+                    <>
+                      <CheckCircle size={28} style={{ color: 'var(--accent-green)', margin: '0 auto 8px' }} />
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--accent-green)' }}>
+                        {csvFileName}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                        {studentData.length} students loaded
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={28} style={{ color: 'var(--text-muted)', margin: '0 auto 8px' }} />
+                      <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                        Upload Student CSV
+                      </div>
+                      <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Columns: HallTicketNo, Name, Branch, Year, Semester, Regulation
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* CSV Errors */}
+                {csvErrors.length > 0 && (
+                  <div style={{ padding: '10px', borderRadius: '8px', background: 'var(--danger-subtle)', marginBottom: '12px' }}>
+                    {csvErrors.slice(0, 5).map((err, i) => (
+                      <div key={i} style={{ fontSize: '0.688rem', color: 'var(--danger)', display: 'flex', gap: '4px', padding: '2px 0' }}>
+                        <AlertTriangle size={12} /> {err}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Branch Breakdown */}
+                {branchBreakdown.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '0.813rem', fontWeight: 700, marginBottom: '8px' }}>Branch Breakdown</div>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {branchBreakdown.map(([branch, count]) => (
+                        <div key={branch} style={{
+                          padding: '6px 12px', borderRadius: '8px',
+                          background: 'var(--accent-blue-subtle)',
+                          fontSize: '0.75rem', fontWeight: 600,
+                        }}>
+                          <span style={{ color: 'var(--accent-blue)' }}>{branch}</span>
+                          <span style={{ color: 'var(--text-secondary)', marginLeft: '6px' }}>{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{
+                      marginTop: '12px', padding: '10px', borderRadius: '8px',
+                      background: 'var(--surface-glass)', textAlign: 'center',
+                      fontSize: '0.875rem', fontWeight: 700,
+                    }}>
+                      Total: {studentData.length} students
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════ */}
+          {/* STEP 3: Generate & Preview                 */}
+          {/* ═══════════════════════════════════════════ */}
+          {currentStep === 2 && (
+            <div className="animate-fade-in-up">
+              {/* Generation Controls */}
+              <div className="solid-card" style={{ padding: '16px 20px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || studentData.length === 0}
+                  className="btn btn-primary"
+                  id="generate-seating-btn"
+                  style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  {isGenerating ? (
+                    <><Loader2 size={16} className="animate-spin" /> Generating...</>
+                  ) : result ? (
+                    <><RotateCw size={16} /> Regenerate Seating Plan</>
+                  ) : (
+                    <><Sparkles size={16} /> Generate Seating Plan</>
+                  )}
+                </button>
+
+                {result && (
+                  <button
+                    onClick={handleGenerate}
+                    disabled={isGenerating}
+                    className="btn btn-ghost"
+                    id="regenerate-seating-btn"
+                    style={{ color: 'var(--accent-blue)', border: '1px solid var(--border-primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    title="Shuffle and re-allocate seating with fresh dynamic branch pairings"
+                  >
+                    <RotateCw size={14} /> Re-Shuffle Pairings
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setShowFacultyPanel(!showFacultyPanel)}
+                  className="btn btn-ghost"
+                  id="toggle-faculty-panel-btn"
+                >
+                  <Users size={16} />
+                  Faculty Availability ({availableFaculty.length}/{facultyList.length})
+                  {showFacultyPanel ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+
+                <div style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {studentData.length} students • {filteredRooms.length} rooms • {availableFaculty.length} faculty
+                </div>
+              </div>
+
+              {/* Faculty Availability Panel */}
+              {showFacultyPanel && (
+                <div className="solid-card animate-fade-in-up" style={{ padding: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <h4 style={{ fontSize: '0.875rem', fontWeight: 700 }}>
+                      Faculty Availability
+                      <span style={{ color: 'var(--text-tertiary)', fontWeight: 400, marginLeft: '8px', fontSize: '0.75rem' }}>
+                        Mark faculty unavailable for this session (on leave, external duty, viva, etc.)
+                      </span>
+                    </h4>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
+                      borderRadius: '8px', padding: '5px 10px',
+                    }}>
+                      <Search size={13} style={{ color: 'var(--text-muted)' }} />
+                      <input
+                        type="text"
+                        placeholder="Filter faculty..."
+                        value={facultySearch}
+                        onChange={e => setFacultySearch(e.target.value)}
+                        style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.75rem', color: 'var(--text-primary)', width: '140px' }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '6px', maxHeight: '240px', overflowY: 'auto' }}>
+                    {filteredFacultyForPanel.map(f => {
+                      const isUnavailable = unavailableFaculty.has(f.id);
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => handleToggleFacultyAvailability(f.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '8px',
+                            padding: '6px 10px', borderRadius: '8px',
+                            background: isUnavailable ? 'var(--danger-subtle)' : 'var(--surface-glass)',
+                            border: `1px solid ${isUnavailable ? 'var(--danger)' : 'var(--border-primary)'}`,
+                            fontSize: '0.75rem', textAlign: 'left',
+                            opacity: isUnavailable ? 0.7 : 1,
+                            transition: 'all 150ms ease',
+                          }}
+                        >
+                          <User size={12} style={{ color: isUnavailable ? 'var(--danger)' : 'var(--accent-blue)', flexShrink: 0 }} />
+                          <span style={{
+                            fontWeight: isUnavailable ? 400 : 600,
+                            textDecoration: isUnavailable ? 'line-through' : 'none',
+                            color: isUnavailable ? 'var(--danger)' : 'var(--text-primary)',
+                            overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+                          }}>
+                            {f.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {unavailableFaculty.size > 0 && (
+                    <div style={{ marginTop: '8px', fontSize: '0.688rem', color: 'var(--danger)', fontWeight: 600 }}>
+                      {unavailableFaculty.size} faculty marked unavailable
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Results */}
+              {result && (
+                <>
+                  {/* Summary Stats */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                    {[
+                      { label: 'Students Seated', value: result.summary.totalSeated, color: '#3B82F6' },
+                      { label: 'Rooms Used', value: result.summary.totalRoomsUsed, color: '#10B981' },
+                      { label: 'Invigilators', value: result.summary.totalInvigilators, color: '#8B5CF6' },
+                      { label: 'Single-Branch Rooms', value: result.summary.singleBranchRooms, color: '#06B6D4' },
+                      { label: 'Multi-Branch Rooms', value: result.summary.multiBranchRooms, color: '#E8522E' },
+                    ].map((stat, i) => (
+                      <div key={i} className="solid-card" style={{ padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.625rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{stat.label}</div>
+                        <div style={{ fontSize: '1.5rem', fontWeight: 800, color: stat.color }}>{stat.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Errors & Warnings */}
+                  {result.errors.length > 0 && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--danger-subtle)', marginBottom: '12px' }}>
+                      {result.errors.map((err, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '0.75rem', color: 'var(--danger)', padding: '2px 0' }}>
+                          <AlertTriangle size={13} /> {err}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {result.validation?.warnings?.length > 0 && (
+                    <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'var(--warning-subtle)', marginBottom: '12px' }}>
+                      {result.validation.warnings.map((w, i) => (
+                        <div key={i} style={{ display: 'flex', gap: '6px', fontSize: '0.75rem', color: 'var(--warning)', padding: '2px 0' }}>
+                          <AlertTriangle size={13} /> {w}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Room Grid Previews */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {result.roomPlans.map((plan, idx) => (
+                      <SeatingSheetPreview
+                        key={idx}
+                        roomPlan={plan}
+                        onDownloadPDF={() => handleExportSingleRoom(plan)}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════ */}
+          {/* STEP 4: Publish & Export                   */}
+          {/* ═══════════════════════════════════════════ */}
+          {currentStep === 3 && result && (
+            <div className="animate-fade-in-up">
+              <div className="solid-card" style={{ padding: '32px', textAlign: 'center', marginBottom: '20px' }}>
+                {published ? (
+                  <>
+                    <div style={{
+                      width: '64px', height: '64px', borderRadius: '50%',
+                      background: 'var(--accent-green-subtle)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      margin: '0 auto 16px',
+                    }}>
+                      <CheckCircle size={32} style={{ color: 'var(--accent-green)' }} />
+                    </div>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Seating Plan Published!</h2>
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem', marginTop: '4px' }}>
+                      {result.roomPlans.length} room plans saved to database.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '8px' }}>Ready to Publish</h2>
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: '0.875rem', marginBottom: '20px' }}>
+                      {result.summary.totalSeated} students across {result.summary.totalRoomsUsed} rooms with {result.summary.totalInvigilators} invigilators.
+                    </p>
+                    <button
+                      onClick={handlePublish}
+                      disabled={isPublishing}
+                      className="btn btn-green btn-lg"
+                      id="publish-seating-btn"
+                    >
+                      {isPublishing ? <><Loader2 size={18} className="animate-spin" /> Publishing...</> : <><CheckCircle size={18} /> Publish to Database</>}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Export Options */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <button
+                  onClick={handleExportBatchPDF}
+                  className="solid-card"
+                  style={{
+                    padding: '24px', textAlign: 'center', cursor: 'pointer',
+                    transition: 'all 200ms ease',
+                  }}
+                  id="export-batch-pdf-btn"
+                >
+                  <FileSpreadsheet size={28} style={{ color: '#E8522E', margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Batch PDF</div>
+                  <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                    All {result.roomPlans.length} rooms in one PDF
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleExportDutySheet}
+                  className="solid-card"
+                  style={{
+                    padding: '24px', textAlign: 'center', cursor: 'pointer',
+                    transition: 'all 200ms ease',
+                  }}
+                  id="export-duty-sheet-btn"
+                >
+                  <Users size={28} style={{ color: '#8B5CF6', margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Duty Roster PDF</div>
+                  <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                    Invigilator assignment sheet
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleExportBatchPDF}
+                  className="solid-card"
+                  style={{
+                    padding: '24px', textAlign: 'center', cursor: 'pointer',
+                    transition: 'all 200ms ease',
+                  }}
+                >
+                  <Printer size={28} style={{ color: '#3B82F6', margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '0.875rem', fontWeight: 700 }}>Print All</div>
+                  <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                    Generate & open print dialog
+                  </div>
+                </button>
+              </div>
+
+              {/* Invigilator Summary Table */}
+              {result.invigilatorSummary && result.invigilatorSummary.length > 0 && (
+                <div className="solid-card" style={{ padding: '20px', marginTop: '20px' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Users size={18} style={{ color: '#8B5CF6' }} /> Invigilation Assignment Summary
+                  </h3>
+                  <div className="timetable-container">
+                    <table className="timetable-grid">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Faculty Name</th>
+                          <th>Department</th>
+                          <th>Designation</th>
+                          <th>Room</th>
+                          <th>Block</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.invigilatorSummary.map((inv, i) => (
+                          <tr key={i}>
+                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>{i + 1}</td>
+                            <td style={{ fontWeight: 600, textAlign: 'left' }}>{inv.name}</td>
+                            <td>{inv.department}</td>
+                            <td style={{ fontSize: '0.75rem' }}>{inv.designation}</td>
+                            <td style={{ fontWeight: 700, color: 'var(--accent-blue)' }}>{inv.assignedRoom}</td>
+                            <td>
+                              <span style={{
+                                padding: '2px 8px', borderRadius: '6px', fontSize: '0.688rem', fontWeight: 600,
+                                background: `${BLOCK_COLORS[inv.assignedBlock] || '#666'}15`,
+                                color: BLOCK_COLORS[inv.assignedBlock] || '#666',
+                              }}>
+                                {inv.assignedBlock}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Navigation Footer ── */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginTop: '24px', padding: '16px 0',
+          }}>
+            <button
+              onClick={() => setCurrentStep(s => Math.max(0, s - 1))}
+              disabled={currentStep === 0}
+              className="btn btn-ghost"
+              id="step-prev-btn"
+            >
+              <ChevronLeft size={16} /> Previous
+            </button>
+
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Step {currentStep + 1} of {STEP_LABELS.length}
+            </div>
+
+            {currentStep < STEP_LABELS.length - 1 && (
+              <button
+                onClick={() => setCurrentStep(s => Math.min(STEP_LABELS.length - 1, s + 1))}
+                disabled={!canNext()}
+                className="btn btn-primary"
+                id="step-next-btn"
+              >
+                Next <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       {/* Modal Overlay for Published Room Grid Preview */}
