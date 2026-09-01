@@ -58,6 +58,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── Students Collection (Provisioned by Super Admin / Admin) ──
+    match /students/{studentId} {
+      allow read: if true;
+      allow write: if isAdmin() || isExamController();
+    }
+
     // ── Curriculum Registry ──
     match /curriculum_registry/{subjectCode} {
       allow read: if true;
