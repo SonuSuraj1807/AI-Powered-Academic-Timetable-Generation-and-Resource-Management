@@ -321,11 +321,11 @@ export default function FacultyManagement() {
     return matchesSearch && matchesDept;
   });
 
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(filteredFaculty.map(f => f.id));
-    } else {
+  const handleSelectAll = () => {
+    if (filteredFaculty.length > 0 && selectedIds.length === filteredFaculty.length) {
       setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredFaculty.map(f => f.id));
     }
   };
 
