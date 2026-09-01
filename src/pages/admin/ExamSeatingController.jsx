@@ -37,7 +37,7 @@ import {
 import SeatingSheetPreview from '../../components/exam/SeatingSheetPreview';
 import { db } from '../../lib/firebase';
 import {
-  collection, getDocs, addDoc, doc, writeBatch
+  collection, getDocs, addDoc, doc, writeBatch, onSnapshot, deleteDoc
 } from 'firebase/firestore';
 import useAuthStore from '../../stores/authStore';
 import useNotificationStore from '../../stores/notificationStore';
