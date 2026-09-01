@@ -456,19 +456,6 @@ function validatePlan(roomPlans) {
 // MAIN ENTRY POINT
 // ═══════════════════════════════════════════════════════════
 
-/**
- * Generate a complete examination seating plan.
- *
- * @param {Object} config
- * @param {Array}  config.students – [{ hallTicketNo, branch, yearSem, name, regulation }]
- * @param {Array}  config.rooms – [{ roomId, roomNumber, block, floor, rows, cols, capacity }]
- *                                  sorted by block + floor + roomNumber for sequential assignment
- * @param {Array}  config.availableFaculty – [{ id, name, department, designation }]
- * @param {Object} config.sessionInfo – { date, session (FN/AN), examTitle, examType }
- * @param {Array}  [config.unavailableFacultyIds] – Faculty IDs to exclude from invigilation
- * @param {Object} [config.existingWorkload] – { facultyId: numPriorDuties } for balancing
- * @returns {Object} Complete seating plan result
- */
 export function generateSeatingPlan({
   students = [],
   rooms = [],
@@ -491,14 +478,22 @@ export function generateSeatingPlan({
   const excludeSet = new Set(unavailableFacultyIds);
   const eligibleFaculty = availableFaculty.filter(f => !excludeSet.has(f.id));
 
-  // ── Sort rooms by block, floor, room number for predictable sequential allocation ──
-  const sortedRooms = [...rooms]
+  // ── Sort rooms by block, floor, room number and DEDUPLICATE by unique physical key ──
+  const uniqueRoomsMap = new Map();
+  [...rooms]
     .filter(r => r.isActive !== false)
     .sort((a, b) => {
       if (a.block !== b.block) return a.block.localeCompare(b.block);
       if (a.floor !== b.floor) return (a.floor || 0) - (b.floor || 0);
-      return String(a.roomNumber).localeCompare(String(b.roomNumber));
+      return String(a.roomNumber).localeCompare(String(b.roomNumber), undefined, { numeric: true, sensitivity: 'base' });
+    })
+    .forEach(r => {
+      const key = `${r.block || ''}_${r.floor ?? 0}_${r.roomNumber || ''}`.toLowerCase();
+      if (!uniqueRoomsMap.has(key)) {
+        uniqueRoomsMap.set(key, r);
+      }
     });
+  const sortedRooms = Array.from(uniqueRoomsMap.values());
 
   // ── Step 1: Group students by branch ──
   const branchGroups = groupByBranch(students);
@@ -528,6 +523,16 @@ export function generateSeatingPlan({
   // ── Step 4: Validate ──
   const validation = validatePlan(roomPlans);
   allErrors.push(...validation.errors);
+
+  // ── Step 5: Integrity Assertion (Prevent Duplicate Room Assignments) ──
+  const allocatedKeys = new Set();
+  for (const sheet of roomPlans) {
+    const roomKey = `${sheet.room.block}_${sheet.room.floor ?? 0}_${sheet.room.roomNumber}`.toLowerCase();
+    if (allocatedKeys.has(roomKey)) {
+      throw new Error(`Critical Conflict: Duplicate room assignment detected for Room: ${sheet.room.roomNumber} (${sheet.room.block})`);
+    }
+    allocatedKeys.add(roomKey);
+  }
 
   // ── Build summary ──
   const summary = {
