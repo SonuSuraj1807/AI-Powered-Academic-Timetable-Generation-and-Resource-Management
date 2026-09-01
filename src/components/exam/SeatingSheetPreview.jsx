@@ -51,6 +51,12 @@ export default function SeatingSheetPreview({ roomPlan, onDownloadPDF, compact =
 
   const branches = Array.isArray(roomPlan.branches) && roomPlan.branches.length > 0 ? roomPlan.branches : ['CSE-DS'];
   const assignedInvigilators = Array.isArray(roomPlan.assignedInvigilators) ? roomPlan.assignedInvigilators : [];
+  const studentCount = roomPlan.studentCount || 0;
+  const branchCount = roomPlan.branchCount || branches.length;
+
+  const rows = room.rows || (grid.length > 0 ? grid.length : 6);
+  const cols = room.cols || (grid[0] && grid[0].length ? grid[0].length : 4);
+
   const isDualSeatRoom = grid.some(r => r && r.some(c => c && (c.seat1 || c.seat2)));
   const baseBenches = room.capacity || (rows * cols) || 24;
   const effectiveCapacity = isDualSeatRoom ? baseBenches * 2 : baseBenches;
