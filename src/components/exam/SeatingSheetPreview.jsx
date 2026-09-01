@@ -51,11 +51,10 @@ export default function SeatingSheetPreview({ roomPlan, onDownloadPDF, compact =
 
   const branches = Array.isArray(roomPlan.branches) && roomPlan.branches.length > 0 ? roomPlan.branches : ['CSE-DS'];
   const assignedInvigilators = Array.isArray(roomPlan.assignedInvigilators) ? roomPlan.assignedInvigilators : [];
-  const studentCount = roomPlan.studentCount || 0;
-  const branchCount = roomPlan.branchCount || branches.length;
-
-  const rows = room.rows || (grid.length > 0 ? grid.length : 6);
-  const cols = room.cols || (grid[0] && grid[0].length ? grid[0].length : 4);
+  const isDualSeatRoom = grid.some(r => r && r.some(c => c && (c.seat1 || c.seat2)));
+  const baseBenches = room.capacity || (rows * cols) || 24;
+  const effectiveCapacity = isDualSeatRoom ? baseBenches * 2 : baseBenches;
+  const utilization = Math.min(100, Math.round((studentCount / effectiveCapacity) * 100));
 
   return (
     <div style={{
@@ -298,12 +297,12 @@ export default function SeatingSheetPreview({ roomPlan, onDownloadPDF, compact =
         {/* Stats */}
         <div style={{ display: 'flex', gap: '16px', fontSize: '0.688rem', color: 'var(--text-secondary)' }}>
           <span>Seated: <strong style={{ color: 'var(--text-primary)' }}>{studentCount}</strong></span>
-          <span>Capacity: <strong style={{ color: 'var(--text-primary)' }}>{room.capacity || 24}</strong></span>
+          <span>Capacity: <strong style={{ color: 'var(--text-primary)' }}>{effectiveCapacity} Seats ({baseBenches} Benches)</strong></span>
           <span>
             Utilization: <strong style={{
-              color: (studentCount / (room.capacity || 24)) > 0.8 ? '#10B981' : '#F59E0B',
+              color: utilization >= 80 ? '#10B981' : '#F59E0B',
             }}>
-              {Math.round((studentCount / (room.capacity || 24)) * 100)}%
+              {utilization}%
             </strong>
           </span>
         </div>
