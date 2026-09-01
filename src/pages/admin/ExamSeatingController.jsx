@@ -50,8 +50,15 @@ const STEP_LABELS = [
 ];
 
 const BLOCK_COLORS = {
-  Aakash: '#3B82F6', Pratham: '#10B981', Srujan: '#8B5CF6',
-  Nirmithi: '#E8522E', Avishkar: '#F59E0B',
+  Avishkar: '#F59E0B',
+  Nirmithi: '#E8522E',
+  Srujan: '#8B5CF6',
+  Pragna: '#EC4899',
+  Prathibha: '#6366F1',
+  Pratham: '#10B981',
+  Aakash: '#3B82F6',
+  Prashasan: '#14B8A6',
+  Nalandha: '#F97316',
 };
 
 export default function ExamSeatingController() {
@@ -223,27 +230,27 @@ export default function ExamSeatingController() {
 
   // ── Load rooms, faculty, schedules, and published plans from Firestore ──
   useEffect(() => {
-    seedDefaultExamRooms(db, getDocs, collection, doc, writeBatch).then(() => {
-      const unsubRooms = onSnapshot(collection(db, 'exam_rooms'), snap => {
-        setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-      const unsubFac = onSnapshot(collection(db, 'faculty'), snap => {
-        setFacultyList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-      const unsubPlans = onSnapshot(collection(db, 'seating_plans'), snap => {
-        setPublishedPlansList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-      const unsubSched = onSnapshot(collection(db, 'schedules'), snap => {
-        setSchedulesList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
-
-      return () => {
-        unsubRooms();
-        unsubFac();
-        unsubPlans();
-        unsubSched();
-      };
+    const unsubRooms = onSnapshot(collection(db, 'exam_rooms'), snap => {
+      setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
+    const unsubFac = onSnapshot(collection(db, 'faculty'), snap => {
+      setFacultyList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsubPlans = onSnapshot(collection(db, 'seating_plans'), snap => {
+      setPublishedPlansList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    const unsubSched = onSnapshot(collection(db, 'schedules'), snap => {
+      setSchedulesList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    seedDefaultExamRooms(db, getDocs, collection, doc, writeBatch);
+
+    return () => {
+      unsubRooms();
+      unsubFac();
+      unsubPlans();
+      unsubSched();
+    };
   }, []);
 
   // ── Auto-Save Draft to sessionStorage ──
@@ -1114,36 +1121,43 @@ export default function ExamSeatingController() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {EXAM_BLOCKS.map(block => {
                 const isSelected = selectedBlocks.includes(block.name);
+                const themeColor = BLOCK_COLORS[block.name] || '#8B5CF6';
                 const blockRooms = rooms.filter(r => r.block === block.name && r.isActive !== false);
                 const capacity = blockRooms.reduce((s, r) => s + (r.capacity || 24), 0);
                 return (
                   <button
                     key={block.id}
+                    type="button"
                     onClick={() => handleToggleBlock(block.name)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       padding: '14px 16px', borderRadius: '12px',
                       background: isSelected
-                        ? `${BLOCK_COLORS[block.name]}12`
+                        ? `${themeColor}20`
                         : 'var(--surface-glass)',
-                      border: `1.5px solid ${isSelected ? BLOCK_COLORS[block.name] : 'var(--border-primary)'}`,
+                      border: isSelected
+                        ? `2px solid ${themeColor}`
+                        : '1px solid var(--border-primary)',
+                      boxShadow: isSelected ? `0 4px 14px ${themeColor}35` : 'none',
                       textAlign: 'left',
+                      cursor: 'pointer',
                       transition: 'all 150ms ease',
                     }}
                   >
                     <div style={{
                       width: '36px', height: '36px', borderRadius: '10px',
-                      background: isSelected ? `${BLOCK_COLORS[block.name]}25` : 'var(--bg-elevated)',
+                      background: isSelected ? themeColor : 'var(--bg-elevated)',
+                      color: isSelected ? '#ffffff' : 'var(--text-muted)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'all 150ms ease',
                     }}>
                       {isSelected
-                        ? <Check size={16} style={{ color: BLOCK_COLORS[block.name] }} />
-                        : <Building2 size={16} style={{ color: 'var(--text-muted)' }} />
+                        ? <Check size={18} strokeWidth={3} />
+                        : <Building2 size={16} />
                       }
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? BLOCK_COLORS[block.name] : 'var(--text-primary)' }}>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 700, color: isSelected ? themeColor : 'var(--text-primary)' }}>
                         {block.name}
                       </div>
                       <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)' }}>

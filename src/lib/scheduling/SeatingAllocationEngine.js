@@ -31,15 +31,13 @@ export const EXAM_SESSIONS = {
 };
 
 export const EXAM_BLOCKS = [
-  { id: 'avishkar', name: 'Avishkar', type: 'Academic Classrooms' },
-  { id: 'nirmithi', name: 'Nirmithi', type: 'Academic Classrooms' },
-  { id: 'srujan', name: 'Srujan', type: 'Academic Classrooms' },
-  { id: 'pragna', name: 'Pragna', type: 'Academic Classrooms' },
-  { id: 'prathibha', name: 'Prathibha', type: 'Academic Classrooms' },
-  { id: 'pratham', name: 'Pratham', type: 'Academic Classrooms' },
-  { id: 'aakash', name: 'Aakash', type: 'Academic Classrooms' },
-  { id: 'prashasan', name: 'Prashasan', type: '20 Computer & Engg Labs + Central Library' },
-  { id: 'nalandha', name: 'Nalandha', type: 'Main Auditorium, SAC & IIIC Offices' },
+  { id: 'avishkar', name: 'Avishkar', type: 'Academic Classrooms (CSE-DS)' },
+  { id: 'nirmithi', name: 'Nirmithi', type: 'Academic Classrooms (CSE)' },
+  { id: 'srujan', name: 'Srujan', type: 'Academic Classrooms (ECE)' },
+  { id: 'pragna', name: 'Pragna', type: 'Academic Classrooms (EEE)' },
+  { id: 'prathibha', name: 'Prathibha', type: 'Academic Classrooms (IT)' },
+  { id: 'pratham', name: 'Pratham', type: 'Academic Classrooms (MECH)' },
+  { id: 'aakash', name: 'Aakash', type: 'Academic Classrooms (CIVIL)' },
 ];
 
 export const EXAM_TYPES = [
@@ -739,12 +737,26 @@ export async function seedDefaultExamRooms(db, getDocs, collection, doc, writeBa
 }
 
 /**
- * Filter rooms based on published timetables for non-exam years.
- * Protects classrooms of non-exam years having active theory lectures.
- * Releases classrooms if non-exam students are in 3-hour practical labs.
+ * Filter rooms based on published timetables and exam room suitability.
+ * 1. Excludes Labs & Central Library (written exams are conducted in classrooms only).
+ * 2. Protects classrooms of non-exam years having active theory lectures.
+ * 3. Releases classrooms if non-exam students are in 3-hour practical labs.
  */
 export function filterAvailableRoomsByTimetable(rooms, schedules = [], targetExamYears = []) {
-  if (!targetExamYears || targetExamYears.length === 0) return rooms;
+  // Step 1: Filter out Labs, Libraries, Auditorium, Prashasan & Nalandha blocks for written exams
+  let usableRooms = rooms.filter(r => {
+    const rNum = String(r.roomNumber || '').toLowerCase();
+    const blk = String(r.block || '').toLowerCase();
+    const isExcluded = rNum.includes('lab') ||
+                       rNum.includes('library') ||
+                       rNum.includes('auditorium') ||
+                       r.isLab === true ||
+                       blk === 'prashasan' ||
+                       blk === 'nalandha';
+    return !isExcluded;
+  });
+
+  if (!targetExamYears || targetExamYears.length === 0) return usableRooms;
 
   const targetYearsSet = new Set(targetExamYears.map(y => Number(y)));
   const occupiedClassrooms = new Set();
@@ -783,7 +795,7 @@ export function filterAvailableRoomsByTimetable(rooms, schedules = [], targetExa
     }
   });
 
-  return rooms.map(r => {
+  return usableRooms.map(r => {
     const rNum = String(r.roomNumber).replace(/^Room\s+/i, '').trim();
     const isConflict = occupiedClassrooms.has(rNum) && !labClassrooms.has(rNum);
     return {
