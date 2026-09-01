@@ -31,11 +31,15 @@ export const EXAM_SESSIONS = {
 };
 
 export const EXAM_BLOCKS = [
-  { id: 'aakash', name: 'Aakash' },
-  { id: 'pratham', name: 'Pratham' },
-  { id: 'srujan', name: 'Srujan' },
-  { id: 'nirmithi', name: 'Nirmithi' },
-  { id: 'avishkar', name: 'Avishkar' },
+  { id: 'avishkar', name: 'Avishkar', type: 'Academic Classrooms' },
+  { id: 'nirmithi', name: 'Nirmithi', type: 'Academic Classrooms' },
+  { id: 'srujan', name: 'Srujan', type: 'Academic Classrooms' },
+  { id: 'pragna', name: 'Pragna', type: 'Academic Classrooms' },
+  { id: 'prathibha', name: 'Prathibha', type: 'Academic Classrooms' },
+  { id: 'pratham', name: 'Pratham', type: 'Academic Classrooms' },
+  { id: 'aakash', name: 'Aakash', type: 'Academic Classrooms' },
+  { id: 'prashasan', name: 'Prashasan', type: '20 Computer & Engg Labs + Central Library' },
+  { id: 'nalandha', name: 'Nalandha', type: 'Main Auditorium, SAC & IIIC Offices' },
 ];
 
 export const EXAM_TYPES = [
@@ -626,9 +630,175 @@ export function parseStudentCSV(csvText) {
   return { students, errors };
 }
 
+/**
+ * Seed default exam rooms in Firestore /exam_rooms for all 9 blocks if empty.
+ */
+export async function seedDefaultExamRooms(db, getDocs, collection, doc, writeBatch) {
+  try {
+    const snap = await getDocs(collection(db, 'exam_rooms'));
+    if (!snap.empty && snap.size >= 20) return;
+
+    const batch = writeBatch(db);
+    const defaultRoster = [
+      // Avishkar Block
+      { roomNumber: '001', block: 'Avishkar', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '002', block: 'Avishkar', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '101', block: 'Avishkar', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '102', block: 'Avishkar', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '201', block: 'Avishkar', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '202', block: 'Avishkar', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '208', block: 'Avishkar', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '301', block: 'Avishkar', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '304', block: 'Avishkar', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '305', block: 'Avishkar', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '306', block: 'Avishkar', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '401', block: 'Avishkar', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '407', block: 'Avishkar', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+      { roomNumber: '409', block: 'Avishkar', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'CSE-DS', isActive: true },
+
+      // Nirmithi Block
+      { roomNumber: '003', block: 'Nirmithi', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'CSE', isActive: true },
+      { roomNumber: '103', block: 'Nirmithi', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'CSE', isActive: true },
+      { roomNumber: '203', block: 'Nirmithi', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'CSE', isActive: true },
+      { roomNumber: '302', block: 'Nirmithi', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CSE', isActive: true },
+      { roomNumber: '402', block: 'Nirmithi', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'CSE', isActive: true },
+
+      // Srujan Block
+      { roomNumber: '004', block: 'Srujan', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'ECE', isActive: true },
+      { roomNumber: '104', block: 'Srujan', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'ECE', isActive: true },
+      { roomNumber: '204', block: 'Srujan', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'ECE', isActive: true },
+      { roomNumber: '303', block: 'Srujan', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'ECE', isActive: true },
+      { roomNumber: '403', block: 'Srujan', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'ECE', isActive: true },
+
+      // Pragna Block
+      { roomNumber: '005', block: 'Pragna', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'EEE', isActive: true },
+      { roomNumber: '105', block: 'Pragna', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'EEE', isActive: true },
+      { roomNumber: '205', block: 'Pragna', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'EEE', isActive: true },
+      { roomNumber: '307', block: 'Pragna', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'EEE', isActive: true },
+      { roomNumber: '404', block: 'Pragna', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'EEE', isActive: true },
+
+      // Prathibha Block
+      { roomNumber: '006', block: 'Prathibha', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'IT', isActive: true },
+      { roomNumber: '106', block: 'Prathibha', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'IT', isActive: true },
+      { roomNumber: '206', block: 'Prathibha', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'IT', isActive: true },
+      { roomNumber: '308', block: 'Prathibha', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'IT', isActive: true },
+      { roomNumber: '405', block: 'Prathibha', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'IT', isActive: true },
+
+      // Pratham Block
+      { roomNumber: '007', block: 'Pratham', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'MECH', isActive: true },
+      { roomNumber: '107', block: 'Pratham', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'MECH', isActive: true },
+      { roomNumber: '207', block: 'Pratham', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'MECH', isActive: true },
+      { roomNumber: '309', block: 'Pratham', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'MECH', isActive: true },
+      { roomNumber: '406', block: 'Pratham', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'MECH', isActive: true },
+
+      // Aakash Block
+      { roomNumber: '008', block: 'Aakash', floor: 0, rows: 6, cols: 4, capacity: 24, department: 'CIVIL', isActive: true },
+      { roomNumber: '108', block: 'Aakash', floor: 1, rows: 6, cols: 4, capacity: 24, department: 'CIVIL', isActive: true },
+      { roomNumber: '209', block: 'Aakash', floor: 2, rows: 6, cols: 4, capacity: 24, department: 'CIVIL', isActive: true },
+      { roomNumber: '310', block: 'Aakash', floor: 3, rows: 6, cols: 4, capacity: 24, department: 'CIVIL', isActive: true },
+      { roomNumber: '408', block: 'Aakash', floor: 4, rows: 6, cols: 4, capacity: 24, department: 'CIVIL', isActive: true },
+
+      // Prashasan Block (Labs & Library)
+      { roomNumber: 'Central Library', block: 'Prashasan', floor: 1, rows: 8, cols: 5, capacity: 40, department: 'Campus-Wide', isActive: true },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        roomNumber: `Lab ${String(i + 1).padStart(2, '0')}`,
+        block: 'Prashasan',
+        floor: 0,
+        rows: 6,
+        cols: 4,
+        capacity: 24,
+        department: 'CSE-DS / CSE',
+        isActive: true,
+      })),
+      ...Array.from({ length: 10 }, (_, i) => ({
+        roomNumber: `Lab ${String(i + 11).padStart(2, '0')}`,
+        block: 'Prashasan',
+        floor: 2,
+        rows: 6,
+        cols: 4,
+        capacity: 24,
+        department: 'ECE / EEE',
+        isActive: true,
+      })),
+
+      // Nalandha Block (Auditorium & Admin)
+      { roomNumber: 'Main Auditorium', block: 'Nalandha', floor: 0, rows: 10, cols: 6, capacity: 60, department: 'Campus-Wide', isActive: true },
+    ];
+
+    for (const item of defaultRoster) {
+      const roomRef = doc(collection(db, 'exam_rooms'));
+      batch.set(roomRef, {
+        ...item,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    await batch.commit();
+  } catch (err) {
+    console.error('Error seeding exam rooms:', err);
+  }
+}
+
+/**
+ * Filter rooms based on published timetables for non-exam years.
+ * Protects classrooms of non-exam years having active theory lectures.
+ * Releases classrooms if non-exam students are in 3-hour practical labs.
+ */
+export function filterAvailableRoomsByTimetable(rooms, schedules = [], targetExamYears = []) {
+  if (!targetExamYears || targetExamYears.length === 0) return rooms;
+
+  const targetYearsSet = new Set(targetExamYears.map(y => Number(y)));
+  const occupiedClassrooms = new Set();
+  const labClassrooms = new Set();
+
+  schedules.forEach(sched => {
+    const schedYear = Number(sched.year);
+    // If this schedule belongs to a NON-exam year
+    if (!targetYearsSet.has(schedYear)) {
+      const assignedRoom = sched.room ? String(sched.room).replace(/^Room\s+/i, '').trim() : '';
+
+      let hasLab = false;
+      let hasTheory = false;
+
+      if (sched.grid) {
+        Object.keys(sched.grid).forEach(day => {
+          (sched.grid[day] || []).forEach(slot => {
+            if (slot && slot.type !== 'break' && slot.type !== 'lunch') {
+              if (slot.type === 'lab' || (slot.subject && slot.subject.toLowerCase().includes('lab'))) {
+                hasLab = true;
+              } else {
+                hasTheory = true;
+              }
+            }
+          });
+        });
+      }
+
+      if (assignedRoom) {
+        if (hasLab && !hasTheory) {
+          labClassrooms.add(assignedRoom);
+        } else if (hasTheory) {
+          occupiedClassrooms.add(assignedRoom);
+        }
+      }
+    }
+  });
+
+  return rooms.map(r => {
+    const rNum = String(r.roomNumber).replace(/^Room\s+/i, '').trim();
+    const isConflict = occupiedClassrooms.has(rNum) && !labClassrooms.has(rNum);
+    return {
+      ...r,
+      isTimetableConflict: isConflict,
+      conflictReason: isConflict ? 'Occupied by Non-Exam Theory Class' : null,
+    };
+  });
+}
+
 export default {
   generateSeatingPlan,
   parseStudentCSV,
+  seedDefaultExamRooms,
+  filterAvailableRoomsByTimetable,
   EXAM_SESSIONS,
   EXAM_BLOCKS,
   EXAM_TYPES,

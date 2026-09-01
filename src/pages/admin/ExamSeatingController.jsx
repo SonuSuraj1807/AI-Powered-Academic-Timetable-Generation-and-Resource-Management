@@ -21,6 +21,8 @@ import {
 import {
   generateSeatingPlan,
   parseStudentCSV,
+  seedDefaultExamRooms,
+  filterAvailableRoomsByTimetable,
   EXAM_SESSIONS,
   EXAM_BLOCKS,
   EXAM_TYPES,
@@ -62,9 +64,10 @@ export default function ExamSeatingController() {
   const [sessionDate, setSessionDate] = useState('');
   const [sessionSlot, setSessionSlot] = useState('FN');
   const [examTitle, setExamTitle] = useState('');
-  const [examType, setExamType] = useState('regular');
   const [selectedRegulations, setSelectedRegulations] = useState(['R22']);
-  const [selectedBlocks, setSelectedBlocks] = useState(['Srujan']);
+  const [selectedBlocks, setSelectedBlocks] = useState(['Srujan', 'Avishkar', 'Nirmithi', 'Aakash']);
+  const [targetExamYears, setTargetExamYears] = useState(['4', '3']);
+  const [schedulesList, setSchedulesList] = useState([]);
 
   // ── Step 2 State ──
   const [subjects, setSubjects] = useState([]);
@@ -217,16 +220,28 @@ export default function ExamSeatingController() {
     });
   };
 
-  // ── Load rooms, faculty, and published plans from Firestore ──
+  // ── Load rooms, faculty, schedules, and published plans from Firestore ──
   useEffect(() => {
-    getDocs(collection(db, 'exam_rooms')).then(snap => {
-      setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    getDocs(collection(db, 'faculty')).then(snap => {
-      setFacultyList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-    getDocs(collection(db, 'seating_plans')).then(snap => {
-      setPublishedPlansList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    seedDefaultExamRooms(db, getDocs, collection, doc, writeBatch).then(() => {
+      const unsubRooms = onSnapshot(collection(db, 'exam_rooms'), snap => {
+        setRooms(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      const unsubFac = onSnapshot(collection(db, 'faculty'), snap => {
+        setFacultyList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      const unsubPlans = onSnapshot(collection(db, 'seating_plans'), snap => {
+        setPublishedPlansList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      const unsubSched = onSnapshot(collection(db, 'schedules'), snap => {
+        setSchedulesList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+
+      return () => {
+        unsubRooms();
+        unsubFac();
+        unsubPlans();
+        unsubSched();
+      };
     });
   }, []);
 
@@ -465,9 +480,12 @@ export default function ExamSeatingController() {
       subjects,
     };
 
+    const checkedRooms = filterAvailableRoomsByTimetable(filteredRooms, schedulesList, targetExamYears);
+    const validRooms = checkedRooms.filter(r => !r.isTimetableConflict);
+
     const plan = generateSeatingPlan({
       students: studentData,
-      rooms: filteredRooms,
+      rooms: validRooms.length > 0 ? validRooms : filteredRooms,
       availableFaculty: availableFaculty.map(f => ({
         id: f.id || f.uid,
         name: f.name,
@@ -1038,6 +1056,50 @@ export default function ExamSeatingController() {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Target Exam Student Years */}
+              <div style={{ marginTop: '12px' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+                  Target Exam Student Years *
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { id: '4', label: '4th Year' },
+                    { id: '3', label: '3rd Year' },
+                    { id: '2', label: '2nd Year' },
+                    { id: '1', label: '1st Year' },
+                  ].map(yr => {
+                    const isSelected = targetExamYears.includes(yr.id);
+                    return (
+                      <button
+                        key={yr.id}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            if (targetExamYears.length > 1) {
+                              setTargetExamYears(targetExamYears.filter(y => y !== yr.id));
+                            }
+                          } else {
+                            setTargetExamYears([...targetExamYears, yr.id]);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 14px', borderRadius: '8px', fontSize: '0.813rem', fontWeight: 700,
+                          background: isSelected ? 'rgba(139, 92, 246, 0.15)' : 'var(--surface-glass)',
+                          color: isSelected ? '#8B5CF6' : 'var(--text-tertiary)',
+                          border: `1.5px solid ${isSelected ? '#8B5CF6' : 'var(--border-primary)'}`,
+                          cursor: 'pointer', transition: 'all 150ms ease',
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}{yr.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                  Non-exam years' theory classrooms will be protected from exam seating disturbance.
+                </p>
               </div>
             </div>
           </div>

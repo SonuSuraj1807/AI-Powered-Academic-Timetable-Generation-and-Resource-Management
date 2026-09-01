@@ -12,9 +12,9 @@ import {
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
 import {
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot
+  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, getDocs, writeBatch
 } from 'firebase/firestore';
-import { EXAM_BLOCKS } from '../../lib/scheduling/SeatingAllocationEngine';
+import { EXAM_BLOCKS, seedDefaultExamRooms } from '../../lib/scheduling/SeatingAllocationEngine';
 
 const FLOOR_OPTIONS = [
   { value: 0, label: 'Ground Floor' },
@@ -25,11 +25,15 @@ const FLOOR_OPTIONS = [
 ];
 
 const BLOCK_COLORS = {
-  Aakash: '#3B82F6',
-  Pratham: '#10B981',
-  Srujan: '#8B5CF6',
-  Nirmithi: '#E8522E',
   Avishkar: '#F59E0B',
+  Nirmithi: '#E8522E',
+  Srujan: '#8B5CF6',
+  Pragna: '#EC4899',
+  Prathibha: '#6366F1',
+  Pratham: '#10B981',
+  Aakash: '#3B82F6',
+  Prashasan: '#14B8A6',
+  Nalandha: '#F97316',
 };
 
 const DEFAULT_ROOM = {
@@ -55,14 +59,16 @@ export default function ExamRoomManagement() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Firestore listener
+  // Firestore listener & auto-seed
   useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'exam_rooms'), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setRooms(data);
-      setLoading(false);
+    seedDefaultExamRooms(db, getDocs, collection, doc, writeBatch).then(() => {
+      const unsub = onSnapshot(collection(db, 'exam_rooms'), (snap) => {
+        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setRooms(data);
+        setLoading(false);
+      });
+      return () => unsub();
     });
-    return () => unsub();
   }, []);
 
   // Update capacity when rows/cols change

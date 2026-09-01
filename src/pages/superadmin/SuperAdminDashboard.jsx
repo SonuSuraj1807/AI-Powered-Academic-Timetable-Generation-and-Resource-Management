@@ -5,6 +5,7 @@ import { Shield, Building2, Users, Calendar, KeyRound, Plus, Trash2, Edit2, Chec
 import { DEPARTMENTS } from '../../data/curriculumSeed';
 import useNotificationStore from '../../stores/notificationStore';
 import FacultyManagement from '../admin/FacultyManagement';
+import ExamRoomManagement from '../admin/ExamRoomManagement';
 
 export default function SuperAdminDashboard() {
   const [schedules, setSchedules] = useState([]);
@@ -334,6 +335,13 @@ export default function SuperAdminDashboard() {
         >
           <Calendar size={16} /> Institutional Timetable Registry ({schedules.length})
         </button>
+        <button
+          onClick={() => setActiveTab('rooms')}
+          className={`btn ${activeTab === 'rooms' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ padding: '10px 20px' }}
+        >
+          <Building2 size={16} /> Campus Blocks & Rooms CRUD Console
+        </button>
       </div>
 
       {/* TAB 1: Department Admin Provisioning (FULL CRUD) */}
@@ -609,6 +617,11 @@ export default function SuperAdminDashboard() {
             )}
           </div>
         </div>
+      )}
+
+      {/* TAB 4: Campus Blocks & Exam Rooms CRUD Console */}
+      {activeTab === 'rooms' && (
+        <ExamRoomManagement />
       )}
     </div>
   );
