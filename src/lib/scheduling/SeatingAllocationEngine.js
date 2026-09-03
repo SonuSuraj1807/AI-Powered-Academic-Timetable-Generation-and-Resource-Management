@@ -242,13 +242,23 @@ function interleaveIntoRooms(branchGroups, rooms) {
 // INVIGILATION ASSIGNMENT
 // ═══════════════════════════════════════════════════════════
 
+export function normalizeFacultyName(name = '') {
+  if (!name) return '';
+  return String(name)
+    .toLowerCase()
+    .replace(/dr\.|mr\.|mrs\.|ms\.|prof\./g, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 /**
  * Assign invigilators to room plans based on branch count.
  *
  * Rules:
  * - 1 branch in room → 1 invigilator
  * - 2+ branches in room → 2 invigilators
- * - No double-booking: each faculty appears in at most 1 room per session
+ * - No double-booking: each physical faculty (by ID or normalized name) appears in at most 1 room per session
  * - Round-robin distribution for workload fairness
  *
  * @param {Array} roomPlans – Output from interleaveIntoRooms
@@ -275,11 +285,14 @@ function assignInvigilators(roomPlans, availableFaculty, existingAssignments = {
     (a, b) => (workload[a.id] || 0) - (workload[b.id] || 0)
   );
 
-  const usedInSession = new Set(); // Track assigned faculty in this session
-  let facultyPointer = 0;
+  const usedInSession = new Set(); // Track assigned faculty IDs in this session
+  const usedNormalizedNames = new Set(); // Track assigned physical teachers by normalized name
 
   function getNextAvailableFaculty(preferredDept) {
-    const remaining = sortedFaculty.filter(f => !usedInSession.has(f.id));
+    const remaining = sortedFaculty.filter(f => {
+      const normName = normalizeFacultyName(f.name);
+      return !usedInSession.has(f.id) && !usedNormalizedNames.has(normName);
+    });
     if (remaining.length === 0) return null;
 
     if (preferredDept) {
@@ -310,6 +323,7 @@ function assignInvigilators(roomPlans, availableFaculty, existingAssignments = {
           department: faculty.department || '',
         });
         usedInSession.add(faculty.id);
+        usedNormalizedNames.add(normalizeFacultyName(faculty.name));
         workload[faculty.id] = (workload[faculty.id] || 0) + 1;
       } else {
         errors.push(

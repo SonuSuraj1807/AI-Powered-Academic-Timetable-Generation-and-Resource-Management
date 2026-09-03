@@ -8,6 +8,7 @@ import useNotificationStore from '../../stores/notificationStore';
 import { db } from '../../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { exportSingleRoomPDF, exportBatchPDF } from '../../lib/export/examSeatingPdfExporter';
+import { normalizeFacultyName } from '../../lib/scheduling/SeatingAllocationEngine';
 
 export default function FacultyDashboard() {
   const { profile } = useAuthStore();
@@ -29,8 +30,8 @@ export default function FacultyDashboard() {
     const unsubscribe = onSnapshot(collection(db, 'seating_plans'), (snapshot) => {
       const duties = [];
       const plans = [];
+      const userNormName = normalizeFacultyName(profile?.name || profile?.displayName || profile?.email?.split('@')[0]);
       const userEmail = profile?.email?.toLowerCase() || '';
-      const userName = profile?.name?.toLowerCase() || profile?.displayName?.toLowerCase() || '';
       const userUid = profile?.uid || '';
 
       snapshot.forEach(docSnap => {
@@ -39,13 +40,13 @@ export default function FacultyDashboard() {
 
         const invs = plan.assignedInvigilators || [];
 
-        // Check if logged-in faculty is assigned
+        // Match normalized faculty name to aggregate duties across all department emails
         const isAssigned = invs.some(inv => {
-          const invName = String(inv.name || '').toLowerCase();
+          const invNormName = normalizeFacultyName(inv.name);
           const invId = String(inv.facultyId || '');
           return (userUid && invId === userUid) ||
-                 (userName && invName.includes(userName)) ||
-                 (userEmail && invName.includes(userEmail.split('@')[0]));
+                 (userNormName && invNormName && (invNormName.includes(userNormName) || userNormName.includes(invNormName))) ||
+                 (userEmail && String(inv.email || '').toLowerCase() === userEmail);
         });
 
         if (isAssigned) {

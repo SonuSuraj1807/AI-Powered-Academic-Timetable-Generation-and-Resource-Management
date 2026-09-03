@@ -73,28 +73,7 @@ const useAuthStore = create((set, get) => ({
         console.warn('Per-tab persistence configuration bypassed:', pErr);
       }
 
-      let userCredential = null;
-
-      // Student Provisioning Guard: Ensure student accounts are pre-provisioned by Super Admin
-      if (actualRole === 'student' && !email.includes('superadmin')) {
-        const usersRef = collection(db, 'users');
-        const qEmail = query(usersRef, where('email', '==', email));
-        const snap = await getDocs(qEmail);
-
-        if (snap.empty) {
-          const handle = email.split('@')[0].toUpperCase();
-          const studentsRef = collection(db, 'students');
-          const qRoll = query(studentsRef, where('rollNumber', '==', handle));
-          const snapRoll = await getDocs(qRoll);
-
-          if (snapRoll.empty) {
-            set({ loading: false, error: 'Access Denied: Student account not provisioned by Super Admin. Please contact Examination Branch.' });
-            return false;
-          }
-        }
-      }
-
-      // 1. Single Clean Authentication via Firebase Auth
+      // 1. Single Clean Authentication via Firebase Auth FIRST
       try {
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       } catch (authErr) {
@@ -107,6 +86,9 @@ const useAuthStore = create((set, get) => ({
               return false;
             }
           }
+        } else {
+          set({ loading: false, error: 'Login failed: Invalid email or password.' });
+          return false;
         }
       }
 
@@ -116,6 +98,30 @@ const useAuthStore = create((set, get) => ({
       }
 
       const uid = userCredential.user.uid;
+
+      // Student Provisioning Guard: Ensure student accounts are pre-provisioned in Firestore
+      if (actualRole === 'student' && !email.includes('superadmin')) {
+        try {
+          const userDocSnap = await getDoc(doc(db, 'users', uid));
+          const handle = email.split('@')[0].toUpperCase();
+          const studentDocSnap = await getDoc(doc(db, 'students', handle));
+
+          if (!userDocSnap.exists() && !studentDocSnap.exists()) {
+            // Check by email in users collection
+            const usersRef = collection(db, 'users');
+            const qEmail = query(usersRef, where('email', '==', email));
+            const snap = await getDocs(qEmail);
+
+            if (snap.empty) {
+              await signOut(auth);
+              set({ loading: false, error: 'Access Denied: Student account not provisioned by Super Admin. Please contact Examination Branch.' });
+              return false;
+            }
+          }
+        } catch (guardErr) {
+          console.warn('Student provisioning check warning:', guardErr);
+        }
+      }
 
       // 2. Real-time Cloud Firestore Profile Sync
       const profileData = {
