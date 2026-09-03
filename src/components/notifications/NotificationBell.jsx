@@ -137,7 +137,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((notif) => {
-                const isUnread = !notif.read;
+                const isUnread = !notif.isRead && !notif.read;
                 return (
                   <div
                     key={notif.id}

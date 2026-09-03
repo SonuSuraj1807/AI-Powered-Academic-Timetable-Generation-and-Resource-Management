@@ -111,11 +111,7 @@ export default function ReportsAnalytics() {
   const [selectedFloorFilter, setSelectedFloorFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL' | 'ALLOCATED' | 'AVAILABLE'
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedBlocks, setExpandedBlocks] = useState({
-    AVISHKAR: true,
-    PRASHASAN: true,
-    NALANDHA: true,
-  });
+  const [expandedBlocks, setExpandedBlocks] = useState({});
 
   useEffect(() => {
     const unsubSched = onSnapshot(collection(db, 'schedules'), (snapshot) => {
@@ -335,7 +331,7 @@ export default function ReportsAnalytics() {
           {/* BLOCK ACCORDION LIST */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {VBIT_BLOCKS_REGISTRY.filter(b => selectedBlockFilter === 'ALL' || b.id === selectedBlockFilter).map(block => {
-              const isExpanded = expandedBlocks[block.id] ?? true;
+              const isExpanded = selectedBlockFilter !== 'ALL' ? (expandedBlocks[block.id] !== false) : !!expandedBlocks[block.id];
 
               // Group block rooms by floor
               const roomsByFloor = {};
@@ -495,7 +491,7 @@ export default function ReportsAnalytics() {
             Faculty Teaching Workloads (Periods/Week)
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '680px', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '680px', overflowY: 'auto', paddingBottom: '24px', paddingRight: '4px' }}>
             {Object.keys(facultyHours).map(fac => (
               <div
                 key={fac}

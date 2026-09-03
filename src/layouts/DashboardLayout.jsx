@@ -74,20 +74,7 @@ export default function DashboardLayout() {
             </button>
 
             {/* Scope / Department Badge */}
-            {profile?.role === 'principal' ? (
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.4)',
-                borderRadius: '10px',
-                padding: '6px 12px',
-              }}>
-                <span style={{ fontSize: '0.688rem', fontWeight: 700, color: '#10B981', textTransform: 'uppercase' }}>Scope:</span>
-                <span style={{ fontSize: '0.813rem', fontWeight: 800, color: '#10B981' }}>
-                  Principal Office
-                </span>
-              </div>
-            ) : (
+            {profile?.role === 'principal' ? null : (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 background: 'var(--accent-blue-subtle)',
