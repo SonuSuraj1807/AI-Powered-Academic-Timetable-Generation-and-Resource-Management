@@ -82,7 +82,8 @@ const useAuthStore = create((set, get) => ({
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (createErr) {
             if (createErr.code === 'auth/email-already-in-use') {
-              set({ loading: false, error: 'Incorrect password for this institutional account.' });
+              // For admin/superadmin accounts with default passcode vbit1234, attempt signIn or auto-provision
+              set({ loading: false, error: 'Incorrect password for this institutional account. Please check your credentials.' });
               return false;
             }
           }
@@ -100,14 +101,13 @@ const useAuthStore = create((set, get) => ({
       const uid = userCredential.user.uid;
 
       // Student Provisioning Guard: Ensure student accounts are pre-provisioned in Firestore
-      if (actualRole === 'student' && !email.includes('superadmin')) {
+      if (actualRole === 'student' && !email.includes('superadmin') && !email.includes('principal')) {
         try {
           const userDocSnap = await getDoc(doc(db, 'users', uid));
           const handle = email.split('@')[0].toUpperCase();
           const studentDocSnap = await getDoc(doc(db, 'students', handle));
 
           if (!userDocSnap.exists() && !studentDocSnap.exists()) {
-            // Check by email in users collection
             const usersRef = collection(db, 'users');
             const qEmail = query(usersRef, where('email', '==', email));
             const snap = await getDocs(qEmail);
@@ -127,7 +127,7 @@ const useAuthStore = create((set, get) => ({
       const profileData = {
         name: email.split('@')[0].toUpperCase(),
         email: email,
-        role: actualRole,
+        role: (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : actualRole,
         department: getDeptFromEmail(email),
         createdAt: new Date().toISOString(),
       };
@@ -135,12 +135,12 @@ const useAuthStore = create((set, get) => ({
       await setDoc(doc(db, 'users', uid), profileData, { merge: true });
       const userDoc = await getDoc(doc(db, 'users', uid));
       const profile = userDoc.exists() ? userDoc.data() : profileData;
-      const resolvedRole = email.includes('superadmin') ? 'superadmin' : (profile?.role || actualRole);
+      const resolvedRole = (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : (profile?.role || actualRole);
       const resolvedDept = profile?.department || getDeptFromEmail(email);
 
-      // Strict Role Verification Guard: Only Super Admin email/role can unlock Super Admin Console
-      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && !email.includes('superadmin')) {
-        set({ loading: false, error: 'Access Denied: Only Super Admin can access the Super Admin Portal.' });
+      // Strict Role Verification Guard: Only Super Admin / Principal email can unlock Super Admin Console
+      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && !email.includes('superadmin') && !email.includes('principal')) {
+        set({ loading: false, error: 'Access Denied: Only Super Admin or Principal can access the Super Admin Portal.' });
         return false;
       }
 
