@@ -39,9 +39,15 @@ export default function ManageClubLeads() {
   // Real-time synchronization with /club_leads
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'club_leads'), (snap) => {
-      const list = [];
-      snap.forEach(d => list.push({ id: d.id, ...d.data() }));
-      setLeads(list);
+      const uniqueMap = {};
+      snap.forEach(d => {
+        const data = d.data();
+        const rollKey = (data.rollNumber || data.hallTicketNo || d.id).toUpperCase().trim();
+        if (!uniqueMap[rollKey] || data.isActive) {
+          uniqueMap[rollKey] = { id: d.id, ...data, rollNumber: rollKey };
+        }
+      });
+      setLeads(Object.values(uniqueMap));
       setLoading(false);
     });
     return () => unsub();
@@ -120,10 +126,19 @@ export default function ManageClubLeads() {
   };
 
   const handleRevoke = async (leadId, roll) => {
-    if (!confirm(`Are you sure you want to revoke venue booking access for ${roll}?`)) return;
+    const cleanRoll = (roll || '').toUpperCase().trim();
+    if (!confirm(`Are you sure you want to revoke venue booking access for ${cleanRoll}?`)) return;
     try {
       await deleteDoc(doc(db, 'club_leads', leadId));
-      alert(`Access revoked for ${roll}.`);
+      try {
+        const snap = await getDocs(query(collection(db, 'club_leads'), where('rollNumber', '==', cleanRoll)));
+        snap.forEach(async (docSnap) => {
+          await deleteDoc(doc(db, 'club_leads', docSnap.id));
+        });
+      } catch (err) {
+        console.warn('Legacy lead cleanup notice:', err);
+      }
+      alert(`Access revoked for ${cleanRoll}.`);
     } catch (err) {
       console.error(err);
       alert('Error revoking access: ' + err.message);

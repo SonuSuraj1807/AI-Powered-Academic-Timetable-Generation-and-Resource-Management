@@ -41,9 +41,11 @@ const MENU_CONFIG = {
     label: 'Principal Office',
     color: '#10B981',
     items: [
-      { path: '/principal', icon: LayoutDashboard, label: 'Principal Console', end: true },
-      { path: '/admin/venue-oversight', icon: Building2, label: 'Venue Oversight' },
-      { path: '/admin/schedules', icon: Calendar, label: 'All Schedules' },
+      { path: '/principal', icon: LayoutDashboard, label: 'Principal Executive Console', end: true },
+      { path: '/principal/club-leads', icon: UserCheck, label: 'Department Student Club Roster' },
+      { path: '/principal/venue-oversight', icon: Building2, label: 'Venue Oversight' },
+      { path: '/principal/schedules', icon: Calendar, label: 'All Schedules & Timetables' },
+      { path: '/principal/faculty', icon: Users, label: 'All Faculty Pool' },
     ],
   },
   exam_controller: {

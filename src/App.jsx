@@ -172,6 +172,10 @@ export default function App() {
                 </ProtectedRoute>
               }>
                 <Route index element={<PrincipalDashboard />} />
+                <Route path="club-leads" element={<ManageClubLeads />} />
+                <Route path="venue-oversight" element={<VenueOversightView />} />
+                <Route path="schedules" element={<ViewSchedules />} />
+                <Route path="faculty" element={<FacultyManagement />} />
               </Route>
 
               {/* Faculty Panel */}

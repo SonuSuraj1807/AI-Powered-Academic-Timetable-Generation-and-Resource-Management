@@ -172,7 +172,7 @@ async function getStudentProfilesMap() {
     const snapStudents = await getDocs(collection(db, 'students'));
     snapStudents.forEach(docSnap => {
       const d = docSnap.data();
-      const roll = (d.hallTicketNo || d.rollNumber || '').trim().toUpperCase();
+      const roll = (d.hallTicketNo || d.rollNumber || docSnap.id).trim().toUpperCase();
       if (roll) {
         let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
         if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
@@ -192,19 +192,21 @@ async function getStudentProfilesMap() {
     const snapUsers = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
     snapUsers.forEach(docSnap => {
       const d = docSnap.data();
-      const roll = (d.hallTicketNo || (d.email ? d.email.split('@')[0] : '')).trim().toUpperCase();
-      if (roll && !map.has(roll)) {
+      const roll = (d.hallTicketNo || d.rollNumber || (d.email ? d.email.split('@')[0] : '')).trim().toUpperCase();
+      if (roll) {
         let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
         if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
         let rawSec = d.section || d.classSection || 'A';
         let formattedSec = String(rawSec).trim().startsWith('Sec') ? String(rawSec).trim() : `Sec ${String(rawSec).trim()}`;
+        const existing = map.get(roll) || {};
         map.set(roll, {
-          name: d.name || d.displayName || d.fullName || roll,
+          ...existing,
+          name: d.name || d.displayName || d.fullName || existing.name || roll,
           email,
-          phone: d.phone || d.phoneNumber || '+91 98765 43210',
-          department: d.department || 'CSE-DS',
-          section: formattedSec,
-          year: d.year ? (String(d.year).includes('Year') ? d.year : `${d.year}th Year`) : '4th Year',
+          phone: d.phone || d.phoneNumber || existing.phone || '+91 98765 43210',
+          department: d.department || existing.department || 'CSE-DS',
+          section: formattedSec || existing.section || 'Sec A',
+          year: d.year ? (String(d.year).includes('Year') ? d.year : `${d.year}th Year`) : existing.year || '4th Year',
         });
       }
     });
@@ -348,6 +350,9 @@ export async function fetchDepartmentClubMembers(deptName) {
           studentName: resolvedName,
           email: resolvedEmail,
           phone: realProf?.phone || m.phone || '+91 98765 43210',
+          department: realProf?.department || m.department || 'CSE-DS',
+          section: realProf?.section || (m.section ? (m.section.startsWith('Sec') ? m.section : `Sec ${m.section}`) : 'Sec A'),
+          year: realProf?.year || m.year || '4th Year',
         });
       }
     });
