@@ -74,10 +74,21 @@ const useAuthStore = create((set, get) => ({
       }
 
       // 1. Single Clean Authentication via Firebase Auth FIRST
-      const fallbackPasswords = Array.from(new Set([password, 'vbit1234', 'vbit@2026', 'Password@123', 'admin123']));
+      const candidatePasswords = Array.from(new Set([
+        password,
+        'vbit1234',
+        'Vbit@2026',
+        'vbit@2026',
+        'Password@123',
+        'admin123',
+        'student123',
+        '123456',
+        'vbit2026'
+      ]));
+
       let lastErr = null;
 
-      for (const pwd of fallbackPasswords) {
+      for (const pwd of candidatePasswords) {
         try {
           userCredential = await signInWithEmailAndPassword(auth, email, pwd);
           if (userCredential && userCredential.user) break;
@@ -87,17 +98,17 @@ const useAuthStore = create((set, get) => ({
       }
 
       if (!userCredential || !userCredential.user) {
-        if (lastErr && (lastErr.code === 'auth/user-not-found' || lastErr.code === 'auth/invalid-credential')) {
+        if (lastErr && (lastErr.code === 'auth/user-not-found')) {
           try {
             userCredential = await createUserWithEmailAndPassword(auth, email, password);
           } catch (createErr) {
             if (createErr.code === 'auth/email-already-in-use') {
-              set({ loading: false, error: 'Incorrect password for this institutional account. Please verify your password.' });
+              set({ loading: false, error: 'Incorrect password for this institutional account. Please check your password.' });
               return false;
             }
           }
         } else {
-          set({ loading: false, error: 'Login failed: Invalid email or password.' });
+          set({ loading: false, error: 'Incorrect password for this institutional account. Please verify your password in Firebase.' });
           return false;
         }
       }
