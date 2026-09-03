@@ -19,6 +19,7 @@ const StudentDashboard = lazy(() => import('./pages/student/StudentDashboard'));
 // Real-time admin views
 const ViewSchedules = lazy(() => import('./pages/admin/ViewSchedules'));
 const FacultyManagement = lazy(() => import('./pages/admin/FacultyManagement'));
+const StudentManagement = lazy(() => import('./pages/admin/StudentManagement'));
 const CurriculumRegistryPage = lazy(() => import('./pages/admin/CurriculumRegistryPage'));
 const TrainingOverridesPage = lazy(() => import('./pages/admin/TrainingOverridesPage'));
 const ReportsAnalytics = lazy(() => import('./pages/admin/ReportsAnalytics'));
@@ -145,6 +146,7 @@ export default function App() {
                 <Route path="exam-scheduler" element={<ExamSchedulerPage />} />
                 <Route path="schedules" element={<ViewSchedules />} />
                 <Route path="faculty" element={<FacultyManagement />} />
+                <Route path="students" element={<StudentManagement />} />
                 <Route path="curriculum" element={<CurriculumRegistryPage />} />
                 <Route path="overrides" element={<TrainingOverridesPage />} />
                 <Route path="substitutions" element={<SubstitutionEnginePage />} />

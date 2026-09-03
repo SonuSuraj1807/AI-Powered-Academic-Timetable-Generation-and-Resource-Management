@@ -176,13 +176,15 @@ async function getStudentProfilesMap() {
       if (roll) {
         let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
         if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        let rawSec = d.section || d.classSection || 'A';
+        let formattedSec = String(rawSec).trim().startsWith('Sec') ? String(rawSec).trim() : `Sec ${String(rawSec).trim()}`;
         map.set(roll, {
           name: d.name || d.displayName || d.fullName || roll,
           email,
           phone: d.phone || d.phoneNumber || '+91 98765 43210',
           department: d.department || 'CSE-DS',
-          section: d.section || 'Sec A',
-          year: d.year || '4th Year',
+          section: formattedSec,
+          year: d.year ? (String(d.year).includes('Year') ? d.year : `${d.year}th Year`) : '4th Year',
         });
       }
     });
@@ -194,13 +196,15 @@ async function getStudentProfilesMap() {
       if (roll && !map.has(roll)) {
         let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
         if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        let rawSec = d.section || d.classSection || 'A';
+        let formattedSec = String(rawSec).trim().startsWith('Sec') ? String(rawSec).trim() : `Sec ${String(rawSec).trim()}`;
         map.set(roll, {
           name: d.name || d.displayName || d.fullName || roll,
           email,
           phone: d.phone || d.phoneNumber || '+91 98765 43210',
           department: d.department || 'CSE-DS',
-          section: d.section || 'Sec A',
-          year: d.year || '4th Year',
+          section: formattedSec,
+          year: d.year ? (String(d.year).includes('Year') ? d.year : `${d.year}th Year`) : '4th Year',
         });
       }
     });
@@ -246,6 +250,9 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
         studentName: resolvedName,
         email: resolvedEmail,
         phone: realProf?.phone || m.phone || '+91 98765 43210',
+        section: realProf?.section || (m.section ? (m.section.startsWith('Sec') ? m.section : `Sec ${m.section}`) : 'Sec A'),
+        department: realProf?.department || m.department || 'CSE-DS',
+        year: realProf?.year || m.year || '4th Year',
       });
     });
 
@@ -279,12 +286,13 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
             rollNumber: roll,
             name: resolvedName,
             studentName: resolvedName,
-            designation: l.designation || 'Club Lead',
-            department: realProf?.department || l.department || 'CSE-DS',
             email: resolvedEmail,
             phone: realProf?.phone || l.phone || '+91 98765 43210',
-            year: realProf?.year || '4th Year',
-            section: realProf?.section || 'Sec A',
+            section: realProf?.section || (l.section ? (l.section.startsWith('Sec') ? l.section : `Sec ${l.section}`) : 'Sec A'),
+            department: realProf?.department || l.department || 'CSE-DS',
+            year: realProf?.year || l.year || '4th Year',
+            designation: l.designation || 'Club Lead',
+            roleCategory: 'LEAD',
             tenureType: 'PRESENT_TENURE',
             tenureLabel: '2025-2026',
             canBookVenues: true,

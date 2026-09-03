@@ -280,9 +280,20 @@ export default function FacultyManagement() {
   const [stdEmail, setStdEmail] = useState('');
   const [stdPassword, setStdPassword] = useState('Vbit@2026');
   const [stdDept, setStdDept] = useState('CSE-DS');
+  const [stdSectionSelect, setStdSectionSelect] = useState('Sec A');
+  const [customStdSection, setCustomStdSection] = useState('');
   const [stdYear, setStdYear] = useState('3');
   const [stdSem, setStdSem] = useState('2');
   const [stdRegulation, setStdRegulation] = useState('R22');
+
+  // Student Edit Modal State
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editStdName, setEditStdName] = useState('');
+  const [editStdDept, setEditStdDept] = useState('CSE-DS');
+  const [editStdSectionSelect, setEditStdSectionSelect] = useState('Sec A');
+  const [editCustomStdSection, setEditCustomStdSection] = useState('');
+  const [editStdYear, setEditStdYear] = useState('4');
+  const [editStdSem, setEditStdSem] = useState('1');
 
   // Teaching Branch Edit Modal State
   const [editingTeachingFac, setEditingTeachingFac] = useState(null);
@@ -414,13 +425,20 @@ export default function FacultyManagement() {
       const cleanRoll = stdRoll.trim().toUpperCase();
       const docId = uid || `std_${cleanRoll.toLowerCase()}`;
 
+      const finalSec = stdSectionSelect === 'Custom Section' ? (customStdSection.trim() || 'Sec A') : stdSectionSelect;
+      const formattedSec = finalSec.startsWith('Sec') ? finalSec : `Sec ${finalSec}`;
+      const rawSecLetter = formattedSec.replace(/^Sec\s*/i, '');
+
       const studentProfile = {
         name: stdName.trim(),
         fullName: stdName.trim(),
+        displayName: stdName.trim(),
         email: stdEmail.trim().toLowerCase(),
         rollNumber: cleanRoll,
         hallTicketNo: cleanRoll,
         department: stdDept,
+        section: rawSecLetter,
+        classSection: formattedSec,
         year: stdYear,
         semester: stdSem,
         regulation: stdRegulation,
@@ -436,10 +454,45 @@ export default function FacultyManagement() {
       setStdName('');
       setStdRoll('');
       setStdEmail('');
-      alert(`Student account (${cleanRoll}) registered successfully! Student can now log in with default credentials.`);
+      setCustomStdSection('');
+      alert(`Student account (${cleanRoll} - ${formattedSec}) registered successfully! Student can now log in with default credentials.`);
     } catch (err) {
       console.error(err);
       alert('Error registering student: ' + err.message);
+    }
+  };
+
+  const handleSaveEditStudent = async (e) => {
+    e.preventDefault();
+    if (!editingStudent) return;
+    try {
+      const cleanRoll = (editingStudent.rollNumber || editingStudent.hallTicketNo || '').toUpperCase().trim();
+      const finalSec = editStdSectionSelect === 'Custom Section' ? (editCustomStdSection.trim() || 'Sec A') : editStdSectionSelect;
+      const formattedSec = finalSec.startsWith('Sec') ? finalSec : `Sec ${finalSec}`;
+      const rawSecLetter = formattedSec.replace(/^Sec\s*/i, '');
+
+      const updateData = {
+        name: editStdName.trim(),
+        fullName: editStdName.trim(),
+        displayName: editStdName.trim(),
+        department: editStdDept,
+        section: rawSecLetter,
+        classSection: formattedSec,
+        year: editStdYear,
+        semester: editStdSem,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await setDoc(doc(db, 'users', editingStudent.id), updateData, { merge: true });
+      if (cleanRoll) {
+        await setDoc(doc(db, 'students', cleanRoll), updateData, { merge: true });
+      }
+
+      alert(`Student details for ${cleanRoll} updated successfully! Section set to ${formattedSec}.`);
+      setEditingStudent(null);
+    } catch (err) {
+      console.error(err);
+      alert('Error updating student: ' + err.message);
     }
   };
 
@@ -707,227 +760,7 @@ export default function FacultyManagement() {
         </button>
       </div>
 
-      {/* Top Tab Bar: Faculty vs Student Roster */}
-      <div style={{
-        display: 'flex', gap: '12px', marginBottom: '20px',
-        borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px',
-      }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab('faculty')}
-          style={{
-            padding: '10px 18px', borderRadius: '10px',
-            background: activeTab === 'faculty' ? 'var(--accent-primary-subtle)' : 'transparent',
-            border: `1.5px solid ${activeTab === 'faculty' ? 'var(--accent-primary)' : 'var(--border-primary)'}`,
-            color: activeTab === 'faculty' ? 'var(--accent-primary)' : 'var(--text-secondary)',
-            fontWeight: 700, fontSize: '0.875rem',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            cursor: 'pointer', transition: 'all 150ms ease',
-          }}
-        >
-          <Users size={18} /> All Faculty Pool ({facultyList.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('students')}
-          style={{
-            padding: '10px 18px', borderRadius: '10px',
-            background: activeTab === 'students' ? 'rgba(139, 92, 246, 0.15)' : 'transparent',
-            border: `1.5px solid ${activeTab === 'students' ? '#8B5CF6' : 'var(--border-primary)'}`,
-            color: activeTab === 'students' ? '#8B5CF6' : 'var(--text-secondary)',
-            fontWeight: 700, fontSize: '0.875rem',
-            display: 'flex', alignItems: 'center', gap: '8px',
-            cursor: 'pointer', transition: 'all 150ms ease',
-          }}
-        >
-          <Sparkles size={18} /> Student Roster ({studentList.length})
-        </button>
-      </div>
-
-      {activeTab === 'students' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
-          {/* Student Roster List Card */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Provisioned Student Accounts ({studentList.length})
-              </h3>
-              <button
-                disabled={seeding}
-                onClick={handleSeedStudents}
-                className="btn btn-sm btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                {seeding ? <RefreshCw className="animate-spin" size={14} /> : <Sparkles size={14} />}
-                Seed 96 VBIT Students
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <input
-                className="input-field"
-                placeholder="Search roll number or name..."
-                value={filterQuery}
-                onChange={e => setFilterQuery(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <select
-                className="select-field"
-                value={deptFilter}
-                onChange={e => setDeptFilter(e.target.value)}
-                style={{ width: '160px' }}
-              >
-                <option value="ALL">All Departments</option>
-                {DEPARTMENTS.map(d => (
-                  <option key={d.id || d.code} value={d.id || d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>
-                    {d.name} ({d.id || d.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '550px', overflowY: 'auto' }}>
-              {studentList
-                .filter(s => {
-                  const q = filterQuery.toLowerCase();
-                  const mQ = !q || (s.name || '').toLowerCase().includes(q) || (s.rollNumber || '').toLowerCase().includes(q) || (s.email || '').toLowerCase().includes(q);
-                  const mD = deptFilter === 'ALL' || s.department === deptFilter;
-                  return mQ && mD;
-                })
-                .map(std => (
-                  <div
-                    key={std.id}
-                    style={{
-                      padding: '12px 14px', borderRadius: '10px',
-                      background: 'var(--surface-glass)', border: '1px solid var(--border-primary)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--accent-blue)' }}>{std.rollNumber || std.hallTicketNo}</span>
-                        <span>• {std.name || std.fullName}</span>
-                      </div>
-                      <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                        {std.email} • {std.department || 'CSE-DS'} (Year {std.year || '3'}, Sem {std.semester || '2'}, {std.regulation || 'R22'})
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteStudent(std.id, std.rollNumber)}
-                      style={{ color: 'var(--danger)', padding: '6px', cursor: 'pointer', background: 'transparent', border: 'none' }}
-                      title="Remove Student Account"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Add Student Account Form */}
-          <div className="solid-card" style={{ padding: '20px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Plus size={18} style={{ color: '#8B5CF6' }} /> Create Student Account
-            </h3>
-            <p style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginBottom: '16px' }}>
-              Only students provisioned here by Super Admin can access the student portal. Self-registration is restricted.
-            </p>
-
-            <form onSubmit={handleAddStudent} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Full Name</label>
-                <input
-                  className="input-field"
-                  placeholder="e.g. Kommu Suraj"
-                  value={stdName}
-                  onChange={e => setStdName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Roll / Hall Ticket Number</label>
-                <input
-                  className="input-field"
-                  placeholder="e.g. 23P61A6794"
-                  value={stdRoll}
-                  onChange={e => setStdRoll(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Email Address</label>
-                <input
-                  type="email"
-                  className="input-field"
-                  placeholder="e.g. 23P61A6794@vbithyd.ac.in"
-                  value={stdEmail}
-                  onChange={e => setStdEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Default Password</label>
-                <input
-                  className="input-field"
-                  value={stdPassword}
-                  onChange={e => setStdPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div>
-                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Department</label>
-                  <select className="select-field" value={stdDept} onChange={e => setStdDept(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
-                    {DEPARTMENTS.map(d => (
-                      <option key={d.id || d.code} value={d.id || d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>
-                        {d.name} ({d.id || d.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Regulation</label>
-                  <select className="select-field" value={stdRegulation} onChange={e => setStdRegulation(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
-                    <option value="R25" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R25</option>
-                    <option value="R22" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R22</option>
-                    <option value="R21" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R21</option>
-                    <option value="R19" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R19</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div>
-                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Year</label>
-                  <select className="select-field" value={stdYear} onChange={e => setStdYear(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
-                    <option value="1" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>1st Year</option>
-                    <option value="2" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>2nd Year</option>
-                    <option value="3" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>3rd Year</option>
-                    <option value="4" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>4th Year</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Semester</label>
-                  <select className="select-field" value={stdSem} onChange={e => setStdSem(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
-                    <option value="1" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>1st Sem</option>
-                    <option value="2" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>2nd Sem</option>
-                  </select>
-                </div>
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '8px', padding: '10px' }}>
-                Provision Student Account
-              </button>
-            </form>
-          </div>
-        </div>
-      ) : (
+      {/* Main Two-Column Layout for Faculty Pool */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '20px', alignItems: 'start' }}>
         {/* Faculty List Card */}
         <div className="solid-card" style={{ padding: '20px' }}>
@@ -1189,7 +1022,6 @@ export default function FacultyManagement() {
           </form>
         </div>
       </div>
-      )}
 
       {/* Detailed Faculty Schedule & Substitutions Modal */}
       <FacultyScheduleModal
