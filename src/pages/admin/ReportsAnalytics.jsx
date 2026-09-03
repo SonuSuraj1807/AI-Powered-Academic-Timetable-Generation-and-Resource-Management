@@ -5,6 +5,7 @@ import {
   BarChart3, Users, Clock, Home, CheckCircle2, Building2, ChevronDown, ChevronUp, 
   Search, Filter, Layers, CheckCircle, AlertCircle, Sparkles, BookOpen
 } from 'lucide-react';
+import useAuthStore from '../../stores/authStore';
 
 const VBIT_BLOCKS_REGISTRY = [
   {
@@ -162,24 +163,48 @@ export default function ReportsAnalytics() {
     }));
   };
 
+  const profile = useAuthStore(state => state.profile);
+  const isAuthority = profile?.role === 'superadmin' || profile?.role === 'principal';
+  const userDept = profile?.department || 'CSE-DS';
+
+  const facultyDeptMap = useMemo(() => {
+    const map = {};
+    faculty.forEach(f => {
+      if (f.name) {
+        map[f.name.trim().toLowerCase()] = f.department;
+      }
+    });
+    return map;
+  }, [faculty]);
+
   // Compute Faculty Workloads
   const facultyHours = useMemo(() => {
     const hours = {};
-    schedules.forEach(sched => {
+    const relevantSchedules = isAuthority
+      ? schedules
+      : schedules.filter(s => s.department === userDept);
+
+    relevantSchedules.forEach(sched => {
       if (!sched.grid) return;
       Object.keys(sched.grid).forEach(day => {
         sched.grid[day].forEach(slot => {
           if (slot && slot.facultyName && slot.type !== 'break' && slot.type !== 'lunch') {
             const names = slot.facultyName.split(',').map(n => n.trim()).filter(Boolean);
             names.forEach(fac => {
-              hours[fac] = (hours[fac] || 0) + 1;
+              const facDept = facultyDeptMap[fac.toLowerCase()] || sched.department;
+              if (!isAuthority && facDept !== userDept) return;
+
+              if (!hours[fac]) {
+                hours[fac] = { periods: 0, department: facDept || sched.department };
+              }
+              hours[fac].periods += 1;
             });
           }
         });
       });
     });
     return hours;
-  }, [schedules]);
+  }, [schedules, isAuthority, userDept, facultyDeptMap]);
 
   // Total Campus Metrics
   const totalAllocatedRoomsCount = Object.keys(allocatedRoomMap).length;
@@ -486,11 +511,16 @@ export default function ReportsAnalytics() {
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{fac}</div>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {fac}
+                    <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>
+                      {facultyHours[fac].department}
+                    </span>
+                  </div>
                   <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>Scheduled Teaching Load</div>
                 </div>
                 <span className="badge badge-blue" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
-                  {facultyHours[fac]} periods
+                  {facultyHours[fac].periods} periods
                 </span>
               </div>
             ))}

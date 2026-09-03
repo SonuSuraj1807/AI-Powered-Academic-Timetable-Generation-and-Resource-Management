@@ -319,7 +319,7 @@ export default function FacultyManagement() {
 
   // Real-time syncing with Firestore
   useEffect(() => {
-    const isSuperAdmin = profile?.role === 'superadmin';
+    const isAuthority = profile?.role === 'superadmin' || profile?.role === 'principal';
     const userDept = profile?.department || 'CSE-DS';
 
     // 1. Sync Faculty
@@ -329,7 +329,7 @@ export default function FacultyManagement() {
         list.push({ id: docSnap.id, ...docSnap.data() });
       });
 
-      if (!isSuperAdmin && userDept) {
+      if (!isAuthority && userDept) {
         list = list.filter(f => f.department === userDept);
       }
 
@@ -391,7 +391,7 @@ export default function FacultyManagement() {
           }
         });
 
-        if (!isSuperAdmin && userDept) {
+        if (!isAuthority && userDept) {
           stds = stds.filter(s => s.department === userDept);
         }
 
@@ -600,13 +600,13 @@ export default function FacultyManagement() {
   };
 
   const handleSeedFaculty = async () => {
-    const isSuperAdmin = profile?.role === 'superadmin';
-    const targetDepts = isSuperAdmin
-      ? Object.keys(OFFICIAL_VBIT_FACULTY_REGISTRY)
+    const isAuthority = profile?.role === 'superadmin' || profile?.role === 'principal';
+    const targetDepts = isAuthority
+      ? (deptFilter !== 'ALL' ? [deptFilter] : Object.keys(OFFICIAL_VBIT_FACULTY_REGISTRY))
       : [profile?.department || 'CSE-DS'];
 
-    const confirmMsg = isSuperAdmin
-      ? `Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time teaching faculty across ALL departments (CSE, CSE-DS, CSE-AIML, ECE, EEE, IT, MECH, CIVIL, etc.)?`
+    const confirmMsg = isAuthority
+      ? `Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time teaching faculty ${deptFilter !== 'ALL' ? 'for ' + deptFilter : 'across ALL departments (CSE, CSE-DS, ECE, EEE, IT, MECH, etc.)'}?`
       : `Connect to VBIT Official Webhook Endpoint (https://vbithyd.ac.in/api/v1/faculty/webhook-sync) to pull real-time ${profile?.department || 'CSE-DS'} faculty members?`;
 
     if (!confirm(confirmMsg)) return;
@@ -731,7 +731,7 @@ export default function FacultyManagement() {
     }
   };
 
-  const isSuperAdmin = profile?.role === 'superadmin';
+  const isAuthority = profile?.role === 'superadmin' || profile?.role === 'principal';
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '16px' }}>
@@ -754,8 +754,8 @@ export default function FacultyManagement() {
           {seeding ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />}
           {seeding
             ? `Syncing Faculty Pools...`
-            : isSuperAdmin
-            ? `Seed All Department Faculty Pools`
+            : isAuthority
+            ? (deptFilter !== 'ALL' ? `Seed VBIT ${deptFilter} Faculty Pool` : `Seed Institutional Faculty Pool`)
             : `Seed VBIT ${profile?.department || 'CSE'} Faculty Pool`}
         </button>
       </div>
@@ -838,18 +838,18 @@ export default function FacultyManagement() {
               )}
             </div>
 
-            {/* Filter Search Input & Dept Filter for Super Admin */}
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {isSuperAdmin && (
+            {/* Filter Search Input & Dept Filter for Principal & Super Admin */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {isAuthority && (
                 <select
                   className="input-field"
                   value={deptFilter}
                   onChange={e => setDeptFilter(e.target.value)}
-                  style={{ padding: '6px 10px', fontSize: '0.813rem', width: '150px' }}
+                  style={{ padding: '6px 10px', fontSize: '0.813rem', width: 'auto', minWidth: '160px' }}
                 >
-                  <option value="ALL">All Departments</option>
+                  <option value="ALL">Dept Filter: All Branches</option>
                   {DEPARTMENTS.map(d => (
-                    <option key={d.id} value={d.id}>{d.id}</option>
+                    <option key={d.id} value={d.id}>Dept: {d.id}</option>
                   ))}
                 </select>
               )}
