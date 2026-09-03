@@ -136,18 +136,44 @@ export default function ReportsAnalytics() {
   // Compute allocated rooms mapping with schedule metadata
   const allocatedRoomMap = useMemo(() => {
     const map = {};
+
+    const registerAllocation = (rawRoom, dept, year, sec, reg, source = 'Timetable') => {
+      if (!rawRoom) return;
+      const str = String(rawRoom).replace(/^Room\s+/i, '').trim();
+      if (!str) return;
+
+      const numOnly = str.replace(/[^0-9]/g, '');
+      const paddedNum = numOnly ? String(numOnly).padStart(3, '0') : null;
+
+      const roomData = {
+        allocated: true,
+        department: dept || 'CSE-DS',
+        year: year || '4',
+        section: sec || 'A',
+        regulation: reg || 'R22',
+        source,
+      };
+
+      map[str] = roomData;
+      if (paddedNum) map[paddedNum] = roomData;
+      if (numOnly) map[numOnly] = roomData;
+    };
+
     schedules.forEach(sched => {
       if (sched.room) {
-        const cleanRoom = String(sched.room).replace(/^Room\s+/i, '').trim();
-        map[cleanRoom] = {
-          allocated: true,
-          department: sched.department || 'CSE-DS',
-          year: sched.year || '4',
-          section: sched.section || 'A',
-          regulation: sched.regulation || 'R22',
-        };
+        registerAllocation(sched.room, sched.department, sched.year, sched.section, sched.regulation, 'Academic Schedule');
+      }
+      if (sched.grid) {
+        Object.keys(sched.grid).forEach(day => {
+          (sched.grid[day] || []).forEach(slot => {
+            if (slot && slot.room) {
+              registerAllocation(slot.room, sched.department, sched.year, sched.section, sched.regulation, 'Lab/Class Slot');
+            }
+          });
+        });
       }
     });
+
     return map;
   }, [schedules]);
 
@@ -202,8 +228,22 @@ export default function ReportsAnalytics() {
     return hours;
   }, [schedules, isAuthority, userDept, facultyDeptMap]);
 
-  // Total Campus Metrics
-  const totalAllocatedRoomsCount = Object.keys(allocatedRoomMap).length;
+  // Total Campus Metrics Calculated Dynamically
+  const totalAllocatedRoomsCount = useMemo(() => {
+    let count = 0;
+    VBIT_BLOCKS_REGISTRY.forEach(block => {
+      block.defaultRooms.forEach(roomCode => {
+        const cleanCode = String(roomCode).replace(/^Room\s+/i, '').trim();
+        const numOnly = cleanCode.replace(/[^0-9]/g, '');
+        const paddedNum = numOnly ? String(numOnly).padStart(3, '0') : null;
+        if (allocatedRoomMap[cleanCode] || (paddedNum && allocatedRoomMap[paddedNum]) || (numOnly && allocatedRoomMap[numOnly])) {
+          count++;
+        }
+      });
+    });
+    return count;
+  }, [allocatedRoomMap]);
+
   const totalCampusRoomsCount = VBIT_BLOCKS_REGISTRY.reduce((acc, b) => acc + b.defaultRooms.length, 0);
   const roomUtilization = totalCampusRoomsCount > 0 ? Math.round((totalAllocatedRoomsCount / totalCampusRoomsCount) * 100) : 0;
 
@@ -264,10 +304,10 @@ export default function ReportsAnalytics() {
       </div>
 
       {/* Main Split Console: Room Matrix & Faculty Loads */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px', alignItems: 'start' }}>
         
         {/* LEFT PANEL: HIERARCHICAL BLOCK & FLOOR ROOM ALLOCATION MATRIX */}
-        <div className="solid-card" style={{ padding: '24px' }}>
+        <div className="solid-card" style={{ gridColumn: 'span 7 / span 7', padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <h2 style={{ fontSize: '1.125rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -339,7 +379,11 @@ export default function ReportsAnalytics() {
                 const floorName = getFloorFromRoom(roomCode);
                 if (!roomsByFloor[floorName]) roomsByFloor[floorName] = [];
                 
-                const allocation = allocatedRoomMap[roomCode];
+                const cleanCode = String(roomCode).replace(/^Room\s+/i, '').trim();
+                const numOnly = cleanCode.replace(/[^0-9]/g, '');
+                const paddedNum = numOnly ? String(numOnly).padStart(3, '0') : null;
+                const allocation = allocatedRoomMap[cleanCode] || (paddedNum && allocatedRoomMap[paddedNum]) || (numOnly && allocatedRoomMap[numOnly]);
+
                 roomsByFloor[floorName].push({
                   roomCode,
                   isAllocated: !!allocation,
@@ -484,47 +528,49 @@ export default function ReportsAnalytics() {
           </div>
         </div>
 
-        {/* RIGHT PANEL: FACULTY TEACHING LOADS */}
-        <div className="solid-card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={18} style={{ color: 'var(--accent-primary)' }} />
-            Faculty Teaching Workloads (Periods/Week)
-          </h3>
+        {/* RIGHT PANEL: FACULTY TEACHING LOADS (Sticky Bounded Container) */}
+        <div style={{ gridColumn: 'span 5 / span 5', position: 'sticky', top: '80px', maxHeight: 'calc(100vh - 120px)', display: 'flex', flexDirection: 'column' }}>
+          <div className="solid-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%', maxHeight: 'calc(100vh - 120px)', overflow: 'hidden' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+              <Users size={18} style={{ color: 'var(--accent-primary)' }} />
+              Faculty Teaching Workloads (Periods/Week)
+            </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '680px', overflowY: 'auto', paddingBottom: '24px', paddingRight: '4px' }}>
-            {Object.keys(facultyHours).map(fac => (
-              <div
-                key={fac}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '12px 14px',
-                  background: 'var(--surface-glass)',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border-primary)',
-                  fontSize: '0.813rem'
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {fac}
-                    <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>
-                      {facultyHours[fac].department}
-                    </span>
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '6px', paddingBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {Object.keys(facultyHours).map(fac => (
+                <div
+                  key={fac}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 14px',
+                    background: 'var(--surface-glass)',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-primary)',
+                    fontSize: '0.813rem'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {fac}
+                      <span className="badge badge-purple" style={{ fontSize: '0.65rem' }}>
+                        {facultyHours[fac].department}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>Scheduled Teaching Load</div>
                   </div>
-                  <div style={{ fontSize: '0.719rem', color: 'var(--text-tertiary)' }}>Scheduled Teaching Load</div>
+                  <span className="badge badge-blue" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
+                    {facultyHours[fac].periods} periods
+                  </span>
                 </div>
-                <span className="badge badge-blue" style={{ fontWeight: 800, fontSize: '0.75rem' }}>
-                  {facultyHours[fac].periods} periods
-                </span>
-              </div>
-            ))}
-            {Object.keys(facultyHours).length === 0 && (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.813rem', textAlign: 'center', padding: '20px' }}>
-                No active faculty workloads recorded yet.
-              </p>
-            )}
+              ))}
+              {Object.keys(facultyHours).length === 0 && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.813rem', textAlign: 'center', padding: '20px' }}>
+                  No active faculty workloads recorded yet.
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
