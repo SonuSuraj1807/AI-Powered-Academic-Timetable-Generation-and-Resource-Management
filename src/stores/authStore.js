@@ -73,45 +73,18 @@ const useAuthStore = create((set, get) => ({
         console.warn('Per-tab persistence configuration bypassed:', pErr);
       }
 
-      // 1. Single Clean Authentication via Firebase Auth FIRST
+      // 1. Direct Real-Time Firebase Authentication
       let userCredential = null;
-      const candidatePasswords = Array.from(new Set([
-        password,
-        'vbit1234',
-        'Vbit@2026',
-        'vbit@2026',
-        'Password@123',
-        'admin123',
-        'student123',
-        '123456',
-        'vbit2026'
-      ]));
-
-      let lastErr = null;
-
-      for (const pwd of candidatePasswords) {
-        try {
-          userCredential = await signInWithEmailAndPassword(auth, email, pwd);
-          if (userCredential && userCredential.user) break;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-
-      if (!userCredential || !userCredential.user) {
-        if (lastErr && (lastErr.code === 'auth/user-not-found')) {
-          try {
-            userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          } catch (createErr) {
-            if (createErr.code === 'auth/email-already-in-use') {
-              set({ loading: false, error: 'Incorrect password for this institutional account. Please check your password.' });
-              return false;
-            }
-          }
-        } else {
-          set({ loading: false, error: 'Incorrect password for this institutional account. Please verify your password in Firebase.' });
+      try {
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
+      } catch (authErr) {
+        console.error('Firebase Auth Error:', authErr);
+        if (authErr.code === 'auth/invalid-credential' || authErr.code === 'auth/wrong-password' || authErr.code === 'auth/user-not-found') {
+          set({ loading: false, error: 'Login failed: Invalid email or password.' });
           return false;
         }
+        set({ loading: false, error: 'Login failed: ' + (authErr.message || 'Authentication error.') });
+        return false;
       }
 
       if (!userCredential || !userCredential.user) {
