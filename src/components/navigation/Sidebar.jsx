@@ -117,46 +117,82 @@ export default function Sidebar({ collapsed, onToggle }) {
     await logout(true);
   };
 
+  const getPortalDashboardHome = (roleStr) => {
+    switch ((roleStr || '').toUpperCase()) {
+      case 'PRINCIPAL':
+        return '/principal';
+      case 'SUPER_ADMIN':
+      case 'SUPERADMIN':
+        return '/superadmin';
+      case 'ADMIN':
+      case 'DEPT_ADMIN':
+      case 'HOD':
+        return '/admin';
+      case 'SAC_DIRECTOR':
+      case 'SAC':
+        return '/sac-director';
+      case 'EXAM_CONTROLLER':
+      case 'EXAM':
+        return '/admin/exam-scheduler';
+      case 'FACULTY':
+        return '/faculty';
+      case 'STUDENT':
+        return '/student';
+      default:
+        return '/';
+    }
+  };
+
+  const handleLogoClick = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const targetHome = getPortalDashboardHome(profile?.role || role);
+    const currentPath = window.location.pathname;
+
+    if (currentPath === targetHome || (targetHome !== '/' && currentPath.startsWith(targetHome))) {
+      if (currentPath === targetHome) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        navigate(targetHome);
+      }
+    } else {
+      navigate(targetHome);
+    }
+  };
+
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} id="main-sidebar">
       {/* Brand Header */}
       <div 
-        onClick={() => {
-          const ROLE_ROUTES = {
-            superadmin: '/superadmin',
-            admin: '/admin',
-            faculty: '/faculty',
-            student: '/student',
-            exam_controller: '/admin/exam-scheduler',
-          };
-          navigate(ROLE_ROUTES[role] || '/');
-        }}
+        onClick={handleLogoClick}
         style={{
-          padding: collapsed ? '16px 12px' : '16px 20px',
+          padding: collapsed ? '14px 10px' : '14px 16px',
           borderBottom: '1px solid var(--border-primary)',
           display: 'flex',
           alignItems: 'center',
           gap: '12px',
           minHeight: '72px',
           cursor: 'pointer',
+          userSelect: 'none',
         }}
-        title="Go to Dashboard"
+        title="Go to Portal Dashboard"
       >
-        <div style={{
-          width: '40px', height: '40px', flexShrink: 0,
-          borderRadius: '12px',
-          background: `linear-gradient(135deg, ${config.color}, ${config.color}dd)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 4px 12px ${config.color}40`,
-        }}>
-          <GraduationCap size={20} color="white" />
-        </div>
+        <img 
+          src="/vbit-logo.png" 
+          alt="VBIT Logo" 
+          style={{ 
+            height: '36px', 
+            width: 'auto', 
+            maxWidth: '140px', 
+            objectFit: 'contain', 
+            flexShrink: 0 
+          }} 
+        />
         {!collapsed && (
           <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--text-primary)', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
               VBIT
             </div>
-            <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+            <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap', fontWeight: 600 }}>
               Timetable System
             </div>
           </div>
