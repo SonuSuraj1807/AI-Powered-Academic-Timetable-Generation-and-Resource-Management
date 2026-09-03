@@ -56,7 +56,7 @@ export default function DepartmentClubRosterView() {
         map[roll] = {
           rollNumber: roll,
           name: m.studentName || (m.name && m.name !== roll ? m.name : 'Student Representative'),
-          email: m.email || `${roll.toLowerCase()}@vbit.ac.in`,
+          email: m.email ? m.email.replace('@vbit.ac.in', '@vbithyd.ac.in') : `${roll.toLowerCase()}@vbithyd.ac.in`,
           phone: m.phone || '+91 98765 43210',
           year: m.year || '4th Year',
           section: m.section || 'Sec A',

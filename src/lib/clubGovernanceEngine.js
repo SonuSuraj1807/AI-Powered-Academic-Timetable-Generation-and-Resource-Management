@@ -163,12 +163,61 @@ export async function deleteClub(clubId) {
 }
 
 /**
+ * Helper to fetch real student accounts from /students and /users
+ * Maps rollNumber -> { name, email, phone, department, year, section }
+ */
+async function getStudentProfilesMap() {
+  const map = new Map();
+  try {
+    const snapStudents = await getDocs(collection(db, 'students'));
+    snapStudents.forEach(docSnap => {
+      const d = docSnap.data();
+      const roll = (d.hallTicketNo || d.rollNumber || '').trim().toUpperCase();
+      if (roll) {
+        let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+        if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        map.set(roll, {
+          name: d.name || d.displayName || d.fullName || roll,
+          email,
+          phone: d.phone || d.phoneNumber || '+91 98765 43210',
+          department: d.department || 'CSE-DS',
+          section: d.section || 'Sec A',
+          year: d.year || '4th Year',
+        });
+      }
+    });
+
+    const snapUsers = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
+    snapUsers.forEach(docSnap => {
+      const d = docSnap.data();
+      const roll = (d.hallTicketNo || (d.email ? d.email.split('@')[0] : '')).trim().toUpperCase();
+      if (roll && !map.has(roll)) {
+        let email = d.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+        if (email.endsWith('@vbit.ac.in')) email = email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        map.set(roll, {
+          name: d.name || d.displayName || d.fullName || roll,
+          email,
+          phone: d.phone || d.phoneNumber || '+91 98765 43210',
+          department: d.department || 'CSE-DS',
+          section: d.section || 'Sec A',
+          year: d.year || '4th Year',
+        });
+      }
+    });
+  } catch (err) {
+    console.warn('Student profiles lookup warning:', err);
+  }
+  return map;
+}
+
+/**
  * Fetch members of a specific club filtered by tenure (PRESENT_TENURE or PAST_TENURE)
  */
 export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
   try {
     const list = [];
     const seenRolls = new Set();
+    const studentMap = await getStudentProfilesMap();
 
     // 1. Fetch from /club_members
     const q1 = query(
@@ -181,7 +230,23 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
       const m = d.data();
       const roll = (m.rollNumber || '').trim().toUpperCase();
       if (roll) seenRolls.add(roll);
-      list.push({ id: d.id, ...m, name: m.studentName || m.name });
+
+      const realProf = studentMap.get(roll);
+      const resolvedName = realProf?.name || m.studentName || m.name || roll;
+      let resolvedEmail = realProf?.email || m.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+      if (resolvedEmail.endsWith('@vbit.ac.in')) {
+        resolvedEmail = resolvedEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+      }
+
+      list.push({
+        id: d.id,
+        ...m,
+        rollNumber: roll,
+        name: resolvedName,
+        studentName: resolvedName,
+        email: resolvedEmail,
+        phone: realProf?.phone || m.phone || '+91 98765 43210',
+      });
     });
 
     // 2. If PRESENT_TENURE, also check /club_leads for matching club
@@ -200,19 +265,26 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
         if (matchesClub && roll && !seenRolls.has(roll) && l.isActive !== false) {
           seenRolls.add(roll);
           const cleanDocId = d.id.startsWith('lead_') ? d.id : `lead_${d.id}`;
+          const realProf = studentMap.get(roll);
+          const resolvedName = realProf?.name || l.studentName || l.name || roll;
+          let resolvedEmail = realProf?.email || l.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+          if (resolvedEmail.endsWith('@vbit.ac.in')) {
+            resolvedEmail = resolvedEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+          }
+
           list.push({
             id: cleanDocId,
             clubId,
             clubName: l.clubName || clubName || 'Student Club',
             rollNumber: roll,
-            name: l.studentName || l.name || roll,
-            studentName: l.studentName || l.name || roll,
+            name: resolvedName,
+            studentName: resolvedName,
             designation: l.designation || 'Club Lead',
-            department: l.department || 'CSE-DS',
-            email: l.email || `${roll.toLowerCase()}@vbit.ac.in`,
-            phone: l.phone || '+91 98765 43210',
-            year: '4th Year',
-            section: 'Sec A',
+            department: realProf?.department || l.department || 'CSE-DS',
+            email: resolvedEmail,
+            phone: realProf?.phone || l.phone || '+91 98765 43210',
+            year: realProf?.year || '4th Year',
+            section: realProf?.section || 'Sec A',
             tenureType: 'PRESENT_TENURE',
             tenureLabel: '2025-2026',
             canBookVenues: true,
@@ -235,6 +307,7 @@ export async function fetchDepartmentClubMembers(deptName) {
   try {
     const list = [];
     const seenKeys = new Set();
+    const studentMap = await getStudentProfilesMap();
 
     const matchesDept = (dept1, targetDept) => {
       if (!targetDept || targetDept === 'ALL') return true;
@@ -246,33 +319,61 @@ export async function fetchDepartmentClubMembers(deptName) {
     const snap1 = await getDocs(collection(db, 'club_members'));
     snap1.forEach(d => {
       const m = d.data();
-      if (matchesDept(m.department, deptName)) {
-        const key = `${m.rollNumber}_${m.clubName}_${m.tenureType || 'PRESENT_TENURE'}`;
+      const roll = (m.rollNumber || '').trim().toUpperCase();
+      const realProf = studentMap.get(roll);
+      const studentDept = realProf?.department || m.department;
+
+      if (matchesDept(studentDept, deptName)) {
+        const key = `${roll}_${m.clubName}_${m.tenureType || 'PRESENT_TENURE'}`;
         seenKeys.add(key);
-        list.push({ id: d.id, ...m, name: m.studentName || m.name });
+        const resolvedName = realProf?.name || m.studentName || m.name || roll;
+        let resolvedEmail = realProf?.email || m.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+        if (resolvedEmail.endsWith('@vbit.ac.in')) {
+          resolvedEmail = resolvedEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        }
+
+        list.push({
+          id: d.id,
+          ...m,
+          rollNumber: roll,
+          name: resolvedName,
+          studentName: resolvedName,
+          email: resolvedEmail,
+          phone: realProf?.phone || m.phone || '+91 98765 43210',
+        });
       }
     });
 
-    // 2. Fetch from /club_leads (for authorized leads)
+    // 2. Fetch from /club_leads
     const snap2 = await getDocs(collection(db, 'club_leads'));
     snap2.forEach(d => {
       const l = d.data();
-      if (matchesDept(l.department, deptName)) {
-        const key = `${l.rollNumber}_${l.clubName}_PRESENT_TENURE`;
+      const roll = (l.rollNumber || '').trim().toUpperCase();
+      const realProf = studentMap.get(roll);
+      const studentDept = realProf?.department || l.department;
+
+      if (matchesDept(studentDept, deptName)) {
+        const key = `${roll}_${l.clubName}_PRESENT_TENURE`;
         if (!seenKeys.has(key)) {
           seenKeys.add(key);
+          const resolvedName = realProf?.name || l.studentName || l.name || roll;
+          let resolvedEmail = realProf?.email || l.email || `${roll.toLowerCase()}@vbithyd.ac.in`;
+          if (resolvedEmail.endsWith('@vbit.ac.in')) {
+            resolvedEmail = resolvedEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+          }
+
           list.push({
             id: `lead_${d.id}`,
-            rollNumber: l.rollNumber,
-            name: l.studentName || l.name || 'Student Representative',
-            studentName: l.studentName || l.name || 'Student Representative',
+            rollNumber: roll,
+            name: resolvedName,
+            studentName: resolvedName,
             clubName: l.clubName,
             designation: l.designation || 'Club Lead',
-            department: l.department || deptName || 'CSE-DS',
-            email: l.email || `${l.rollNumber?.toLowerCase()}@vbit.ac.in`,
-            phone: l.phone || '+91 98765 43210',
-            year: '4th Year',
-            section: 'Sec A',
+            department: studentDept || deptName || 'CSE-DS',
+            email: resolvedEmail,
+            phone: realProf?.phone || l.phone || '+91 98765 43210',
+            year: realProf?.year || '4th Year',
+            section: realProf?.section || 'Sec A',
             tenureType: 'PRESENT_TENURE',
             tenureLabel: '2025-2026',
             canBookVenues: l.isActive !== false,

@@ -59,7 +59,7 @@ export default function ManageClubLeads() {
       const docId = `lead_${cleanRoll}`;
       await setDoc(doc(db, 'club_leads', docId), {
         rollNumber: cleanRoll,
-        email: `${cleanRoll.toLowerCase()}@vbit.ac.in`,
+        email: `${cleanRoll.toLowerCase()}@vbithyd.ac.in`,
         studentName: studentName.trim() || cleanRoll,
         department,
         clubName: clubName.trim() || 'College Club',

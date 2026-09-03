@@ -282,7 +282,7 @@ export default function SacDirectorDashboard() {
         clubName: currentClub.name,
         rollNumber: memberRoll.trim().toUpperCase(),
         name: memberName.trim() || memberRoll.trim().toUpperCase(),
-        email: memberEmail.trim() || `${memberRoll.trim().toLowerCase()}@vbit.ac.in`,
+        email: (memberEmail.trim() || `${memberRoll.trim().toLowerCase()}@vbithyd.ac.in`).replace('@vbit.ac.in', '@vbithyd.ac.in'),
         phone: memberPhone.trim() || '+91 98765 43210',
         year: memberYear,
         section: memberSection,
@@ -994,7 +994,20 @@ export default function SacDirectorDashboard() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Roll Number *</label>
-                  <input type="text" className="input-field" placeholder="e.g. 23P61A6794" value={memberRoll} onChange={e => setMemberRoll(e.target.value)} required />
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. 23P61A6794"
+                    value={memberRoll}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setMemberRoll(val);
+                      if (val.trim() && !editingMember) {
+                        setMemberEmail(`${val.trim().toLowerCase()}@vbithyd.ac.in`);
+                      }
+                    }}
+                    required
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Student Name *</label>

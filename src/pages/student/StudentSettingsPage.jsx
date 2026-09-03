@@ -41,7 +41,7 @@ export default function StudentSettingsPage() {
     }
   };
 
-  const studentEmail = profile?.email || '23p61a6794@vbit.ac.in';
+  const studentEmail = profile?.email ? profile.email.replace('@vbit.ac.in', '@vbithyd.ac.in') : '23p61a6794@vbithyd.ac.in';
   const studentRollNo = studentEmail.split('@')[0].toUpperCase();
   const studentYear = getStudentYear(studentRollNo, profile?.year, profile?.semester);
   const studentSem = getStudentSemester(studentRollNo, profile?.year, profile?.semester);
