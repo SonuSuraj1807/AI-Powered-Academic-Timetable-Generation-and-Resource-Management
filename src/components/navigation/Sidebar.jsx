@@ -180,10 +180,12 @@ export default function Sidebar({ collapsed, onToggle }) {
           src="/vbit-logo.png" 
           alt="VBIT Logo" 
           style={{ 
-            height: '36px', 
+            height: '38px', 
             width: 'auto', 
             maxWidth: '140px', 
             objectFit: 'contain', 
+            borderRadius: '10px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
             flexShrink: 0 
           }} 
         />

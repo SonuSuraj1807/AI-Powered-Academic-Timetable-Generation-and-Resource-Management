@@ -135,8 +135,11 @@ export default function LoginCard({ role, title }) {
           src="/vbit-logo.png" 
           alt="VBIT Logo" 
           style={{ 
-            height: '42px', 
+            height: '44px', 
+            width: 'auto',
             objectFit: 'contain',
+            borderRadius: '12px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
             marginBottom: '10px'
           }} 
         />
