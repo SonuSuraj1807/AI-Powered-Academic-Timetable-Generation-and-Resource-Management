@@ -8,7 +8,7 @@ import useAuthStore from '../../stores/authStore';
 import { auth, db } from '../../lib/firebase';
 import { updatePassword } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
-import { getStudentYear, getStudentSection } from './StudentDashboard';
+import { getStudentYear, getStudentSemester, getStudentSection } from './StudentDashboard';
 
 export default function StudentSettingsPage() {
   const { profile } = useAuthStore();
@@ -43,9 +43,10 @@ export default function StudentSettingsPage() {
 
   const studentEmail = profile?.email || '23p61a6794@vbit.ac.in';
   const studentRollNo = studentEmail.split('@')[0].toUpperCase();
-  const studentYear = getStudentYear(studentRollNo);
-  const studentSec = getStudentSection(studentRollNo);
-  const studentName = (profile?.name && profile.name.toUpperCase() !== 'STUDENT') ? profile.name : studentRollNo;
+  const studentYear = getStudentYear(studentRollNo, profile?.year, profile?.semester);
+  const studentSem = getStudentSemester(studentRollNo, profile?.year, profile?.semester);
+  const studentSec = profile?.section || getStudentSection(studentRollNo);
+  const studentName = profile?.name || profile?.displayName || profile?.fullName || studentRollNo;
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '16px' }}>
@@ -106,7 +107,7 @@ export default function StudentSettingsPage() {
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>Year, Section & Regulation 🔒</label>
-            <input className="input-field" value={`Year ${studentYear} Sec ${studentSec} (${profile?.regulation || 'R22'})`} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
+            <input className="input-field" value={`Year ${studentYear} Sem ${studentSem} Sec ${studentSec} (${profile?.regulation || 'R22'})`} disabled style={{ opacity: 0.7, background: 'var(--bg-elevated)', cursor: 'not-allowed' }} />
           </div>
         </div>
 

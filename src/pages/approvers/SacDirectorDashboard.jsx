@@ -303,9 +303,9 @@ export default function SacDirectorDashboard() {
   };
 
   const handleDeleteMember = async (mem) => {
-    if (!confirm(`Remove ${mem.name} (${mem.rollNumber}) from ${selectedClub.name}?`)) return;
+    if (!confirm(`Remove ${mem.name || mem.studentName || mem.rollNumber} (${mem.rollNumber}) from ${selectedClub.name}?`)) return;
     try {
-      await deleteClubMember(mem.id);
+      await deleteClubMember(mem.id, mem.rollNumber, selectedClub.id);
       alert(`Member removed.`);
       const list = await fetchClubMembers(selectedClub.id, tenureView);
       setClubMembers(list);

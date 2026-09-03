@@ -41,14 +41,15 @@ export default function FacilityBookingSection() {
   const [submitting, setSubmitting] = useState(false);
   const [submitMsg, setSubmitMsg] = useState('');
 
-  // 1. Check Student Club Lead privilege from Firestore /club_leads
+  // 1. Real-time Firestore sync for Student Club Lead venue booking authorization
   useEffect(() => {
-    async function verifyPrivilege() {
-      if (!studentRoll && !studentEmail) {
-        setLeadPrivilege({ isClubLead: false });
-        setCheckingLead(false);
-        return;
-      }
+    if (!studentRoll && !studentEmail) {
+      setLeadPrivilege({ isClubLead: false });
+      setCheckingLead(false);
+      return;
+    }
+
+    const recheck = async () => {
       const res = await checkStudentClubLead(studentRoll, studentEmail);
       setLeadPrivilege(res);
       if (res.clubs && res.clubs.length > 0) {
@@ -57,8 +58,17 @@ export default function FacilityBookingSection() {
         setSelectedClubName(res.clubName);
       }
       setCheckingLead(false);
-    }
-    verifyPrivilege();
+    };
+
+    recheck();
+
+    const unsub1 = onSnapshot(collection(db, 'club_leads'), () => { recheck(); });
+    const unsub2 = onSnapshot(collection(db, 'club_members'), () => { recheck(); });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [studentRoll, studentEmail]);
 
   // 2. Fetch facilities & listen to real-time student bookings

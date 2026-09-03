@@ -368,20 +368,42 @@ export async function updateClubMember(memberId, memberData) {
 }
 
 /**
- * Delete a club member record
+ * Delete a club member record and revoke privileges in /club_leads
  */
-export async function deleteClubMember(memberId) {
-  const snap = await getDoc(doc(db, 'club_members', memberId));
-  if (snap.exists()) {
-    const m = snap.data();
-    await deleteDoc(doc(db, 'club_members', memberId));
-    
-    // Revoke booking rights in /club_leads
-    if (m.clubId && m.rollNumber) {
-      await deleteDoc(doc(db, 'club_leads', `${m.clubId}_${m.rollNumber}`));
+export async function deleteClubMember(memberId, rollNumber = '', clubId = '') {
+  try {
+    const rawId = String(memberId).replace(/^lead_/, '');
+
+    // 1. Delete from /club_members
+    await deleteDoc(doc(db, 'club_members', memberId)).catch(() => {});
+    await deleteDoc(doc(db, 'club_members', rawId)).catch(() => {});
+
+    // 2. Delete from /club_leads
+    await deleteDoc(doc(db, 'club_leads', rawId)).catch(() => {});
+    await deleteDoc(doc(db, 'club_leads', memberId)).catch(() => {});
+
+    // 3. Query and delete any matching lead record by rollNumber
+    const targetRoll = rollNumber || rawId.split('_').pop();
+    const targetClub = clubId || (rawId.includes('_') ? rawId.split('_')[0] : '');
+
+    if (targetClub && targetRoll) {
+      await deleteDoc(doc(db, 'club_leads', `${targetClub}_${targetRoll.toUpperCase()}`)).catch(() => {});
+      await deleteDoc(doc(db, 'club_members', `member_${targetClub}_${targetRoll.toUpperCase()}_PRESENT_TENURE`)).catch(() => {});
     }
+
+    if (targetRoll && targetRoll.length >= 8) {
+      const q = query(collection(db, 'club_leads'), where('rollNumber', '==', targetRoll.toUpperCase()));
+      const snap = await getDocs(q);
+      snap.forEach(async docSnap => {
+        await deleteDoc(doc(db, 'club_leads', docSnap.id)).catch(() => {});
+      });
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error in deleteClubMember:', err);
+    return false;
   }
-  return true;
 }
 
 /**

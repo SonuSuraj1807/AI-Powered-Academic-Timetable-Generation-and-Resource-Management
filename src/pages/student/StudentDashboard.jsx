@@ -22,27 +22,56 @@ function getCellClass(rawSubject) {
   return 'cell-theory';
 }
 
-export function getStudentYear(rollNo) {
-  if (!rollNo) return 4;
+export function getStudentAcademicProgress(rollNo, explicitYear, explicitSem) {
+  if (explicitYear && explicitSem) {
+    return { year: Number(explicitYear), semester: Number(explicitSem) };
+  }
+
+  if (!rollNo) return { year: 4, semester: 1 };
   const clean = String(rollNo).toUpperCase().trim();
   const match = clean.match(/^(\d{2})/);
-  if (!match) return 4;
-  const yearDigits = parseInt(match[1], 10);
+  if (!match) return { year: Number(explicitYear || 4), semester: Number(explicitSem || 1) };
 
+  const admissionYearDigits = parseInt(match[1], 10);
   const isLateral = clean.includes('5A') || clean.includes('65A');
+  const admissionStartYear = 2000 + admissionYearDigits;
 
-  if (isLateral) {
-    if (yearDigits === 24) return 4;
-    if (yearDigits === 25) return 3;
-    if (yearDigits === 26) return 2;
-    return 4;
+  const now = new Date();
+  const currentCalYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed: 0 = Jan, 8 = Sept
+
+  let academicYearStart = currentCalYear;
+  let isOddSem = true;
+
+  if (currentMonth >= 6 && currentMonth <= 10) {
+    // July - November: Sem 1 of current academic year
+    academicYearStart = currentCalYear;
+    isOddSem = true;
+  } else if (currentMonth === 11) {
+    // December: Sem 2 of current academic year
+    academicYearStart = currentCalYear;
+    isOddSem = false;
   } else {
-    if (yearDigits === 23) return 4;
-    if (yearDigits === 24) return 3;
-    if (yearDigits === 25) return 2;
-    if (yearDigits === 26) return 1;
-    return 4;
+    // January - June: Sem 2 of previous academic year
+    academicYearStart = currentCalYear - 1;
+    isOddSem = false;
   }
+
+  let yearOfStudy = (academicYearStart - admissionStartYear) + 1;
+  if (isLateral) yearOfStudy += 1;
+
+  const clampedYear = Math.max(1, Math.min(4, yearOfStudy));
+  const semester = isOddSem ? 1 : 2;
+
+  return { year: clampedYear, semester };
+}
+
+export function getStudentYear(rollNo, explicitYear, explicitSem) {
+  return getStudentAcademicProgress(rollNo, explicitYear, explicitSem).year;
+}
+
+export function getStudentSemester(rollNo, explicitYear, explicitSem) {
+  return getStudentAcademicProgress(rollNo, explicitYear, explicitSem).semester;
 }
 
 export function parseJntuhRank(rollNo) {
@@ -104,8 +133,9 @@ export default function StudentDashboard() {
   const { profile } = useAuthStore();
   const { notifications, subscribeToNotifications, markAsRead } = useNotificationStore();
   const studentHT = profile?.hallTicketNo || (profile?.email ? profile.email.split('@')[0].toUpperCase() : '23P61A6794');
-  const studentYear = getStudentYear(studentHT);
-  const studentSec = getStudentSection(studentHT);
+  const studentYear = getStudentYear(studentHT, profile?.year, profile?.semester);
+  const studentSem = getStudentSemester(studentHT, profile?.year, profile?.semester);
+  const studentSec = profile?.section || getStudentSection(studentHT);
   const [searchHTNo, setSearchHTNo] = useState(studentHT);
   const [publishedPlans, setPublishedPlans] = useState([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
@@ -316,7 +346,7 @@ export default function StudentDashboard() {
       >
         {[
           { label: 'Section', value: activeSchedule ? `${activeSchedule.department} Sec ${activeSchedule.section}` : 'CSE-DS Sec A', icon: BookOpen, color: '#3B82F6' },
-          { label: 'Academic Year', value: activeSchedule ? `Year ${activeSchedule.year} Sem ${activeSchedule.semester}` : 'Year 3 Sem 1', icon: FileSpreadsheet, color: '#10B981' },
+          { label: 'Academic Year', value: activeSchedule ? `Year ${activeSchedule.year} Sem ${activeSchedule.semester}` : `Year ${studentYear} Sem ${studentSem}`, icon: FileSpreadsheet, color: '#10B981' },
           { label: 'Classroom', value: activeSchedule ? `Room ${activeSchedule.room}` : 'Room 304', icon: Calendar, color: '#8B5CF6' },
           { label: 'Published Plans', value: publishedPlans.length.toString(), icon: CalendarCheck, color: '#E8522E' },
         ].map((stat, i) => (
