@@ -8,6 +8,7 @@
  * - Two-column legend table below the grid
  */
 import { WEEKDAYS, getShortName } from '../../data/curriculumSeed';
+import { cleanRoomNumber, cleanSectionName, cleanYearName } from '../../lib/formatters';
 
 export default function TimetableGrid({ 
   schedule, 
@@ -63,9 +64,9 @@ export default function TimetableGrid({
             fontSize: '0.813rem', color: 'var(--text-secondary)',
           }}>
             <span><strong>Regulation:</strong> {metadata.regulation}</span>
-            <span><strong>Year:</strong> {metadata.year}</span>
-            <span><strong>Section:</strong> {metadata.section}</span>
-            {metadata.room && <span><strong>Room:</strong> {metadata.room}</span>}
+            <span><strong>Year:</strong> {cleanYearName(metadata.year)}</span>
+            <span><strong>Section:</strong> {cleanSectionName(metadata.section)}</span>
+            {metadata.room && <span><strong>Room:</strong> {cleanRoomNumber(metadata.room)}</span>}
             <span><strong>Effective:</strong> {metadata.generatedAt ? new Date(metadata.generatedAt).toLocaleDateString() : 'N/A'}</span>
           </div>
         </div>

@@ -9,8 +9,9 @@
  * - Body: 4-Column × 6-Row Grid of 24 individual seat boxes (HallTicketNo bold + Branch-Year-Sem)
  * - Footer: Absentee note, Attendance Summary Table (Registered, Absent, Present), Invigilator & CoE signatures
  */
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatRoomName, formatBlockName, cleanRoomNumber, cleanBlockName } from '../formatters';
 
 // Helper to format date into DD-MM-YYYY
 function formatDateDDMMYYYY(dateStr) {
@@ -95,9 +96,9 @@ function renderRoomPage(doc, roomPlan, sessionInfo, addPage = false) {
   const dateStr = `Date : ${formatDateDDMMYYYYSlash(sessionInfo.date)}`;
 
   // Room string
-  const blockName = (room.block || 'AVISHKAR').toUpperCase();
+  const blockName = cleanBlockName(room.block || 'AVISHKAR').toUpperCase();
   const floorName = room.floor === 0 ? 'GROUND FLOOR' : room.floor === 1 ? 'FIRST FLOOR' : room.floor === 2 ? 'SECOND FLOOR' : `FLOOR-${room.floor}`;
-  const roomStr = `Room : ${blockName} BLOCK-B-${floorName}-${room.roomNumber || '001'}`;
+  const roomStr = `Room : ${blockName} BLOCK-B-${floorName}-${cleanRoomNumber(room.roomNumber || '001')}`;
 
   const sessionTimeStr = sessionInfo.session === 'FN'
     ? 'Session : 10:00 AM - 01:00 PM'
@@ -419,8 +420,7 @@ export function exportRoomAttendanceSheet(roomPlan, sessionInfo, customFilename)
   doc.setFont('helvetica', 'bold');
   
   const examTitle = sessionInfo?.examTitle || 'B.Tech Regular/Supplementary Examinations';
-  const blockName = (room?.block || 'AVISHKAR').toUpperCase();
-  const roomLabel = `Room ${room?.roomNumber || '302'} (${blockName} Block)`;
+  const roomLabel = `${formatRoomName(room?.roomNumber || '302')} (${formatBlockName(room?.block || 'AVISHKAR')})`;
   const dateLabel = `Date: ${formatDateDDMMYYYYSlash(sessionInfo?.date)} (${sessionInfo?.session || 'FN'})`;
   const timeLabel = sessionInfo?.session === 'FN' ? 'Time: 10:00 AM - 01:00 PM' : 'Time: 01:30 PM - 04:30 PM';
 

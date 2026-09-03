@@ -6,6 +6,7 @@ import TimetableGrid from '../../components/timetable/TimetableGrid';
 import { TIME_SLOTS } from '../../data/curriculumSeed';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
+import { formatRoomName, formatSectionName, formatYearName, formatSemName } from '../../lib/formatters';
 
 import useAuthStore from '../../stores/authStore';
 
@@ -107,10 +108,10 @@ export default function ViewSchedules() {
                 >
                   <div>
                     <div style={{ fontWeight: 700, fontSize: '0.938rem', color: 'var(--text-primary)' }}>
-                      {sched.department} Year {sched.year} Sec {sched.section}
+                      {sched.department} {formatYearName(sched.year)} {formatSectionName(sched.section)}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                      Room: {sched.room} • Sem {sched.semester}
+                      {formatRoomName(sched.room)} • {formatSemName(sched.semester)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }} onClick={e => e.stopPropagation()}>
@@ -147,10 +148,10 @@ export default function ViewSchedules() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '16px' }}>
                 <div>
                   <h3 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                    📅 {selectedSchedule.department} Year {selectedSchedule.year} Sec {selectedSchedule.section} Timetable
+                    📅 {selectedSchedule.department} {formatYearName(selectedSchedule.year)} {formatSectionName(selectedSchedule.section)} Timetable
                   </h3>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    Room: {selectedSchedule.room} • Semester {selectedSchedule.semester}
+                    {formatRoomName(selectedSchedule.room)} • {formatSemName(selectedSchedule.semester)}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>

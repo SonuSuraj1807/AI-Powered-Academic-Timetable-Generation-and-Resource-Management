@@ -10,6 +10,8 @@ import { TIME_SLOTS } from '../../data/curriculumSeed';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
 
+import { formatRoomName, formatSectionName } from '../../lib/formatters';
+
 function getCellClass(rawSubject) {
   if (!rawSubject) return 'cell-free';
   const subject = typeof rawSubject === 'string' ? rawSubject : (rawSubject?.name || rawSubject?.subject || rawSubject?.code || '');
@@ -91,7 +93,7 @@ export default function FacultySchedulePage() {
           if (!weeklyGrid[day][pIdx]) {
             totalClassesFound++;
             const roomName = sched.room || '304';
-            weeklyGrid[day][pIdx] = `${subName} (${sched.department || 'CSE-DS'} Sec ${sched.section || 'A'}, Room ${roomName})`;
+            weeklyGrid[day][pIdx] = `${subName} (${sched.department || 'CSE-DS'} ${formatSectionName(sched.section || 'A')}, ${formatRoomName(roomName)})`;
           }
         }
       });

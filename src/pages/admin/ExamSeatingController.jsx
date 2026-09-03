@@ -34,6 +34,7 @@ import {
   exportInvigilatorDutySheet,
   exportRoomAttendanceSheet,
 } from '../../lib/export/examSeatingPdfExporter';
+import { formatRoomName, formatSectionName, formatYearName, formatSemName, formatBlockName, cleanRoomNumber, cleanBlockName } from '../../lib/formatters';
 import SeatingSheetPreview from '../../components/exam/SeatingSheetPreview';
 import { db } from '../../lib/firebase';
 import {
@@ -356,7 +357,7 @@ export default function ExamSeatingController() {
             batch.set(notifRef, {
               userId: inv.facultyId,
               title: 'New Invigilation Duty Assigned 📋',
-              message: `You are assigned invigilation duty for "${examTitle}" on ${sessionDate} (${sessionSlot}) at Room ${plan.room?.roomNumber}, ${plan.room?.block} Block.`,
+              message: `You are assigned invigilation duty for "${examTitle}" on ${sessionDate} (${sessionSlot}) at ${formatRoomName(plan.room?.roomNumber)}, ${formatBlockName(plan.room?.block)}.`,
               type: 'invigilation',
               read: false,
               createdAt: new Date().toISOString(),
@@ -819,7 +820,7 @@ export default function ExamSeatingController() {
                                         </div>
                                       </div>
                                       <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-blue)', background: 'var(--accent-blue-subtle)', padding: '3px 8px', borderRadius: '6px' }}>
-                                        Room {planDoc.roomNumber} ({planDoc.block} Block)
+                                        {formatRoomName(planDoc.roomNumber)} ({formatBlockName(planDoc.block)})
                                       </span>
                                     </div>
                                     <span style={{ fontSize: '0.688rem', color: 'var(--text-muted)' }}>

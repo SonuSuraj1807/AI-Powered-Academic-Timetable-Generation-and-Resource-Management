@@ -12,6 +12,7 @@ import TimetableGrid from '../../components/timetable/TimetableGrid';
 import { exportToExcel } from '../../lib/export/excelExporter';
 import { exportToPDF } from '../../lib/export/pdfExporter';
 import { exportSingleRoomPDF, exportBatchPDF } from '../../lib/export/examSeatingPdfExporter';
+import { formatRoomName, formatSectionName, formatYearName, formatSemName, formatBlockName, cleanRoomNumber, cleanBlockName } from '../../lib/formatters';
 
 function getCellClass(rawSubject) {
   if (!rawSubject) return 'cell-free';
@@ -345,9 +346,9 @@ export default function StudentDashboard() {
         style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px', opacity: 0 }}
       >
         {[
-          { label: 'Section', value: activeSchedule ? `${activeSchedule.department} Sec ${activeSchedule.section}` : 'CSE-DS Sec A', icon: BookOpen, color: '#3B82F6' },
-          { label: 'Academic Year', value: activeSchedule ? `Year ${activeSchedule.year} Sem ${activeSchedule.semester}` : `Year ${studentYear} Sem ${studentSem}`, icon: FileSpreadsheet, color: '#10B981' },
-          { label: 'Classroom', value: activeSchedule ? `Room ${activeSchedule.room}` : 'Room 304', icon: Calendar, color: '#8B5CF6' },
+          { label: 'Section', value: activeSchedule ? `${activeSchedule.department} ${formatSectionName(activeSchedule.section)}` : 'CSE-DS Sec A', icon: BookOpen, color: '#3B82F6' },
+          { label: 'Academic Year', value: activeSchedule ? `${formatYearName(activeSchedule.year)} ${formatSemName(activeSchedule.semester)}` : `${formatYearName(studentYear)} ${formatSemName(studentSem)}`, icon: FileSpreadsheet, color: '#10B981' },
+          { label: 'Classroom', value: activeSchedule ? formatRoomName(activeSchedule.room) : 'Room 304', icon: Calendar, color: '#8B5CF6' },
           { label: 'Published Plans', value: publishedPlans.length.toString(), icon: CalendarCheck, color: '#E8522E' },
         ].map((stat, i) => (
           <div key={i} className="solid-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -406,8 +407,8 @@ export default function StudentDashboard() {
               </div>
               <div>
                 <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Assigned Hall</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--accent-green)', marginTop: '2px' }}>Room {seatingMatch.roomNumber}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{seatingMatch.block} Block ({seatingMatch.floor === 0 ? 'Ground Floor' : `Floor ${seatingMatch.floor}`})</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: 'var(--accent-green)', marginTop: '2px' }}>{formatRoomName(seatingMatch.roomNumber)}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{formatBlockName(seatingMatch.block)} ({seatingMatch.floor === 0 ? 'Ground Floor' : `Floor ${seatingMatch.floor}`})</div>
               </div>
               <div>
                 <div style={{ fontSize: '0.688rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Seat Position</div>
@@ -486,7 +487,7 @@ export default function StudentDashboard() {
               >
                 {publishedSchedules.map(s => (
                   <option key={s.id} value={s.id}>
-                    {s.department} Yr {s.year} Sec {s.section} (Room {s.room})
+                    {s.department} {formatYearName(s.year)} {formatSectionName(s.section)} ({formatRoomName(s.room)})
                   </option>
                 ))}
               </select>
