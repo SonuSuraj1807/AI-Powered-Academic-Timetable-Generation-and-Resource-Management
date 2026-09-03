@@ -327,27 +327,73 @@ export default function FacultyManagement() {
       setLoading(false);
     });
 
-    // 2. Sync Students from /users and /students
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      let stds = [];
-      snapshot.forEach(docSnap => {
-        const d = docSnap.data();
-        if (d.role === 'student') {
-          stds.push({ id: docSnap.id, ...d });
-        }
+    // 2. Sync Students from /students and /users collections
+    const unsubStudents = onSnapshot(collection(db, 'students'), (stdSnapshot) => {
+      const studentDocMap = {};
+      stdSnapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const rollKey = (data.rollNumber || data.hallTicketNo || docSnap.id).toUpperCase();
+        studentDocMap[rollKey] = data;
       });
 
-      if (!isSuperAdmin && userDept) {
-        stds = stds.filter(s => s.department === userDept);
-      }
+      const unsubUsers = onSnapshot(collection(db, 'users'), (userSnapshot) => {
+        let stds = [];
+        const processedRolls = new Set();
 
-      stds.sort((a, b) => (a.hallTicketNo || a.name || '').localeCompare(b.hallTicketNo || b.name || ''));
-      setStudentList(stds);
+        userSnapshot.forEach(docSnap => {
+          const d = docSnap.data();
+          if (d.role === 'student') {
+            const rollKey = (d.rollNumber || d.hallTicketNo || (d.email ? d.email.split('@')[0] : '') || docSnap.id).toUpperCase();
+            processedRolls.add(rollKey);
+            const stdRecord = studentDocMap[rollKey] || {};
+
+            const resolvedName = (d.name && !d.name.match(/^\d{2}[A-Z\d]+$/i)) ? d.name 
+              : (d.fullName && !d.fullName.match(/^\d{2}[A-Z\d]+$/i)) ? d.fullName 
+              : stdRecord.name || stdRecord.fullName || d.name || d.fullName || rollKey;
+
+            stds.push({
+              id: docSnap.id,
+              ...d,
+              name: resolvedName,
+              fullName: resolvedName,
+              rollNumber: rollKey,
+              hallTicketNo: rollKey,
+            });
+          }
+        });
+
+        // Add any /students records not yet present in /users
+        stdSnapshot.forEach(docSnap => {
+          const s = docSnap.data();
+          const rollKey = (s.rollNumber || s.hallTicketNo || docSnap.id).toUpperCase();
+          if (!processedRolls.has(rollKey)) {
+            const resolvedName = s.name || s.fullName || rollKey;
+            stds.push({
+              id: `std_${rollKey.toLowerCase()}`,
+              ...s,
+              name: resolvedName,
+              fullName: resolvedName,
+              rollNumber: rollKey,
+              hallTicketNo: rollKey,
+            });
+            processedRolls.add(rollKey);
+          }
+        });
+
+        if (!isSuperAdmin && userDept) {
+          stds = stds.filter(s => s.department === userDept);
+        }
+
+        stds.sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || ''));
+        setStudentList(stds);
+      });
+
+      return () => unsubUsers();
     });
 
     return () => {
       unsubFaculty();
-      unsubUsers();
+      unsubStudents();
     };
   }, [profile]);
 
