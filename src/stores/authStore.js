@@ -74,6 +74,7 @@ const useAuthStore = create((set, get) => ({
       }
 
       // 1. Single Clean Authentication via Firebase Auth FIRST
+      let userCredential = null;
       const candidatePasswords = Array.from(new Set([
         password,
         'vbit1234',
