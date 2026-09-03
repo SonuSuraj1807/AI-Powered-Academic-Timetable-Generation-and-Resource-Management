@@ -176,6 +176,9 @@ export default function App() {
                 <Route path="venue-oversight" element={<VenueOversightView />} />
                 <Route path="schedules" element={<ViewSchedules />} />
                 <Route path="faculty" element={<FacultyManagement />} />
+                <Route path="exam-seating" element={<ExamSeatingController />} />
+                <Route path="reports" element={<ReportsAnalytics />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
               </Route>
 
               {/* Faculty Panel */}

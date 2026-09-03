@@ -73,19 +73,34 @@ export default function DashboardLayout() {
               <Menu size={20} />
             </button>
 
-            {/* Department Badge (Locked to authenticated user profile) */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              background: 'var(--accent-blue-subtle)',
-              border: '1px solid rgba(59,130,246,0.3)',
-              borderRadius: '10px',
-              padding: '6px 12px',
-            }}>
-              <span style={{ fontSize: '0.688rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase' }}>Dept:</span>
-              <span style={{ fontSize: '0.813rem', fontWeight: 800, color: 'var(--accent-blue)' }}>
-                {profile?.department || 'CSE-DS'}
-              </span>
-            </div>
+            {/* Scope / Department Badge */}
+            {profile?.role === 'principal' ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: '10px',
+                padding: '6px 12px',
+              }}>
+                <span style={{ fontSize: '0.688rem', fontWeight: 700, color: '#10B981', textTransform: 'uppercase' }}>Scope:</span>
+                <span style={{ fontSize: '0.813rem', fontWeight: 800, color: '#10B981' }}>
+                  Principal Office
+                </span>
+              </div>
+            ) : (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: 'var(--accent-blue-subtle)',
+                border: '1px solid rgba(59,130,246,0.3)',
+                borderRadius: '10px',
+                padding: '6px 12px',
+              }}>
+                <span style={{ fontSize: '0.688rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase' }}>Dept:</span>
+                <span style={{ fontSize: '0.813rem', fontWeight: 800, color: 'var(--accent-blue)' }}>
+                  {profile?.department || 'CSE-DS'}
+                </span>
+              </div>
+            )}
 
             <div style={{
               display: 'flex', alignItems: 'center', gap: '8px',

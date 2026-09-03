@@ -133,7 +133,18 @@ const useAuthStore = create((set, get) => ({
       const existingData = existingUserDoc.exists() ? existingUserDoc.data() : {};
 
       const resolvedName = studentRecord?.name || studentRecord?.fullName || existingData?.name || existingData?.displayName || handle;
-      const resolvedRole = (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : (studentRecord?.role || existingData?.role || actualRole);
+      
+      let resolvedRole = existingData?.role || studentRecord?.role || actualRole;
+      if (email.includes('superadmin')) {
+        resolvedRole = 'superadmin';
+      } else if (email.includes('principal') || email.includes('pvs.srinivas')) {
+        resolvedRole = 'principal';
+      } else if (email.includes('sacdirector') || email.includes('sac_director')) {
+        resolvedRole = 'sac_director';
+      } else if (email.includes('examcontroller')) {
+        resolvedRole = 'exam_controller';
+      }
+
       const resolvedDept = studentRecord?.department || existingData?.department || getDeptFromEmail(email);
 
       const profileData = {
@@ -153,9 +164,28 @@ const useAuthStore = create((set, get) => ({
 
       await setDoc(doc(db, 'users', uid), profileData, { merge: true });
 
-      // Strict Role Verification Guard: Only Super Admin / Principal email can unlock Super Admin Console
-      if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && !email.includes('superadmin') && !email.includes('principal')) {
-        set({ loading: false, error: 'Access Denied: Only Super Admin or Principal can access the Super Admin Portal.' });
+      // Strict Portal Isolation Guard: Ensure user enters through their designated portal tab
+      const isRolePermittedForTab = (tabRole, userRole) => {
+        if (tabRole === 'admin') {
+          return ['admin', 'principal', 'exam_controller', 'superadmin'].includes(userRole);
+        }
+        if (tabRole === 'faculty') {
+          return ['faculty', 'sac_director'].includes(userRole);
+        }
+        if (tabRole === 'student') {
+          return userRole === 'student';
+        }
+        return true;
+      };
+
+      if (!isRolePermittedForTab(expectedRole, resolvedRole)) {
+        await signOut(auth);
+        const cardNames = { admin: 'Admin & HODs', faculty: 'Faculty & HODs', student: 'Student Leads' };
+        const correctTab = resolvedRole === 'student' ? 'Student' : (resolvedRole === 'faculty' || resolvedRole === 'sac_director') ? 'Faculty' : 'Admin';
+        set({
+          loading: false,
+          error: `Access Denied: Your account (${resolvedRole.toUpperCase()}) cannot log in via the ${cardNames[expectedRole] || expectedRole} portal. Please log in through the ${correctTab} portal.`
+        });
         return false;
       }
 
@@ -207,7 +237,15 @@ const useAuthStore = create((set, get) => ({
             const resolvedDept = (profile?.department === 'IT' && computedDept === 'CSE-DS') ? 'CSE-DS' : (profile?.department || computedDept);
 
             let resolvedRole = profile.role;
-            if (email.includes('raju') || email.includes('y.raju') || email.includes('hod')) {
+            if (email.includes('superadmin')) {
+              resolvedRole = 'superadmin';
+            } else if (email.includes('principal') || email.includes('pvs.srinivas')) {
+              resolvedRole = 'principal';
+            } else if (email.includes('sacdirector') || email.includes('sac_director')) {
+              resolvedRole = 'sac_director';
+            } else if (email.includes('examcontroller')) {
+              resolvedRole = 'exam_controller';
+            } else if (email.includes('raju') || email.includes('y.raju') || email.includes('hod')) {
               resolvedRole = 'admin';
             }
 

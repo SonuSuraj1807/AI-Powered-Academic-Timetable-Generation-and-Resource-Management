@@ -46,6 +46,9 @@ const MENU_CONFIG = {
       { path: '/principal/venue-oversight', icon: Building2, label: 'Venue Oversight' },
       { path: '/principal/schedules', icon: Calendar, label: 'All Schedules & Timetables' },
       { path: '/principal/faculty', icon: Users, label: 'All Faculty Pool' },
+      { path: '/principal/exam-seating', icon: ClipboardList, label: 'Published Exam Seating' },
+      { path: '/principal/reports', icon: BarChart3, label: 'Reports & Analytics' },
+      { path: '/principal/settings', icon: Settings, label: 'Settings' },
     ],
   },
   exam_controller: {
@@ -240,7 +243,7 @@ export default function Sidebar({ collapsed, onToggle }) {
               {profile.displayName || profile.email}
             </div>
             <div style={{ fontSize: '0.688rem', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-              {profile.department || role}
+              {role === 'principal' ? 'Principal Office (College-Wide)' : (profile.department || role)}
             </div>
           </div>
         )}
