@@ -56,11 +56,37 @@ export default function ManageClubLeads() {
     const finalDesignation = designationSelect === 'Custom Designation' ? customDesignation : designationSelect;
 
     try {
+      let canonicalName = studentName.trim() || cleanRoll;
+      let canonicalEmail = `${cleanRoll.toLowerCase()}@vbithyd.ac.in`;
+
+      // Lookup 1st created canonical student profile in /students or /users
+      try {
+        const snapStudent = await getDocs(query(collection(db, 'students'), where('hallTicketNo', '==', cleanRoll)));
+        if (!snapStudent.empty) {
+          const sData = snapStudent.docs[0].data();
+          if (sData.name) canonicalName = sData.name;
+          if (sData.email) canonicalEmail = sData.email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+        } else {
+          const snapUser = await getDocs(query(collection(db, 'users'), where('role', '==', 'student')));
+          snapUser.forEach(d => {
+            const uData = d.data();
+            const uRoll = (uData.hallTicketNo || (uData.email ? uData.email.split('@')[0] : '')).trim().toUpperCase();
+            if (uRoll === cleanRoll) {
+              if (uData.name) canonicalName = uData.name;
+              if (uData.email) canonicalEmail = uData.email.replace('@vbit.ac.in', '@vbithyd.ac.in');
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Canonical name lookup error:', err);
+      }
+
       const docId = `lead_${cleanRoll}`;
       await setDoc(doc(db, 'club_leads', docId), {
         rollNumber: cleanRoll,
-        email: `${cleanRoll.toLowerCase()}@vbithyd.ac.in`,
-        studentName: studentName.trim() || cleanRoll,
+        email: canonicalEmail,
+        name: canonicalName,
+        studentName: canonicalName,
         department,
         clubName: clubName.trim() || 'College Club',
         designation: finalDesignation || 'Club Lead',
@@ -73,7 +99,7 @@ export default function ManageClubLeads() {
       setRollNumber('');
       setStudentName('');
       setCustomDesignation('');
-      alert(`Booking privilege granted successfully to Roll Number ${cleanRoll} (${finalDesignation})!`);
+      alert(`Booking privilege granted successfully to ${canonicalName} (${cleanRoll} - ${finalDesignation})!`);
     } catch (err) {
       console.error(err);
       alert('Failed to grant booking privilege: ' + err.message);

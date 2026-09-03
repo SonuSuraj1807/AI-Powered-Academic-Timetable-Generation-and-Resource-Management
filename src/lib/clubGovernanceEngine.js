@@ -391,12 +391,20 @@ export async function fetchDepartmentClubMembers(deptName) {
 
 /**
  * Add a student member to a club with full details (Phone, Class, Section, Year, Dept, Role)
- * Supports multi-club memberships cleanly.
+ * Enforces canonical 1st created name & uppercase roll number.
  */
 export async function addClubMember(clubId, memberData) {
   const rollNumber = (memberData.rollNumber || '').trim().toUpperCase();
   const tenureType = memberData.tenureType || 'PRESENT_TENURE';
   const memberDocId = `member_${clubId}_${rollNumber}_${tenureType}`;
+
+  const studentMap = await getStudentProfilesMap();
+  const realProf = studentMap.get(rollNumber);
+  const canonicalName = realProf?.name || (memberData.name || rollNumber).trim();
+  let canonicalEmail = realProf?.email || memberData.email || `${rollNumber.toLowerCase()}@vbithyd.ac.in`;
+  if (canonicalEmail.endsWith('@vbit.ac.in')) {
+    canonicalEmail = canonicalEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+  }
 
   const docRef = doc(db, 'club_members', memberDocId);
   const data = {
@@ -404,14 +412,15 @@ export async function addClubMember(clubId, memberData) {
     clubId,
     clubName: memberData.clubName || 'Student Club',
     rollNumber,
-    name: (memberData.name || rollNumber).trim(),
-    email: memberData.email || `${rollNumber.toLowerCase()}@vbit.ac.in`,
-    phone: memberData.phone || '+91 98765 43210',
-    year: memberData.year || '4th Year',
-    section: memberData.section || 'Sec A',
-    department: memberData.department || 'CSE-DS',
+    name: canonicalName,
+    studentName: canonicalName,
+    email: canonicalEmail,
+    phone: realProf?.phone || memberData.phone || '+91 98765 43210',
+    year: realProf?.year || memberData.year || '4th Year',
+    section: realProf?.section || memberData.section || 'Sec A',
+    department: realProf?.department || memberData.department || 'CSE-DS',
     designation: memberData.designation || 'Core Committee Member',
-    roleCategory: memberData.roleCategory || 'LEAD', // 'LEAD' | 'CO_LEAD' | 'SECRETARY' | 'CORE' | 'MEMBER'
+    roleCategory: memberData.roleCategory || 'LEAD',
     tenureType,
     tenureLabel: memberData.tenureLabel || '2025-2026',
     canBookVenues: memberData.canBookVenues !== false,
@@ -427,6 +436,7 @@ export async function addClubMember(clubId, memberData) {
       rollNumber,
       email: data.email,
       name: data.name,
+      studentName: data.name,
       clubName: data.clubName,
       designation: data.designation,
       department: data.department,
@@ -440,13 +450,27 @@ export async function addClubMember(clubId, memberData) {
 }
 
 /**
- * Update an existing member record (Safe setDoc merge)
+ * Update an existing member record (Safe setDoc merge with canonical name resolution)
  */
 export async function updateClubMember(memberId, memberData) {
   try {
     const cleanId = String(memberId).replace(/^(lead_)+/, '');
+    const rollNumber = (memberData.rollNumber || cleanId.split('_').pop() || '').trim().toUpperCase();
+
+    const studentMap = await getStudentProfilesMap();
+    const realProf = studentMap.get(rollNumber);
+    const canonicalName = realProf?.name || (memberData.name || rollNumber).trim();
+    let canonicalEmail = realProf?.email || memberData.email || `${rollNumber.toLowerCase()}@vbithyd.ac.in`;
+    if (canonicalEmail.endsWith('@vbit.ac.in')) {
+      canonicalEmail = canonicalEmail.replace('@vbit.ac.in', '@vbithyd.ac.in');
+    }
+
     const data = {
       ...memberData,
+      rollNumber,
+      name: canonicalName,
+      studentName: canonicalName,
+      email: canonicalEmail,
       updatedAt: new Date().toISOString(),
     };
 
@@ -457,12 +481,13 @@ export async function updateClubMember(memberId, memberData) {
     }
 
     // If in PRESENT_TENURE, update privileges in /club_leads
-    if (memberData.tenureType === 'PRESENT_TENURE' && memberData.rollNumber) {
-      const leadDocId = `${memberData.clubId || 'club'}_${memberData.rollNumber.toUpperCase()}`;
+    if (memberData.tenureType === 'PRESENT_TENURE' && rollNumber) {
+      const leadDocId = `${memberData.clubId || 'club'}_${rollNumber}`;
       await setDoc(doc(db, 'club_leads', leadDocId), {
-        rollNumber: memberData.rollNumber.toUpperCase(),
-        email: memberData.email,
-        name: memberData.name,
+        rollNumber,
+        email: canonicalEmail,
+        name: canonicalName,
+        studentName: canonicalName,
         clubName: memberData.clubName,
         designation: memberData.designation,
         department: memberData.department,
@@ -471,10 +496,11 @@ export async function updateClubMember(memberId, memberData) {
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
-      await setDoc(doc(db, 'club_leads', memberData.rollNumber.toUpperCase()), {
-        rollNumber: memberData.rollNumber.toUpperCase(),
-        email: memberData.email,
-        name: memberData.name,
+      await setDoc(doc(db, 'club_leads', rollNumber), {
+        rollNumber,
+        email: canonicalEmail,
+        name: canonicalName,
+        studentName: canonicalName,
         clubName: memberData.clubName,
         designation: memberData.designation,
         department: memberData.department,
