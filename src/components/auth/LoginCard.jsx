@@ -182,10 +182,11 @@ export default function LoginCard({ role, title }) {
         <input
           type="email"
           id={`${role}-email-input`}
+          name={`${role}_email`}
           placeholder={emailPlaceholder}
           value={email}
           onChange={(e) => { setEmail(e.target.value); setLocalError(''); clearError(); }}
-          autoComplete="email"
+          autoComplete={`username ${role}-username`}
           disabled={isSubmitting}
           style={{
             padding: '10px 14px',
@@ -205,6 +206,7 @@ export default function LoginCard({ role, title }) {
           <input
             type={showPassword ? 'text' : 'password'}
             id={`${role}-password-input`}
+            name={`${role}_password`}
             placeholder={isSetupMode ? "Choose Password" : "Password"}
             value={password}
             onChange={(e) => { setPassword(e.target.value); setLocalError(''); clearError(); }}
