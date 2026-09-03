@@ -835,19 +835,19 @@ export default function FacultyManagement() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div>
                   <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Department</label>
-                  <select className="select-field" value={stdDept} onChange={e => setStdDept(e.target.value)}>
+                  <select className="select-field" value={stdDept} onChange={e => setStdDept(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
                     {DEPARTMENTS.map(d => (
-                      <option key={d.code} value={d.code}>{d.code}</option>
+                      <option key={d.code} value={d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>{d.code}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Regulation</label>
-                  <select className="select-field" value={stdRegulation} onChange={e => setStdRegulation(e.target.value)}>
-                    <option value="R25">R25</option>
-                    <option value="R22">R22</option>
-                    <option value="R21">R21</option>
-                    <option value="R19">R19</option>
+                  <select className="select-field" value={stdRegulation} onChange={e => setStdRegulation(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
+                    <option value="R25" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R25</option>
+                    <option value="R22" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R22</option>
+                    <option value="R21" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R21</option>
+                    <option value="R19" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>R19</option>
                   </select>
                 </div>
               </div>
@@ -855,18 +855,18 @@ export default function FacultyManagement() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                 <div>
                   <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Year</label>
-                  <select className="select-field" value={stdYear} onChange={e => setStdYear(e.target.value)}>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
+                  <select className="select-field" value={stdYear} onChange={e => setStdYear(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
+                    <option value="1" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>1st Year</option>
+                    <option value="2" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>2nd Year</option>
+                    <option value="3" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>3rd Year</option>
+                    <option value="4" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>4th Year</option>
                   </select>
                 </div>
                 <div>
                   <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Semester</label>
-                  <select className="select-field" value={stdSem} onChange={e => setStdSem(e.target.value)}>
-                    <option value="1">1st Sem</option>
-                    <option value="2">2nd Sem</option>
+                  <select className="select-field" value={stdSem} onChange={e => setStdSem(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
+                    <option value="1" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>1st Sem</option>
+                    <option value="2" style={{ background: '#0A0E1A', color: '#F1F5F9' }}>2nd Sem</option>
                   </select>
                 </div>
               </div>
