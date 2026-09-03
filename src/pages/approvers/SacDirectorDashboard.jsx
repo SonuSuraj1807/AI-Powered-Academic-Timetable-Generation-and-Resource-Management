@@ -242,10 +242,19 @@ export default function SacDirectorDashboard() {
     }
   };
 
+  // Close Child Member Modal safely without resetting parent club view
+  const handleCloseMemberModal = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    setShowMemberModal(false);
+    setEditingMember(null);
+  };
+
   // Member Add/Edit Submit
   const handleSaveMember = async (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     e.preventDefault();
-    if (!memberRoll.trim() || !selectedClub) return alert('Please fill in roll number.');
+    const currentClub = selectedClub || activeClubModal;
+    if (!memberRoll.trim() || !currentClub) return alert('Please select a club and fill in roll number.');
 
     try {
       let finalDesignation = memberDesignation;
@@ -269,8 +278,8 @@ export default function SacDirectorDashboard() {
       }
 
       const data = {
-        clubId: selectedClub.id,
-        clubName: selectedClub.name,
+        clubId: currentClub.id,
+        clubName: currentClub.name,
         rollNumber: memberRoll.trim().toUpperCase(),
         name: memberName.trim() || memberRoll.trim().toUpperCase(),
         email: memberEmail.trim() || `${memberRoll.trim().toLowerCase()}@vbit.ac.in`,
@@ -280,7 +289,7 @@ export default function SacDirectorDashboard() {
         department: finalDept,
         designation: finalDesignation,
         tenureType: tenureView,
-        tenureLabel: selectedClub.currentTenure || '2025-2026',
+        tenureLabel: currentClub.currentTenure || '2025-2026',
         canBookVenues: memberCanBook,
       };
 
@@ -288,13 +297,13 @@ export default function SacDirectorDashboard() {
         await updateClubMember(editingMember.id, data);
         alert(`Member ${data.name} (${data.rollNumber}) updated!`);
       } else {
-        await addClubMember(selectedClub.id, data);
-        alert(`Member ${data.name} (${data.rollNumber}) added to ${selectedClub.name}!`);
+        await addClubMember(currentClub.id, data);
+        alert(`Member ${data.name} (${data.rollNumber}) added to ${currentClub.name}!`);
       }
-      setShowMemberModal(false);
+      handleCloseMemberModal(e);
       setCustomDesigText('');
       setCustomDeptText('');
-      const list = await fetchClubMembers(selectedClub.id, tenureView);
+      const list = await fetchClubMembers(currentClub.id, tenureView);
       setClubMembers(list);
     } catch (err) {
       console.error(err);
@@ -303,12 +312,17 @@ export default function SacDirectorDashboard() {
   };
 
   const handleDeleteMember = async (mem) => {
-    if (!confirm(`Remove ${mem.name || mem.studentName || mem.rollNumber} (${mem.rollNumber}) from ${selectedClub.name}?`)) return;
+    const currentClub = selectedClub || activeClubModal;
+    const clubName = currentClub?.name || 'Club';
+    const clubId = currentClub?.id || mem.clubId;
+    if (!confirm(`Remove ${mem.name || mem.studentName || mem.rollNumber} (${mem.rollNumber}) from ${clubName}?`)) return;
     try {
-      await deleteClubMember(mem.id, mem.rollNumber, selectedClub.id);
+      await deleteClubMember(mem.id, mem.rollNumber, clubId);
       alert(`Member removed.`);
-      const list = await fetchClubMembers(selectedClub.id, tenureView);
-      setClubMembers(list);
+      if (clubId) {
+        const list = await fetchClubMembers(clubId, tenureView);
+        setClubMembers(list);
+      }
     } catch (err) {
       console.error(err);
       alert('Error removing member: ' + err.message);
@@ -600,7 +614,7 @@ export default function SacDirectorDashboard() {
                 background: 'rgba(0, 0, 0, 0.8)',
                 backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',
-                zIndex: 9999,
+                zIndex: 1000,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -902,8 +916,11 @@ export default function SacDirectorDashboard() {
       {/* CLUB ADD/EDIT MODAL */}
       {/* ==================================================== */}
       {showClubModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div className="solid-card animate-fade-in-up" style={{ maxWidth: '480px', width: '100%', padding: '24px', border: '1px solid var(--accent-primary)' }}>
+        <div
+          onClick={(e) => { e.stopPropagation(); setShowClubModal(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 10050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="solid-card animate-fade-in-up" style={{ maxWidth: '480px', width: '100%', padding: '24px', border: '1px solid var(--accent-primary)' }}>
             <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '16px' }}>
               {editingClub ? 'Edit Student Club Details' : 'Add New VBIT Student Club'}
             </h3>
@@ -941,7 +958,7 @@ export default function SacDirectorDashboard() {
                 <textarea className="input-field" rows={2} placeholder="Brief objective of the club..." value={clubDescInput} onChange={e => setClubDescInput(e.target.value)} />
               </div>
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                <button type="button" onClick={() => setShowClubModal(false)} className="btn btn-ghost">Cancel</button>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowClubModal(false); }} className="btn btn-ghost">Cancel</button>
                 <button type="submit" className="btn btn-primary">{editingClub ? 'Update Club' : 'Create Club'}</button>
               </div>
             </form>
@@ -953,11 +970,26 @@ export default function SacDirectorDashboard() {
       {/* MEMBER ADD/EDIT MODAL */}
       {/* ==================================================== */}
       {showMemberModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 99, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div className="solid-card animate-fade-in-up" style={{ maxWidth: '520px', width: '100%', padding: '24px', border: '1px solid var(--accent-primary)' }}>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: 800, marginBottom: '16px' }}>
-              {editingMember ? `Edit Member — ${editingMember.name}` : `Add Student Member to ${selectedClub?.name}`}
-            </h3>
+        <div
+          onClick={handleCloseMemberModal}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', zIndex: 10100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="solid-card animate-fade-in-up" style={{ maxWidth: '520px', width: '100%', padding: '24px', border: '1px solid var(--accent-primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>
+                {editingMember ? `Edit Member — ${editingMember.name || editingMember.studentName}` : `Add Student Member to ${(selectedClub || activeClubModal)?.name}`}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseMemberModal}
+                className="btn btn-ghost btn-sm"
+                style={{ padding: '4px 8px', color: 'var(--text-secondary)' }}
+                title="Close Edit Member Modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
             <form onSubmit={handleSaveMember} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
@@ -1035,7 +1067,7 @@ export default function SacDirectorDashboard() {
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" onClick={() => setShowMemberModal(false)} className="btn btn-ghost">Cancel</button>
+                <button type="button" onClick={handleCloseMemberModal} className="btn btn-ghost">Cancel</button>
                 <button type="submit" className="btn btn-primary">{editingMember ? 'Update Member' : 'Save Member'}</button>
               </div>
             </form>
@@ -1047,8 +1079,11 @@ export default function SacDirectorDashboard() {
       {/* DOUBLE CONFIRMATION TENURE COMPLETION MODAL */}
       {/* ==================================================== */}
       {showArchiveModal && selectedClub && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          <div className="solid-card animate-fade-in-up" style={{ maxWidth: '520px', width: '100%', padding: '26px', border: '2px solid #F59E0B' }}>
+        <div
+          onClick={(e) => { e.stopPropagation(); setShowArchiveModal(false); }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 10200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="solid-card animate-fade-in-up" style={{ maxWidth: '520px', width: '100%', padding: '26px', border: '2px solid #F59E0B' }}>
             
             {archiveStep === 1 ? (
               <div>
