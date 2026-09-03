@@ -270,7 +270,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* College-wide Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '28px' }}>
         <div className="solid-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ padding: '12px', background: 'rgba(139, 92, 246, 0.12)', borderRadius: '14px', color: '#8B5CF6' }}>
             <Building2 size={24} />
@@ -313,7 +313,7 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-primary)', pb: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px', overflowX: 'auto' }}>
         <button
           onClick={() => setActiveTab('admins')}
           className={`btn ${activeTab === 'admins' ? 'btn-primary' : 'btn-ghost'}`}

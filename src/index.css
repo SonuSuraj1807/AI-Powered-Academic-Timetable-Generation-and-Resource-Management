@@ -516,6 +516,8 @@ img {
   flex: 1;
   margin-left: var(--sidebar-width);
   transition: margin-left var(--transition-base);
+  min-width: 0;
+  overflow-x: hidden;
 }
 .sidebar.collapsed ~ .main-content,
 .main-content.sidebar-collapsed {
