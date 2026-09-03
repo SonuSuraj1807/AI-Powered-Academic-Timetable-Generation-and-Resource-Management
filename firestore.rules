@@ -127,10 +127,10 @@ service cloud.firestore {
       allow write: if isExamController() || isSuperAdmin() || isAdmin();
     }
 
-    // ── Club Lead Booking Privileges (SAC Director & Super Admin Managed) ──
+    // ── Club Lead Booking Privileges (SAC Director, Principal, Super Admin & Admin Managed) ──
     match /club_leads/{leadId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin();
+      allow write: if isSacDirector() || isSuperAdmin() || isPrincipal() || isAdmin();
     }
 
     // ── Campus Facilities Registry (Super Admin Managed) ──
