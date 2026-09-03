@@ -734,7 +734,9 @@ export default function FacultyManagement() {
               >
                 <option value="ALL">All Departments</option>
                 {DEPARTMENTS.map(d => (
-                  <option key={d.code} value={d.code}>{d.code}</option>
+                  <option key={d.id || d.code} value={d.id || d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>
+                    {d.name} ({d.id || d.code})
+                  </option>
                 ))}
               </select>
             </div>
@@ -837,7 +839,9 @@ export default function FacultyManagement() {
                   <label style={{ fontSize: '0.688rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Department</label>
                   <select className="select-field" value={stdDept} onChange={e => setStdDept(e.target.value)} style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)', borderRadius: '10px', padding: '8px 12px' }}>
                     {DEPARTMENTS.map(d => (
-                      <option key={d.code} value={d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>{d.code}</option>
+                      <option key={d.id || d.code} value={d.id || d.code} style={{ background: '#0A0E1A', color: '#F1F5F9' }}>
+                        {d.name} ({d.id || d.code})
+                      </option>
                     ))}
                   </select>
                 </div>

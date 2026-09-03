@@ -118,19 +118,40 @@ const useAuthStore = create((set, get) => ({
       }
 
       // 2. Real-time Cloud Firestore Profile Sync
+      const handle = email.split('@')[0].toUpperCase();
+      let studentRecord = null;
+      try {
+        const studentDocSnap = await getDoc(doc(db, 'students', handle));
+        if (studentDocSnap.exists()) {
+          studentRecord = studentDocSnap.data();
+        }
+      } catch (sErr) {
+        console.warn('Student record lookup warning:', sErr);
+      }
+
+      const existingUserDoc = await getDoc(doc(db, 'users', uid));
+      const existingData = existingUserDoc.exists() ? existingUserDoc.data() : {};
+
+      const resolvedName = studentRecord?.name || studentRecord?.fullName || existingData?.name || existingData?.displayName || handle;
+      const resolvedRole = (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : (studentRecord?.role || existingData?.role || actualRole);
+      const resolvedDept = studentRecord?.department || existingData?.department || getDeptFromEmail(email);
+
       const profileData = {
-        name: email.split('@')[0].toUpperCase(),
+        name: resolvedName,
+        displayName: resolvedName,
         email: email,
-        role: (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : actualRole,
-        department: getDeptFromEmail(email),
-        createdAt: new Date().toISOString(),
+        role: resolvedRole,
+        department: resolvedDept,
+        rollNumber: handle,
+        hallTicketNo: handle,
+        year: studentRecord?.year || existingData?.year || '4',
+        semester: studentRecord?.semester || existingData?.semester || '1',
+        section: studentRecord?.section || existingData?.section || 'A',
+        regulation: studentRecord?.regulation || existingData?.regulation || 'R22',
+        createdAt: existingData?.createdAt || new Date().toISOString(),
       };
 
       await setDoc(doc(db, 'users', uid), profileData, { merge: true });
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      const profile = userDoc.exists() ? userDoc.data() : profileData;
-      const resolvedRole = (email.includes('superadmin') || email.includes('principal')) ? 'superadmin' : (profile?.role || actualRole);
-      const resolvedDept = profile?.department || getDeptFromEmail(email);
 
       // Strict Role Verification Guard: Only Super Admin / Principal email can unlock Super Admin Console
       if (expectedRole === 'superadmin' && resolvedRole !== 'superadmin' && !email.includes('superadmin') && !email.includes('principal')) {
@@ -138,17 +159,10 @@ const useAuthStore = create((set, get) => ({
         return false;
       }
 
-      const updatedProfile = {
-        ...profile,
-        role: resolvedRole,
-        department: resolvedDept,
-        hallTicketNo: profile?.hallTicketNo || (resolvedRole === 'student' ? email.split('@')[0].toUpperCase() : null),
-      };
-
       set({
         user: userCredential.user,
         role: resolvedRole,
-        profile: { uid, ...updatedProfile },
+        profile: { uid, ...profileData },
         loading: false,
         error: null,
       });
