@@ -23,12 +23,16 @@ service cloud.firestore {
       return hasRole('superadmin') || (isAuthenticated() && request.auth.token.get('email', '') == 'superadmin@vbit.ac.in');
     }
 
+    function isPrincipal() {
+      return hasRole('principal') || isSuperAdmin();
+    }
+
     function isAdmin() {
-      return hasRole('admin') || isSuperAdmin();
+      return hasRole('admin') || isPrincipal() || isSuperAdmin();
     }
     
     function isFaculty() {
-      return hasRole('faculty');
+      return hasRole('faculty') || isAdmin();
     }
     
     function isStudent() {
@@ -40,141 +44,140 @@ service cloud.firestore {
     }
 
     function isExamController() {
-      return hasRole('exam_controller') || isSuperAdmin();
+      return hasRole('exam_controller') || isPrincipal() || isSuperAdmin();
     }
 
     function isSacDirector() {
-      return hasRole('sac_director') || isSuperAdmin();
-    }
-
-    function isPrincipal() {
-      return hasRole('principal') || isSuperAdmin();
+      return hasRole('sac_director') || isPrincipal() || isSuperAdmin();
     }
 
     // ── Users Collection ──
     match /users/{userId} {
       allow read: if true;
       allow create, update: if true;
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isPrincipal();
     }
 
-    // ── Students Collection (Provisioned by Super Admin / Admin) ──
+    // ── Students Collection (Provisioned by Super Admin / Admin / Principal) ──
     match /students/{studentId} {
       allow read: if true;
-      allow write: if isAdmin() || isExamController();
+      allow write: if isAdmin() || isExamController() || isPrincipal();
     }
 
     // ── Curriculum Registry ──
     match /curriculum_registry/{subjectCode} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isPrincipal();
     }
 
     // ── Schedules ──
     match /schedules/{scheduleId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isPrincipal();
     }
 
     // ── Notifications ──
     match /notifications/{notificationId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
     // ── Faculty Collection ──
     match /faculty/{facultyId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isPrincipal();
     }
 
-    // ── Exam Schedules (Exam Controller Managed) ──
+    // ── Exam Schedules (Exam Controller & Principal Managed) ──
     match /exam_schedules/{examId} {
       allow read: if true;
-      allow write: if isExamController() || isSuperAdmin();
+      allow write: if isExamController() || isPrincipal() || isSuperAdmin();
     }
 
     // ── Training Overrides ──
     match /training_overrides/{overrideId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isPrincipal();
     }
 
     // ── Substitutions ──
     match /substitutions/{subId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if true;
     }
 
-    // ── Exam Rooms & Campus Blocks (Exam Controller, Super Admin & Admin Managed) ──
+    // ── Exam Rooms & Campus Blocks (Exam Controller, Principal & Admin Managed) ──
     match /exam_rooms/{roomId} {
       allow read: if true;
-      allow write: if isExamController() || isSuperAdmin() || isAdmin();
+      allow write: if isExamController() || isPrincipal() || isAdmin();
     }
 
     match /campus_blocks/{blockId} {
       allow read: if true;
-      allow write: if isExamController() || isSuperAdmin() || isAdmin();
+      allow write: if isExamController() || isPrincipal() || isAdmin();
     }
 
-    // ── Exam Sessions (Exam Controller & Super Admin Managed) ──
+    // ── Exam Sessions ──
     match /exam_sessions/{sessionId} {
       allow read: if true;
-      allow write: if isExamController() || isSuperAdmin() || isAdmin();
+      allow write: if isExamController() || isPrincipal() || isAdmin();
     }
 
-    // ── Seating Plans (Published Plans: Public Read; Exam Controller & Super Admin Write) ──
+    // ── Seating Plans (Published Plans: Public Read; Controller & Principal Write) ──
     match /seating_plans/{planId} {
       allow read: if true;
-      allow write: if isExamController() || isSuperAdmin() || isAdmin();
+      allow write: if isExamController() || isPrincipal() || isAdmin();
     }
 
-    // ── Club Lead Booking Privileges (SAC Director, Principal, Super Admin & Admin Managed) ──
+    // ── Club Lead Booking Privileges (SAC Director, Principal & Admin Managed) ──
     match /club_leads/{leadId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin() || isPrincipal() || isAdmin();
+      allow write: if isSacDirector() || isPrincipal() || isAdmin();
     }
 
-    // ── Campus Facilities Registry (Super Admin Managed) ──
+    // ── Campus Facilities Registry ──
     match /facilities/{facilityId} {
       allow read: if true;
-      allow write: if isSuperAdmin() || isAdmin();
+      allow write: if isPrincipal() || isAdmin();
     }
 
-    // ── Student Clubs & Members Registry (SAC Director & Super Admin Managed) ──
+    // ── Student Clubs & Members Registry ──
     match /student_clubs/{clubId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin();
+      allow write: if isSacDirector() || isPrincipal();
     }
 
     match /club_members/{memberId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin() || isAdmin();
+      allow write: if isSacDirector() || isPrincipal() || isAdmin();
     }
 
     match /club_designations/{desigId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin();
+      allow write: if isSacDirector() || isPrincipal();
     }
 
     match /custom_departments/{deptId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin() || isAdmin();
+      allow write: if isSacDirector() || isPrincipal() || isAdmin();
     }
 
     match /club_categories/{catId} {
       allow read: if true;
-      allow write: if isSacDirector() || isSuperAdmin();
+      allow write: if isSacDirector() || isPrincipal();
     }
 
     // ── Facility Bookings Collection ──
     match /facility_bookings/{bookingId} {
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isSacDirector() || isPrincipal() || isSuperAdmin() || isAdmin();
+      allow update, delete: if isSacDirector() || isPrincipal() || isAdmin();
     }
 
-    // ── Development / Fallback Access ──
+    // ── Fallback Strict Read/Write Access ──
     match /{document=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAuthenticated();
     }
   }
 }
