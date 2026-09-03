@@ -82,23 +82,23 @@ const VBIT_BLOCKS_REGISTRY = [
 
 // Determine floor category from room code/number
 const getFloorFromRoom = (roomStr) => {
-  if (!roomStr) return 'Ground Floor (001-099)';
+  if (!roomStr) return 'Ground Floor';
   const str = String(roomStr).trim();
   
-  if (str.toLowerCase().includes('library')) return '1st Floor (Central Library)';
+  if (str.toLowerCase().includes('library')) return 'First Floor (Central Library)';
   if (str.toLowerCase().includes('auditorium')) return 'Ground Floor (Auditorium)';
-  if (str.toLowerCase().includes('sac') || str.toLowerCase().includes('iiic')) return '2nd Floor (Admin Wing)';
+  if (str.toLowerCase().includes('sac') || str.toLowerCase().includes('iiic')) return 'Second Floor (Admin Wing)';
   
   const cleanNum = str.replace(/[^0-9]/g, '');
-  if (!cleanNum) return 'Ground Floor (001-099)';
+  if (!cleanNum) return 'Ground Floor';
   
   const num = parseInt(cleanNum, 10);
-  if (num < 100) return 'Ground Floor (001-099)';
-  if (num >= 100 && num < 200) return '1st Floor (101-199)';
-  if (num >= 200 && num < 300) return '2nd Floor (201-299)';
-  if (num >= 300 && num < 400) return '3rd Floor (301-399)';
-  if (num >= 400 && num < 500) return '4th Floor (401-499)';
-  return 'Ground Floor (001-099)';
+  if (num < 100) return 'Ground Floor';
+  if (num >= 100 && num < 200) return 'First Floor';
+  if (num >= 200 && num < 300) return 'Second Floor';
+  if (num >= 300 && num < 400) return 'Third Floor';
+  if (num >= 400 && num < 500) return 'Fourth Floor';
+  return 'Ground Floor';
 };
 
 export default function ReportsAnalytics() {
@@ -360,11 +360,11 @@ export default function ReportsAnalytics() {
               style={{ fontSize: '0.813rem' }}
             >
               <option value="ALL">All Floors (Ground - 4th)</option>
-              <option value="Ground Floor (001-099)">Ground Floor (001-099)</option>
-              <option value="1st Floor (101-199)">1st Floor (101-199)</option>
-              <option value="2nd Floor (201-299)">2nd Floor (201-299)</option>
-              <option value="3rd Floor (301-399)">3rd Floor (301-399)</option>
-              <option value="4th Floor (401-499)">4th Floor (401-499)</option>
+              <option value="Ground Floor">Ground Floor</option>
+              <option value="First Floor">First Floor</option>
+              <option value="Second Floor">Second Floor</option>
+              <option value="Third Floor">Third Floor</option>
+              <option value="Fourth Floor">Fourth Floor</option>
             </select>
           </div>
 
@@ -397,7 +397,7 @@ export default function ReportsAnalytics() {
 
               Object.keys(roomsByFloor).forEach(floorKey => {
                 roomsByFloor[floorKey] = roomsByFloor[floorKey].filter(r => {
-                  if (selectedFloorFilter !== 'ALL' && floorKey !== selectedFloorFilter) return false;
+                  if (selectedFloorFilter !== 'ALL' && !floorKey.startsWith(selectedFloorFilter)) return false;
                   if (statusFilter === 'ALLOCATED' && !r.isAllocated) return false;
                   if (statusFilter === 'AVAILABLE' && r.isAllocated) return false;
                   if (searchQuery.trim()) {
