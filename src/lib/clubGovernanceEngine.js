@@ -199,8 +199,9 @@ export async function fetchClubMembers(clubId, tenureType = 'PRESENT_TENURE') {
         const roll = (l.rollNumber || '').trim().toUpperCase();
         if (matchesClub && roll && !seenRolls.has(roll) && l.isActive !== false) {
           seenRolls.add(roll);
+          const cleanDocId = d.id.startsWith('lead_') ? d.id : `lead_${d.id}`;
           list.push({
-            id: `lead_${d.id}`,
+            id: cleanDocId,
             clubId,
             clubName: l.clubName || clubName || 'Student Club',
             rollNumber: roll,
@@ -338,33 +339,55 @@ export async function addClubMember(clubId, memberData) {
 }
 
 /**
- * Update an existing member record
+ * Update an existing member record (Safe setDoc merge)
  */
 export async function updateClubMember(memberId, memberData) {
-  const docRef = doc(db, 'club_members', memberId);
-  const data = {
-    ...memberData,
-    updatedAt: new Date().toISOString(),
-  };
-  await updateDoc(docRef, data);
-
-  // If in PRESENT_TENURE, update privileges in /club_leads
-  if (memberData.tenureType === 'PRESENT_TENURE' && memberData.rollNumber) {
-    const leadDocRef = doc(db, 'club_leads', `${memberData.clubId}_${memberData.rollNumber}`);
-    await setDoc(leadDocRef, {
-      rollNumber: memberData.rollNumber,
-      email: memberData.email,
-      name: memberData.name,
-      clubName: memberData.clubName,
-      designation: memberData.designation,
-      department: memberData.department,
-      phone: memberData.phone,
-      isActive: memberData.canBookVenues !== false,
+  try {
+    const cleanId = String(memberId).replace(/^(lead_)+/, '');
+    const data = {
+      ...memberData,
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
-  }
+    };
 
-  return { id: memberId, ...data };
+    // Use setDoc merge to guarantee no "No document to update" error!
+    await setDoc(doc(db, 'club_members', cleanId), data, { merge: true });
+    if (memberId !== cleanId) {
+      await setDoc(doc(db, 'club_members', memberId), data, { merge: true }).catch(() => {});
+    }
+
+    // If in PRESENT_TENURE, update privileges in /club_leads
+    if (memberData.tenureType === 'PRESENT_TENURE' && memberData.rollNumber) {
+      const leadDocId = `${memberData.clubId || 'club'}_${memberData.rollNumber.toUpperCase()}`;
+      await setDoc(doc(db, 'club_leads', leadDocId), {
+        rollNumber: memberData.rollNumber.toUpperCase(),
+        email: memberData.email,
+        name: memberData.name,
+        clubName: memberData.clubName,
+        designation: memberData.designation,
+        department: memberData.department,
+        phone: memberData.phone,
+        isActive: memberData.canBookVenues !== false,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      await setDoc(doc(db, 'club_leads', memberData.rollNumber.toUpperCase()), {
+        rollNumber: memberData.rollNumber.toUpperCase(),
+        email: memberData.email,
+        name: memberData.name,
+        clubName: memberData.clubName,
+        designation: memberData.designation,
+        department: memberData.department,
+        phone: memberData.phone,
+        isActive: memberData.canBookVenues !== false,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    }
+
+    return { id: cleanId, ...data };
+  } catch (err) {
+    console.error('Error in updateClubMember:', err);
+    throw err;
+  }
 }
 
 /**
@@ -372,30 +395,37 @@ export async function updateClubMember(memberId, memberData) {
  */
 export async function deleteClubMember(memberId, rollNumber = '', clubId = '') {
   try {
-    const rawId = String(memberId).replace(/^lead_/, '');
+    const cleanId = String(memberId).replace(/^(lead_)+/, '');
 
     // 1. Delete from /club_members
     await deleteDoc(doc(db, 'club_members', memberId)).catch(() => {});
-    await deleteDoc(doc(db, 'club_members', rawId)).catch(() => {});
+    await deleteDoc(doc(db, 'club_members', cleanId)).catch(() => {});
 
     // 2. Delete from /club_leads
-    await deleteDoc(doc(db, 'club_leads', rawId)).catch(() => {});
     await deleteDoc(doc(db, 'club_leads', memberId)).catch(() => {});
+    await deleteDoc(doc(db, 'club_leads', cleanId)).catch(() => {});
 
-    // 3. Query and delete any matching lead record by rollNumber
-    const targetRoll = rollNumber || rawId.split('_').pop();
-    const targetClub = clubId || (rawId.includes('_') ? rawId.split('_')[0] : '');
+    // 3. Clean up by rollNumber
+    const targetRoll = (rollNumber || cleanId.split('_').pop() || memberId.split('_').pop() || '').toUpperCase();
+    const targetClub = clubId || (cleanId.includes('_') ? cleanId.split('_')[0] : '');
 
     if (targetClub && targetRoll) {
-      await deleteDoc(doc(db, 'club_leads', `${targetClub}_${targetRoll.toUpperCase()}`)).catch(() => {});
-      await deleteDoc(doc(db, 'club_members', `member_${targetClub}_${targetRoll.toUpperCase()}_PRESENT_TENURE`)).catch(() => {});
+      await deleteDoc(doc(db, 'club_leads', `${targetClub}_${targetRoll}`)).catch(() => {});
+      await deleteDoc(doc(db, 'club_members', `member_${targetClub}_${targetRoll}_PRESENT_TENURE`)).catch(() => {});
     }
 
-    if (targetRoll && targetRoll.length >= 8) {
-      const q = query(collection(db, 'club_leads'), where('rollNumber', '==', targetRoll.toUpperCase()));
-      const snap = await getDocs(q);
-      snap.forEach(async docSnap => {
+    if (targetRoll && targetRoll.length >= 6) {
+      await deleteDoc(doc(db, 'club_leads', targetRoll)).catch(() => {});
+      const qLeads = query(collection(db, 'club_leads'), where('rollNumber', '==', targetRoll));
+      const snapLeads = await getDocs(qLeads);
+      snapLeads.forEach(async docSnap => {
         await deleteDoc(doc(db, 'club_leads', docSnap.id)).catch(() => {});
+      });
+
+      const qMembers = query(collection(db, 'club_members'), where('rollNumber', '==', targetRoll));
+      const snapMembers = await getDocs(qMembers);
+      snapMembers.forEach(async docSnap => {
+        await deleteDoc(doc(db, 'club_members', docSnap.id)).catch(() => {});
       });
     }
 
